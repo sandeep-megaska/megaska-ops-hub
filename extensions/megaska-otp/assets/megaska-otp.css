@@ -1,0 +1,113 @@
+.megaska-otp-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.55);
+  z-index: 99999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.megaska-otp-backdrop.is-open {
+  display: flex;
+}
+
+.megaska-otp-modal {
+  width: 100%;
+  max-width: 460px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  font-family: inherit;
+}
+
+.megaska-otp-body {
+  padding: 28px 24px;
+}
+
+.megaska-otp-title {
+  margin: 0 0 6px;
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #111827;
+}
+
+.megaska-otp-subtitle {
+  margin: 0 0 20px;
+  color: #6b7280;
+  font-size: 15px;
+}
+
+.megaska-otp-field {
+  display: block;
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+.megaska-otp-input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 16px;
+  outline: none;
+  background: #fff;
+}
+
+.megaska-otp-input:focus {
+  border-color: #111827;
+}
+
+.megaska-otp-btn {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #111827;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.megaska-otp-btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.megaska-otp-link {
+  margin-top: 12px;
+  background: transparent;
+  border: 0;
+  color: #6b7280;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.megaska-otp-note {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.megaska-otp-error {
+  margin: 0 0 12px;
+  color: #b91c1c;
+  font-size: 14px;
+}
+
+.megaska-otp-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: transparent;
+  border: 0;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  color: #6b7280;
+}
