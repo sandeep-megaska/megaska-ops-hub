@@ -1,0 +1,30 @@
+{% schema %}
+{
+  "name": "Megaska OTP Login",
+  "target": "body",
+  "stylesheet": "megaska-otp.css",
+  "javascript": "megaska-otp.js",
+  "settings": [
+    {
+      "type": "text",
+      "id": "app_proxy_base",
+      "label": "App proxy base path",
+      "default": "/apps/megaska-otp"
+    },
+    {
+      "type": "text",
+      "id": "default_country_code",
+      "label": "Default country code",
+      "default": "+91"
+    }
+  ]
+}
+{% endschema %}
+
+<script>
+  window.MEGASKA_OTP_CONFIG = {
+    appProxyBase: {{ block.settings.app_proxy_base | json }},
+    defaultCountryCode: {{ block.settings.default_country_code | json }},
+    shopRoot: {{ routes.root_url | json }}
+  };
+</script>
