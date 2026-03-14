@@ -16,6 +16,26 @@ database.sqlite
 .env
 .env.*
 
+# Environment variables
+.env
+
+# Node modules
+node_modules/
+
+# Build files
+dist/
+build/
+
+# Prisma
+dev.sqlite
+*.sqlite
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
 
 
 
