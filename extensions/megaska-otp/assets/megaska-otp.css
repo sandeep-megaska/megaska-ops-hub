@@ -1,12 +1,13 @@
 .megaska-otp-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(17, 24, 39, 0.55);
   z-index: 99999;
   display: none;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 18px;
+  background: rgba(2, 6, 23, 0.58);
+  backdrop-filter: blur(4px);
 }
 
 .megaska-otp-backdrop.is-open {
@@ -14,100 +15,399 @@
 }
 
 .megaska-otp-modal {
-  width: 100%;
-  max-width: 460px;
+  width: min(820px, 100%);
+  min-height: 480px;
   background: #ffffff;
-  border-radius: 20px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  border-radius: 24px;
   overflow: hidden;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.28);
+  position: relative;
+  display: grid;
+  grid-template-columns: 42% 58%;
   font-family: inherit;
 }
+/* Trust strip */
 
-.megaska-otp-body {
-  padding: 28px 24px;
+.megaska-trust-strip{
+  display:block;
+  font-size:13px;
+  font-weight:600;
+  color:#475569;
+  margin-bottom:8px;
+  letter-spacing:.2px;
 }
 
-.megaska-otp-title {
-  margin: 0 0 6px;
-  font-size: 28px;
-  line-height: 1.2;
+/* phone code with flag */
+
+.megaska-otp-phone-code{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-width:72px;
+  justify-content:center;
+}
+
+.megaska-flag{
+  width:16px;
+  height:12px;
+  object-fit:cover;
+  border-radius:2px;
+}
+
+.megaska-otp-branding {
+  position: relative;
+  overflow: hidden;
+  padding: 26px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--megaska-branding-bg, #617dbd);
+  color: var(--megaska-branding-text, #ffffff);
+}
+
+.megaska-otp-branding::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0));
+  pointer-events: none;
+}
+
+.megaska-otp-branding-media {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  opacity: 0.34;
+}
+
+.megaska-otp-branding-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.megaska-otp-badge {
+  width: fit-content;
+  font-size: 12px;
   font-weight: 700;
-  color: #111827;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.14);
+  color: inherit;
 }
 
-.megaska-otp-subtitle {
-  margin: 0 0 20px;
-  color: #6b7280;
+.megaska-otp-branding-title {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+.megaska-otp-branding-copy {
+  margin: 0;
   font-size: 15px;
+  line-height: 1.65;
+  max-width: 360px;
+  opacity: 0.94;
 }
 
-.megaska-otp-field {
-  display: block;
-  width: 100%;
-  margin-bottom: 14px;
+.megaska-otp-branding-points {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
 }
 
-.megaska-otp-input {
-  width: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: 12px;
-  padding: 14px 16px;
-  font-size: 16px;
-  outline: none;
-  background: #fff;
-}
-
-.megaska-otp-input:focus {
-  border-color: #111827;
-}
-
-.megaska-otp-btn {
-  width: 100%;
-  border: 0;
-  border-radius: 12px;
-  padding: 14px 16px;
-  background: #111827;
-  color: #fff;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.megaska-otp-btn[disabled] {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.megaska-otp-link {
-  margin-top: 12px;
-  background: transparent;
-  border: 0;
-  color: #6b7280;
-  text-decoration: underline;
-  cursor: pointer;
-  padding: 0;
-}
-
-.megaska-otp-note {
-  margin-top: 12px;
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.megaska-otp-error {
-  margin: 0 0 12px;
-  color: #b91c1c;
+.megaska-otp-point {
   font-size: 14px;
+  line-height: 1.5;
+  opacity: 0.96;
+}
+
+.megaska-otp-panel {
+  background: #ffffff;
+  padding: 28px 26px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .megaska-otp-close {
   position: absolute;
   top: 14px;
   right: 14px;
-  background: transparent;
+  width: 40px;
+  height: 40px;
   border: 0;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  color: #334155;
   font-size: 28px;
   line-height: 1;
   cursor: pointer;
-  color: #6b7280;
+  z-index: 4;
+}
+
+.megaska-otp-title {
+  margin: 0 0 8px;
+  font-size: 26px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.megaska-otp-subtitle {
+  margin: 0 0 22px;
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.megaska-otp-error {
+  min-height: 20px;
+  margin: 0 0 12px;
+  color: #b91c1c;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.megaska-otp-field {
+  margin-bottom: 14px;
+}
+
+.megaska-otp-phone-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid #dbe2ea;
+  border-radius: 14px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.megaska-otp-phone-code {
+  min-width: 72px;
+  text-align: center;
+  padding: 15px 12px;
+  font-weight: 700;
+  color: #0f172a;
+  background: #f8fafc;
+  border-right: 1px solid #e2e8f0;
+}
+
+.megaska-otp-input {
+  width: 100%;
+  border: 1px solid #dbe2ea;
+  border-radius: 14px;
+  padding: 15px 16px;
+  font-size: 16px;
+  line-height: 1.2;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+}
+
+.megaska-otp-input:focus,
+.megaska-otp-phone-only:focus,
+.megaska-otp-otp-box:focus {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+}
+
+.megaska-otp-phone-only {
+  flex: 1;
+  border: 0;
+  outline: none;
+  padding: 15px 16px;
+  font-size: 16px;
+  color: #0f172a;
+  background: transparent;
+}
+
+.megaska-otp-btn {
+  width: 100%;
+  border: 0;
+  border-radius: 14px;
+  padding: 15px 18px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  background: #0f172a;
+  color: #ffffff;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.megaska-otp-btn:hover {
+  transform: translateY(-1px);
+}
+
+.megaska-otp-btn[disabled] {
+  cursor: not-allowed;
+  opacity: 0.62;
+  transform: none;
+}
+
+.megaska-otp-note {
+  margin-top: 12px;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.megaska-otp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.megaska-otp-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.megaska-otp-link[disabled] {
+  color: #94a3b8;
+  text-decoration: none;
+  cursor: not-allowed;
+}
+
+.megaska-otp-otp-wrap {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.megaska-otp-otp-box {
+  width: 56px;
+  height: 58px;
+  border: 1px solid #dbe2ea;
+  border-radius: 14px;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+}
+
+.megaska-otp-meta {
+  margin: 0 0 16px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.megaska-otp-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.megaska-otp-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(15, 23, 42, 0.15);
+  border-top-color: #0f172a;
+  border-radius: 999px;
+  animation: megaska-otp-spin 0.8s linear infinite;
+}
+
+.megaska-otp-helper {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.megaska-otp-success {
+  color: #166534;
+}
+
+@keyframes megaska-otp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .megaska-otp-modal {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    max-height: 92vh;
+    overflow: auto;
+  }
+
+  .megaska-otp-branding {
+    min-height: 220px;
+    padding: 24px 22px;
+  }
+
+  .megaska-otp-branding-title {
+    font-size: 24px;
+  }
+
+  .megaska-otp-panel {
+    padding: 24px 22px 22px;
+  }
+
+  .megaska-otp-title {
+    font-size: 24px;
+  }
+
+  .megaska-otp-otp-wrap {
+    justify-content: space-between;
+  }
+
+  .megaska-otp-otp-box {
+    width: calc(25% - 8px);
+    min-width: 52px;
+  }
+}
+.megaska-otp-otp-box:focus {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15,23,42,0.12);
+}
+.megaska-otp-otp-wrap {
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  margin-bottom:18px;
+}
+.megaska-otp-otp-box {
+  width:52px;
+  height:54px;
+  font-size:26px;
+}
+.megaska-otp-close:hover {
+  background:#e2e8f0;
+}
+.megaska-otp-modal {
+  animation: megaskaModalIn .25s ease;
+}
+
+@keyframes megaskaModalIn{
+  from{
+    transform: translateY(12px);
+    opacity:0;
+  }
+  to{
+    transform: translateY(0);
+    opacity:1;
+  }
 }

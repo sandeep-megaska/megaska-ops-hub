@@ -6,6 +6,7 @@ function json(data: unknown, init?: ResponseInit) {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      "Cache-Control": "no-store",
       ...(init?.headers || {}),
     },
   });
@@ -48,12 +49,16 @@ async function buildSessionResponse(request: Request) {
   const validation = await validateAuthSession(authToken);
 
   if (!validation.ok || !validation.session) {
-    return json({ authenticated: false, reason: validation.reason || "not_found" });
+    return json({
+      authenticated: false,
+      reason: validation.reason || "not_found",
+    });
   }
 
   await touchAuthSession(authToken);
 
   const profile = validation.session.customerProfile;
+
   return json({
     authenticated: true,
     profileCompleted: Boolean(profile),

@@ -13,9 +13,38 @@
     },
     {
       "type": "text",
-      "id": "default_country_code",
-      "label": "Default country code",
-      "default": "+91"
+      "id": "branding_heading",
+      "label": "Branding heading",
+      "default": "Welcome to Megaska"
+    },
+    {
+      "type": "textarea",
+      "id": "branding_subheading",
+      "label": "Branding subheading",
+      "default": "Secure mobile login for faster checkout, easier order tracking, and seamless support."
+    },
+    {
+      "type": "image_picker",
+      "id": "branding_image",
+      "label": "Branding image"
+    },
+    {
+      "type": "color",
+      "id": "branding_bg",
+      "label": "Branding background",
+      "default": "#0f172a"
+    },
+    {
+      "type": "color",
+      "id": "branding_text",
+      "label": "Branding text color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "text",
+      "id": "resend_seconds",
+      "label": "Resend timer seconds",
+      "default": "30"
     }
   ]
 }
@@ -24,7 +53,12 @@
 <script>
   window.MEGASKA_OTP_CONFIG = {
     appProxyBase: {{ block.settings.app_proxy_base | json }},
-    defaultCountryCode: {{ block.settings.default_country_code | json }},
-    shopRoot: {{ routes.root_url | json }}
+    defaultCountryCode: "+91",
+    brandingHeading: {{ block.settings.branding_heading | json }},
+    brandingSubheading: {{ block.settings.branding_subheading | json }},
+    brandingImage: {{ block.settings.branding_image | image_url: width: 1200 | json }},
+    brandingBg: {{ block.settings.branding_bg | json }},
+    brandingText: {{ block.settings.branding_text | json }},
+    resendSeconds: {{ block.settings.resend_seconds | default: "30" | json }}
   };
-</script>
+  </script>
