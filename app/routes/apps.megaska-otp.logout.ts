@@ -1,8 +1,5 @@
 import type { ActionFunctionArgs } from "react-router";
-import {
-  destroyCustomerSession,
-  getCustomerSession,
-} from "../lib/customer-session.server";
+import { revokeAuthSession } from "../lib/customer-auth.server";
 
 function json(data: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(data), {
@@ -15,14 +12,12 @@ function json(data: unknown, init?: ResponseInit) {
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  const session = await getCustomerSession(request);
-
-  return json(
-    { ok: true },
-    {
-      headers: {
-        "Set-Cookie": await destroyCustomerSession(session),
-      },
-    },
-  );
+  try {
+    const body = await request.json();
+    const authToken = String(body.authToken || "").trim();
+    await revokeAuthSession(authToken);
+    return json({ success: true });
+  } catch {
+    return json({ success: false, error: "Failed to logout" }, { status: 500 });
+  }
 }

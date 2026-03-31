@@ -28,15 +28,34 @@ model Session {
 }
 
 model MegaskaCustomerProfile {
-  id                String   @id @default(cuid())
-  phoneE164         String   @unique
+  id                String                       @id @default(cuid())
+  phoneE164         String                       @unique
   email             String?
   firstName         String?
   lastName          String?
-  shopifyCustomerId String?  @unique
-  marketingOptIn    Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  shopifyCustomerId String?                      @unique
+  marketingOptIn    Boolean                      @default(false)
+  authSessions      MegaskaCustomerAuthSession[]
+  createdAt         DateTime                     @default(now())
+  updatedAt         DateTime                     @updatedAt
 
   @@index([email])
+}
+
+model MegaskaCustomerAuthSession {
+  id                String                  @id @default(cuid())
+  sessionTokenHash  String                  @unique
+  phoneE164         String
+  customerProfileId String?
+  customerProfile   MegaskaCustomerProfile? @relation(fields: [customerProfileId], references: [id], onDelete: SetNull)
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  lastSeenAt        DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@index([phoneE164])
+  @@index([customerProfileId])
+  @@index([expiresAt])
+  @@index([revokedAt])
 }
