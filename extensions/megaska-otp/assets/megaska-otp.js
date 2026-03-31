@@ -2,15 +2,43 @@
   const config = window.MEGASKA_OTP_CONFIG || {};
   const appProxyBase = config.appProxyBase || "/apps/megaska-otp";
   const defaultCountryCode = config.defaultCountryCode || "+91";
+  const AUTH_TOKEN_STORAGE_KEY = "megaska_customer_auth_token";
 
   const state = {
     intent: "page",
     afterLoginRedirect: window.location.pathname + window.location.search,
     phoneE164: "",
+    authToken: "",
   };
 
   function apiUrl(path) {
     return `${appProxyBase}${path}`;
+  }
+
+  function getStoredAuthToken() {
+    try {
+      return localStorage.getItem(AUTH_TOKEN_STORAGE_KEY) || "";
+    } catch {
+      return "";
+    }
+  }
+
+  function setStoredAuthToken(token) {
+    if (!token) return;
+    try {
+      localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+    } catch {
+      // no-op
+    }
+  }
+
+  function clearStoredAuthToken() {
+    state.authToken = "";
+    try {
+      localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    } catch {
+      // no-op
+    }
   }
 
   async function apiFetch(path, body, method = "POST") {
@@ -33,7 +61,7 @@
       throw new Error(`Request failed with status ${response.status}`);
     }
 
-    if (!response.ok || data.ok === false) {
+    if (!response.ok || data.ok === false || data.success === false) {
       throw new Error(data.error || `Request failed with status ${response.status}`);
     }
 
@@ -147,10 +175,14 @@
           phoneE164: state.phoneE164,
         });
 
-        if (data.status === "existing_customer" && data.profileComplete) {
-          localStorage.setItem("megaska_otp_authenticated", "true");
-          localStorage.setItem("megaska_otp_phone", state.phoneE164);
+        if (!data.authToken) {
+          throw new Error("Authentication token missing");
+        }
 
+        state.authToken = data.authToken;
+        setStoredAuthToken(data.authToken);
+
+        if (data.hasProfile && data.profileCompleted) {
           if (state.intent === "account") {
             closeModal();
             return;
@@ -196,14 +228,11 @@
         const marketingOptIn = root.querySelector("#megaska-marketing-optin").checked;
 
         await apiFetch("/complete-profile", {
+          authToken: state.authToken || getStoredAuthToken(),
           firstName,
           email,
           marketingOptIn,
-          phoneE164: state.phoneE164,
         });
-
-        localStorage.setItem("megaska_otp_authenticated", "true");
-        localStorage.setItem("megaska_otp_phone", state.phoneE164);
 
         if (state.intent === "account") {
           closeModal();
@@ -234,21 +263,31 @@
   }
 
   async function isLoggedIn() {
-    try {
-      const localAuth = localStorage.getItem("megaska_otp_authenticated");
-      if (localAuth === "true") return true;
+    const authToken = getStoredAuthToken();
+    if (!authToken) return false;
 
+    try {
       const response = await fetch(apiUrl("/session"), {
-        method: "GET",
-        headers: { Accept: "application/json" },
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ authToken }),
         credentials: "same-origin",
       });
 
       const text = await response.text();
       const data = text ? JSON.parse(text) : {};
-      return Boolean(data.authenticated);
+
+      if (data && data.authenticated === true) {
+        return true;
+      }
+
+      clearStoredAuthToken();
+      return false;
     } catch {
-      return localStorage.getItem("megaska_otp_authenticated") === "true";
+      return false;
     }
   }
 
@@ -275,7 +314,6 @@
       checkoutButton.dataset.megaskaOtpBound = "true";
 
       const clickHandler = async (event) => {
-        console.log("Megaska OTP: CartDrawer-Checkout intercepted");
         await interceptCheckoutNow(event);
       };
 
@@ -291,7 +329,6 @@
       checkoutForm.addEventListener(
         "submit",
         async (event) => {
-          console.log("Megaska OTP: CartDrawer-Form submit intercepted");
           await interceptCheckoutNow(event);
         },
         true
@@ -305,8 +342,8 @@
       'a[href="/account"]',
       'a[href*="/account/login"]',
       'a[href*="/account"]',
-      '.header__icon--account',
-      '.customer-login-link'
+      ".header__icon--account",
+      ".customer-login-link"
     ];
 
     document.querySelectorAll(selectors.join(",")).forEach((el) => {
@@ -344,7 +381,6 @@
   }
 
   function initMegaskaOtpBindings() {
-    console.log("Megaska OTP hard interceptor active");
     bindExactCheckoutTargets();
     bindAccountLinksHard();
   }
@@ -360,6 +396,4 @@
     childList: true,
     subtree: true,
   });
-
-  console.log("Megaska OTP JS loaded");
 })();

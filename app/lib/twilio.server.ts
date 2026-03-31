@@ -8,11 +8,17 @@ if (!accountSid || !authToken || !verifyServiceSid) {
   throw new Error("Twilio env vars are missing");
 }
 
-const client = twilio(accountSid, authToken);
+const twilioConfig = {
+  accountSid,
+  authToken,
+  verifyServiceSid,
+};
+
+const client = twilio(twilioConfig.accountSid, twilioConfig.authToken);
 
 export async function sendOtp(phoneE164: string) {
   return client.verify.v2
-    .services(verifyServiceSid)
+    .services(twilioConfig.verifyServiceSid)
     .verifications.create({
       to: phoneE164,
       channel: "sms",
@@ -21,7 +27,7 @@ export async function sendOtp(phoneE164: string) {
 
 export async function checkOtp(phoneE164: string, code: string) {
   return client.verify.v2
-    .services(verifyServiceSid)
+    .services(twilioConfig.verifyServiceSid)
     .verificationChecks.create({
       to: phoneE164,
       code,
