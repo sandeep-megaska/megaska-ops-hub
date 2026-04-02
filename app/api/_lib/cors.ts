@@ -1,12 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export function withCors(res: NextResponse, origin?: string | null) {
-  res.headers.set("Access-Control-Allow-Origin", origin || "*");
+export function withCors(req: NextRequest, res: NextResponse) {
+  const origin = req.headers.get("origin") || "*";
+
+  res.headers.set("Access-Control-Allow-Origin", origin);
+  res.headers.set("Vary", "Origin");
   res.headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
   return res;
 }
 
-export function handleOptions(origin?: string | null) {
-  return withCors(new NextResponse(null, { status: 204 }), origin);
+export function handleOptions(req: NextRequest) {
+  return withCors(req, new NextResponse(null, { status: 204 }));
 }

@@ -17,12 +17,10 @@ function normalizeIndianPhone(input: string) {
 }
 
 export async function OPTIONS(req: NextRequest) {
-  return handleOptions(req.headers.get("origin"));
+  return handleOptions(req);
 }
 
 export async function POST(req: NextRequest) {
-  const origin = req.headers.get("origin");
-
   try {
     const body = await req.json();
     const phoneRaw = String(body?.phone ?? "").trim();
@@ -30,15 +28,15 @@ export async function POST(req: NextRequest) {
 
     if (!phoneRaw) {
       return withCors(
-        NextResponse.json({ error: "Phone required" }, { status: 400 }),
-        origin
+        req,
+        NextResponse.json({ error: "Phone required" }, { status: 400 })
       );
     }
 
     if (!otpRaw) {
       return withCors(
-        NextResponse.json({ error: "OTP required" }, { status: 400 }),
-        origin
+        req,
+        NextResponse.json({ error: "OTP required" }, { status: 400 })
       );
     }
 
@@ -46,8 +44,8 @@ export async function POST(req: NextRequest) {
 
     if (!phoneE164) {
       return withCors(
-        NextResponse.json({ error: "Invalid phone format" }, { status: 400 }),
-        origin
+        req,
+        NextResponse.json({ error: "Invalid phone format" }, { status: 400 })
       );
     }
 
@@ -63,11 +61,11 @@ export async function POST(req: NextRequest) {
 
     if (!challenge) {
       return withCors(
+        req,
         NextResponse.json(
           { error: "No pending OTP challenge found" },
           { status: 404 }
-        ),
-        origin
+        )
       );
     }
 
@@ -78,8 +76,8 @@ export async function POST(req: NextRequest) {
       });
 
       return withCors(
-        NextResponse.json({ error: "OTP expired" }, { status: 400 }),
-        origin
+        req,
+        NextResponse.json({ error: "OTP expired" }, { status: 400 })
       );
     }
 
@@ -99,8 +97,8 @@ export async function POST(req: NextRequest) {
       });
 
       return withCors(
-        NextResponse.json({ error: "Invalid OTP" }, { status: 400 }),
-        origin
+        req,
+        NextResponse.json({ error: "Invalid OTP" }, { status: 400 })
       );
     }
 
@@ -152,6 +150,7 @@ export async function POST(req: NextRequest) {
     });
 
     return withCors(
+      req,
       NextResponse.json({
         success: true,
         verified: true,
@@ -161,20 +160,19 @@ export async function POST(req: NextRequest) {
         sessionExpiresAt: authSession.expiresAt,
         mock: true,
         challengeId: verifiedChallenge.id,
-      }),
-      origin
+      })
     );
   } catch (error) {
     console.error("[OTP VERIFY ERROR]", error);
 
     return withCors(
+      req,
       NextResponse.json(
         {
           error: error instanceof Error ? error.message : "Internal error",
         },
         { status: 500 }
-      ),
-      origin
+      )
     );
   }
 }

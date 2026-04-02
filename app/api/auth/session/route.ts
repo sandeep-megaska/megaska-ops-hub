@@ -4,12 +4,10 @@ import { hashSessionToken } from "../../../../services/auth/session";
 import { withCors, handleOptions } from "../../_lib/cors";
 
 export async function OPTIONS(req: NextRequest) {
-  return handleOptions(req.headers.get("origin"));
+  return handleOptions(req);
 }
 
 export async function GET(req: NextRequest) {
-  const origin = req.headers.get("origin");
-
   try {
     const authHeader = req.headers.get("authorization");
     const bearerToken = authHeader?.startsWith("Bearer ")
@@ -22,11 +20,11 @@ export async function GET(req: NextRequest) {
 
     if (!sessionToken) {
       return withCors(
+        req,
         NextResponse.json(
           { authenticated: false, error: "Session token required" },
           { status: 401 }
-        ),
-        origin
+        )
       );
     }
 
@@ -51,11 +49,11 @@ export async function GET(req: NextRequest) {
 
     if (!session) {
       return withCors(
+        req,
         NextResponse.json(
           { authenticated: false, error: "Invalid or expired session" },
           { status: 401 }
-        ),
-        origin
+        )
       );
     }
 
@@ -69,6 +67,7 @@ export async function GET(req: NextRequest) {
     });
 
     return withCors(
+      req,
       NextResponse.json({
         authenticated: true,
         session: {
@@ -85,21 +84,20 @@ export async function GET(req: NextRequest) {
           profileCompletedAt: session.customer.profileCompletedAt,
           shopifyCustomerId: session.customer.shopifyCustomerId,
         },
-      }),
-      origin
+      })
     );
   } catch (error) {
     console.error("[AUTH SESSION ERROR]", error);
 
     return withCors(
+      req,
       NextResponse.json(
         {
           authenticated: false,
           error: error instanceof Error ? error.message : "Internal error",
         },
         { status: 500 }
-      ),
-      origin
+      )
     );
   }
 }
