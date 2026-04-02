@@ -5,16 +5,11 @@ import {
   hashSessionToken,
 } from "../../../../services/auth/session";
 import { withCors, handleOptions } from "../../_lib/cors";
-
-function normalizeIndianPhone(input: string) {
-  const digits = input.replace(/\D/g, "");
-
-  if (digits.length === 10) return `+91${digits}`;
-  if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
-  if (input.startsWith("+91") && digits.length === 12) return `+${digits}`;
-
-  return null;
-}
+import {
+  getOtpProvider,
+  normalizeIndianPhone,
+  verifyOtpWithTwilioVerify,
+} from "../../../../services/auth/otp";
 
 export async function OPTIONS(req: NextRequest) {
   return handleOptions(req);
@@ -81,25 +76,87 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const metadata =
-      challenge.metadata && typeof challenge.metadata === "object"
-        ? (challenge.metadata as Record<string, unknown>)
-        : {};
+    const provider = challenge.provider === "twilio" ? "twilio" : getOtpProvider();
 
-    const storedOtp = String(metadata.otp ?? "");
+    if (provider === "twilio") {
+      try {
+        const check = await verifyOtpWithTwilioVerify(phoneE164, otpRaw);
 
-    if (storedOtp !== otpRaw) {
-      await prisma.oTPChallenge.update({
-        where: { id: challenge.id },
-        data: {
-          attemptsCount: { increment: 1 },
-        },
+        console.log("[OTP VERIFY RESULT]", {
+          challengeId: challenge.id,
+          phoneE164,
+          provider,
+          status: check.status,
+          twilioVerificationSid: check.sid,
+        });
+
+        const approved = check.valid || check.status === "approved";
+
+        if (!approved) {
+          await prisma.oTPChallenge.update({
+            where: { id: challenge.id },
+            data: {
+              attemptsCount: { increment: 1 },
+              providerSid: check.sid || challenge.providerSid,
+              metadata: {
+                mode: "twilio",
+                twilioStatus: check.status,
+              },
+            },
+          });
+
+          return withCors(
+            req,
+            NextResponse.json({ error: "Invalid or expired OTP" }, { status: 400 })
+          );
+        }
+      } catch (twilioError) {
+        console.error("[OTP VERIFY TWILIO ERROR]", {
+          challengeId: challenge.id,
+          phoneE164,
+          provider,
+          message:
+            twilioError instanceof Error
+              ? twilioError.message
+              : "Twilio verification failed",
+        });
+
+        return withCors(
+          req,
+          NextResponse.json(
+            { error: "Unable to verify OTP right now. Please retry." },
+            { status: 502 }
+          )
+        );
+      }
+    } else {
+      const metadata =
+        challenge.metadata && typeof challenge.metadata === "object"
+          ? (challenge.metadata as Record<string, unknown>)
+          : {};
+
+      const storedOtp = String(metadata.otp ?? "");
+
+      if (storedOtp !== otpRaw) {
+        await prisma.oTPChallenge.update({
+          where: { id: challenge.id },
+          data: {
+            attemptsCount: { increment: 1 },
+          },
+        });
+
+        return withCors(
+          req,
+          NextResponse.json({ error: "Invalid OTP" }, { status: 400 })
+        );
+      }
+
+      console.log("[OTP VERIFY RESULT]", {
+        challengeId: challenge.id,
+        phoneE164,
+        provider: "mock",
+        status: "approved",
       });
-
-      return withCors(
-        req,
-        NextResponse.json({ error: "Invalid OTP" }, { status: 400 })
-      );
     }
 
     const now = new Date();
@@ -158,7 +215,8 @@ export async function POST(req: NextRequest) {
         customerProfileId: customerProfile.id,
         sessionToken,
         sessionExpiresAt: authSession.expiresAt,
-        mock: true,
+        mock: provider === "mock",
+        provider,
         challengeId: verifiedChallenge.id,
       })
     );
