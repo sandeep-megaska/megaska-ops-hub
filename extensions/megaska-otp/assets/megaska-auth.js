@@ -1,7 +1,7 @@
 (function () {
   const SESSION_KEY = "megaska_session_token";
   //const API_BASE = "http://localhost:3000/api";
-const API_BASE = "https://megaska-ops-hub.vercel.app/api";
+const API_BASE = "https://megaska-ops-hub-exs1.vercel.app/api";
 console.log("[MegaskaAuth] API_BASE =", API_BASE);
   function saveSessionToken(token) {
     if (!token) return;
