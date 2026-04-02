@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model CustomerProfile {
+  id                 String    @id @default(uuid())
+  phoneE164          String    @unique
+  firstName          String?
+  email              String?
+  shopifyCustomerId  String?
+  phoneVerifiedAt    DateTime?
+  profileCompletedAt DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  sessions      AuthSession[]
+  otpChallenges OTPChallenge[]
+}
+
+model AuthSession {
+  id                String    @id @default(uuid())
+  customerProfileId String
+  sessionTokenHash  String    @unique
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  lastSeenAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  customer CustomerProfile @relation(fields: [customerProfileId], references: [id])
+}
+
+model OTPChallenge {
+  id            String    @id @default(uuid())
+  phoneE164     String
+  provider      String // twilio
+  providerSid   String?
+  status        String // pending, verified, failed, expired
+  attemptsCount Int       @default(0)
+  requestedAt   DateTime  @default(now())
+  verifiedAt    DateTime?
+  expiresAt     DateTime
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+
+  customerProfileId String?
+  customer          CustomerProfile? @relation(fields: [customerProfileId], references: [id])
+}
+
+model AuditEvent {
+  id         String   @id @default(uuid())
+  actorType  String // customer, system, admin
+  actorId    String?
+  eventType  String
+  entityType String
+  entityId   String?
+  payload    Json?
+  createdAt  DateTime @default(now())
+}
