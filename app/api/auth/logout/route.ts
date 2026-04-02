@@ -4,12 +4,10 @@ import { hashSessionToken } from "../../../../services/auth/session";
 import { withCors, handleOptions } from "../../_lib/cors";
 
 export async function OPTIONS(req: NextRequest) {
-  return handleOptions(req.headers.get("origin"));
+  return handleOptions(req);
 }
 
 export async function POST(req: NextRequest) {
-  const origin = req.headers.get("origin");
-
   try {
     const body = await req.json().catch(() => ({}));
     const bodyToken = String(body?.token ?? "").trim();
@@ -23,11 +21,11 @@ export async function POST(req: NextRequest) {
 
     if (!sessionToken) {
       return withCors(
+        req,
         NextResponse.json(
           { success: false, error: "Session token required" },
           { status: 400 }
-        ),
-        origin
+        )
       );
     }
 
@@ -45,11 +43,11 @@ export async function POST(req: NextRequest) {
 
     if (!session) {
       return withCors(
+        req,
         NextResponse.json({
           success: true,
           revoked: false,
-        }),
-        origin
+        })
       );
     }
 
@@ -63,24 +61,24 @@ export async function POST(req: NextRequest) {
     });
 
     return withCors(
+      req,
       NextResponse.json({
         success: true,
         revoked: true,
-      }),
-      origin
+      })
     );
   } catch (error) {
     console.error("[AUTH LOGOUT ERROR]", error);
 
     return withCors(
+      req,
       NextResponse.json(
         {
           success: false,
           error: error instanceof Error ? error.message : "Internal error",
         },
         { status: 500 }
-      ),
-      origin
+      )
     );
   }
 }

@@ -17,20 +17,18 @@ function generateOtp() {
 }
 
 export async function OPTIONS(req: NextRequest) {
-  return handleOptions(req.headers.get("origin"));
+  return handleOptions(req);
 }
 
 export async function POST(req: NextRequest) {
-  const origin = req.headers.get("origin");
-
   try {
     const body = await req.json();
     const phoneRaw = String(body?.phone ?? "").trim();
 
     if (!phoneRaw) {
       return withCors(
-        NextResponse.json({ error: "Phone required" }, { status: 400 }),
-        origin
+        req,
+        NextResponse.json({ error: "Phone required" }, { status: 400 })
       );
     }
 
@@ -38,8 +36,8 @@ export async function POST(req: NextRequest) {
 
     if (!phoneE164) {
       return withCors(
-        NextResponse.json({ error: "Invalid phone format" }, { status: 400 }),
-        origin
+        req,
+        NextResponse.json({ error: "Invalid phone format" }, { status: 400 })
       );
     }
 
@@ -68,26 +66,26 @@ export async function POST(req: NextRequest) {
     });
 
     return withCors(
+      req,
       NextResponse.json({
         success: true,
         otpSent: true,
         challengeId: challenge.id,
         phone: phoneE164,
         mock: true,
-      }),
-      origin
+      })
     );
   } catch (error) {
     console.error("[OTP REQUEST ERROR]", error);
 
     return withCors(
+      req,
       NextResponse.json(
         {
           error: error instanceof Error ? error.message : "Internal error",
         },
         { status: 500 }
-      ),
-      origin
+      )
     );
   }
 }
