@@ -4,6 +4,7 @@
   const SUCCESS_CLOSE_DELAY_MS = 1400;
 
   const state = {
+    isOpen: false,
     step: "phone",
     phoneDigits: "",
     normalizedPhone: "",
@@ -38,6 +39,10 @@
     return state.requesting || state.verifying;
   }
 
+  function isModalOpen() {
+    return state.isOpen;
+  }
+
   function clearResendTimer() {
     if (state.resendTimerId) {
       clearInterval(state.resendTimerId);
@@ -61,16 +66,22 @@
     updateResendUi();
   }
 
-  function resetModalState() {
+  function resetModalState(options) {
+    const opts = options || {};
+    const preservePhone = Boolean(opts.preservePhone);
+    const savedPhone = preservePhone ? state.phoneDigits : "";
+    const savedNormalizedPhone = preservePhone ? state.normalizedPhone : "";
+
     clearResendTimer();
-    state.step = "phone";
-    state.phoneDigits = "";
-    state.normalizedPhone = "";
+    state.step = preservePhone && savedPhone ? "otp" : "phone";
+    state.phoneDigits = savedPhone;
+    state.normalizedPhone = savedNormalizedPhone;
     state.otpDigits = ["", "", "", ""];
     state.requesting = false;
     state.verifying = false;
     state.resendSeconds = 0;
     state.errorMessage = "";
+    state.successMessage = "Welcome back to Megaska";
   }
 
   function ensureModal() {
@@ -79,6 +90,7 @@
 
     modal = document.createElement("div");
     modal.setAttribute("data-megaska-otp-modal", "1");
+    modal.setAttribute("aria-hidden", "true");
     modal.className = "megaska-otp-modal";
     modal.hidden = true;
 
@@ -166,17 +178,19 @@
     document.body.appendChild(modal);
 
     modal.querySelector("[data-megaska-otp-close]").addEventListener("click", () => {
-      closeModal();
+      closeModal("close-button");
     });
 
     modal.querySelector("[data-megaska-otp-backdrop]").addEventListener("click", () => {
-      closeModal();
+      closeModal("backdrop");
     });
 
     const phoneInput = modal.querySelector("[data-megaska-phone-input]");
     phoneInput.addEventListener("input", handlePhoneInput);
 
-    modal.querySelector("[data-megaska-edit-phone]").addEventListener("click", handleEditPhone);
+    modal
+      .querySelector("[data-megaska-edit-phone]")
+      .addEventListener("click", handleEditPhone);
     modal.querySelector("[data-megaska-resend]").addEventListener("click", handleResend);
 
     modal.querySelectorAll("[data-megaska-otp-digit]").forEach((input) => {
@@ -287,23 +301,40 @@
     setTimeout(() => otpInputs[safeIndex].focus(), 0);
   }
 
-  function openModal() {
+  function openModal(triggerSource) {
     const { modal } = getModalParts();
+    state.isOpen = true;
     resetModalState();
     modal.hidden = false;
+    modal.setAttribute("aria-hidden", "false");
     document.documentElement.classList.add("megaska-otp-open");
     renderStep();
     focusPhoneInput();
+
+    if (triggerSource) {
+      console.log("[Megaska OTP] modal opened", { triggerSource });
+    }
   }
 
-  function closeModal(force) {
-    if (!force && isBusy()) return;
+  function closeModal(reason, options) {
+    const opts = options || {};
+    const force = Boolean(opts.force);
+
+    if (!force && isBusy()) return false;
 
     const { modal } = getModalParts();
+    state.isOpen = false;
     modal.hidden = true;
+    modal.setAttribute("aria-hidden", "true");
     document.documentElement.classList.remove("megaska-otp-open");
     resetModalState();
     renderStep();
+
+    if (reason) {
+      console.log("[Megaska OTP] modal closed", { reason });
+    }
+
+    return true;
   }
 
   function renderPhoneStep() {
@@ -330,6 +361,7 @@
   }
 
   async function submitPhoneIfReady() {
+    if (!isModalOpen()) return;
     if (state.requesting || state.verifying) return;
     if (state.phoneDigits.length !== 10) return;
 
@@ -346,6 +378,7 @@
 
     try {
       await window.MegaskaAuth.requestOtp(normalizedPhone);
+      if (!isModalOpen()) return;
       state.normalizedPhone = normalizedPhone;
       state.requesting = false;
       renderOtpStep();
@@ -358,6 +391,8 @@
   }
 
   function handlePhoneInput(event) {
+    if (!isModalOpen()) return;
+
     state.phoneDigits = sanitizeDigits(event.target.value, 10);
     event.target.value = state.phoneDigits;
     state.errorMessage = "";
@@ -375,6 +410,7 @@
   async function submitOtpIfReady() {
     const otp = collectOtpDigits();
 
+    if (!isModalOpen()) return;
     if (state.verifying || state.requesting) return;
     if (otp.length !== OTP_LENGTH || !state.normalizedPhone) return;
 
@@ -387,7 +423,7 @@
       await window.MegaskaAuth.refreshAuthState();
       state.verifying = false;
       renderSuccessStep("Login successful. Welcome to Megaska");
-      setTimeout(() => closeModal(true), SUCCESS_CLOSE_DELAY_MS);
+      setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS);
     } catch (error) {
       state.verifying = false;
       state.errorMessage = error.message || "Invalid or expired OTP. Please try again.";
@@ -398,6 +434,8 @@
   }
 
   function handleOtpInput(event) {
+    if (!isModalOpen()) return;
+
     const input = event.target;
     const index = Number(input.dataset.index);
     const digit = sanitizeDigits(input.value, 1);
@@ -417,6 +455,8 @@
   }
 
   function handleOtpKeyDown(event) {
+    if (!isModalOpen()) return;
+
     const index = Number(event.target.dataset.index);
 
     if (event.key === "Backspace") {
@@ -447,6 +487,8 @@
   }
 
   function handleOtpPaste(event) {
+    if (!isModalOpen()) return;
+
     event.preventDefault();
     const pasted = sanitizeDigits(event.clipboardData.getData("text"), OTP_LENGTH);
 
@@ -465,6 +507,7 @@
   }
 
   async function handleResend() {
+    if (!isModalOpen()) return;
     if (state.requesting || state.resendSeconds > 0 || !state.normalizedPhone) return;
 
     state.requesting = true;
@@ -486,15 +529,15 @@
   }
 
   function handleEditPhone() {
+    if (!isModalOpen()) return;
     if (isBusy()) return;
     renderPhoneStep();
   }
 
   function handleEscClose(event) {
     if (event.key !== "Escape") return;
-    const { modal } = getModalParts();
-    if (modal.hidden) return;
-    closeModal();
+    if (!isModalOpen()) return;
+    closeModal("escape");
   }
 
   async function handlePromptFallback() {
@@ -523,11 +566,26 @@
   }
 
   async function handleLoginClick(event) {
+    let authenticated = false;
+
+    try {
+      if (window.MegaskaAuth && typeof window.MegaskaAuth.fetchSession === "function") {
+        const session = await window.MegaskaAuth.fetchSession();
+        authenticated = Boolean(session?.authenticated);
+      }
+    } catch (error) {
+      console.warn("[Megaska OTP] Session check before modal open failed", error);
+    }
+
+    if (authenticated) {
+      return;
+    }
+
     event.preventDefault();
 
     try {
-      openModal();
-    } catch (_error) {
+      openModal("account-login-click");
+    } catch {
       await handlePromptFallback();
     }
   }
@@ -543,13 +601,14 @@
   function init() {
     bindLoginTriggers();
     ensureModal();
-    renderStep();
   }
 
   window.MegaskaOtp = {
     init,
     openModal,
     closeModal,
+    isModalOpen,
+    resetModalState,
   };
 
   document.addEventListener("DOMContentLoaded", init);

@@ -10,6 +10,10 @@
   overflow: hidden;
 }
 
+.megaska-otp-modal[hidden] {
+  display: none !important;
+}
+
 .megaska-otp-modal {
   position: fixed;
   inset: 0;

@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../services/db/prisma";
 import { withCors, handleOptions } from "../../_lib/cors";
-
-function normalizeIndianPhone(input: string) {
-  const digits = input.replace(/\D/g, "");
-
-  if (digits.length === 10) return `+91${digits}`;
-  if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
-  if (input.startsWith("+91") && digits.length === 12) return `+${digits}`;
-
-  return null;
-}
+import {
+  getOtpProvider,
+  normalizeIndianPhone,
+  sendOtpWithTwilioVerify,
+} from "../../../../services/auth/otp";
 
 function generateOtp() {
   return Math.floor(1000 + Math.random() * 9000).toString();
@@ -41,8 +36,67 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const otp = generateOtp();
+    const provider = getOtpProvider();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    if (provider === "twilio") {
+      try {
+        const twilioVerification = await sendOtpWithTwilioVerify(phoneE164);
+
+        const challenge = await prisma.oTPChallenge.create({
+          data: {
+            phoneE164,
+            provider,
+            providerSid: twilioVerification.sid || null,
+            status: "pending",
+            attemptsCount: 0,
+            expiresAt,
+            metadata: {
+              mode: "twilio",
+              twilioStatus: twilioVerification.status,
+            },
+          },
+        });
+
+        console.log("[OTP REQUEST CREATED]", {
+          challengeId: challenge.id,
+          phoneE164,
+          provider,
+          twilioVerificationSid: twilioVerification.sid,
+          twilioStatus: twilioVerification.status,
+        });
+
+        return withCors(
+          req,
+          NextResponse.json({
+            success: true,
+            otpSent: true,
+            challengeId: challenge.id,
+            phone: phoneE164,
+            provider,
+          })
+        );
+      } catch (twilioError) {
+        console.error("[OTP REQUEST TWILIO ERROR]", {
+          phoneE164,
+          provider,
+          message:
+            twilioError instanceof Error ? twilioError.message : "Twilio request failed",
+        });
+
+        return withCors(
+          req,
+          NextResponse.json(
+            {
+              error: "Unable to send OTP right now. Please try again shortly.",
+            },
+            { status: 502 }
+          )
+        );
+      }
+    }
+
+    const otp = generateOtp();
 
     const challenge = await prisma.oTPChallenge.create({
       data: {
@@ -61,8 +115,8 @@ export async function POST(req: NextRequest) {
     console.log("[OTP REQUEST CREATED]", {
       challengeId: challenge.id,
       phoneE164,
-      otp,
       provider: "mock",
+      otp,
     });
 
     return withCors(
@@ -73,6 +127,7 @@ export async function POST(req: NextRequest) {
         challengeId: challenge.id,
         phone: phoneE164,
         mock: true,
+        provider: "mock",
       })
     );
   } catch (error) {
