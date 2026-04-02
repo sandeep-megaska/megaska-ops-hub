@@ -1,10 +1,6 @@
+{{ 'megaska-otp.css' | asset_url | stylesheet_tag }}
 <script src="{{ 'megaska-auth.js' | asset_url }}" defer></script>
 <script src="{{ 'megaska-otp.js' | asset_url }}" defer></script>
-
-<script>
-  window.MEGASKA_OTP_EMBED_LOADED = true;
-  console.log("[Megaska OTP Embed] loaded");
-</script>
 
 {% schema %}
 {
