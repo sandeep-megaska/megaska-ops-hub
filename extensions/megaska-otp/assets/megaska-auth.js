@@ -1,91 +1,83 @@
 (function () {
+  const API_BASE = "https://megaska-ops-hub-exs1.vercel.app/api";
   const SESSION_KEY = "megaska_session_token";
-  //const API_BASE = "http://localhost:3000/api";
-const API_BASE = "https://megaska-ops-hub-exs1.vercel.app/api";
-console.log("[MegaskaAuth] API_BASE =", API_BASE);
-  function saveSessionToken(token) {
-    if (!token) return;
-    localStorage.setItem(SESSION_KEY, token);
-  }
 
   function getSessionToken() {
     return localStorage.getItem(SESSION_KEY) || "";
+  }
+
+  function setSessionToken(token) {
+    if (!token) return;
+    localStorage.setItem(SESSION_KEY, token);
   }
 
   function clearSessionToken() {
     localStorage.removeItem(SESSION_KEY);
   }
 
+  function buildHeaders(extraHeaders) {
+    const token = getSessionToken();
+    const headers = Object.assign(
+      {
+        "Content-Type": "application/json",
+      },
+      extraHeaders || {}
+    );
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    return headers;
+  }
+
   async function apiFetch(path, options) {
     const opts = Object.assign(
       {
-        headers: {
-          "Content-Type": "application/json",
-        },
+        method: "GET",
+        headers: buildHeaders(),
       },
       options || {}
     );
 
-    const res = await fetch(`${API_BASE}${path}`, opts);
+    opts.headers = buildHeaders(opts.headers);
+
+    const response = await fetch(`${API_BASE}${path}`, opts);
 
     let data = null;
     try {
-      data = await res.json();
-    } catch {
+      data = await response.json();
+    } catch (error) {
       data = null;
     }
 
-    if (!res.ok) {
+    if (!response.ok) {
       const message =
-        data && typeof data.error === "string" ? data.error : "Request failed";
+        (data && (data.error || data.message)) ||
+        `Request failed (${response.status})`;
       throw new Error(message);
     }
 
     return data;
   }
 
-  async function fetchSession() {
-    const token = getSessionToken();
+  function extractCustomer(sessionPayload) {
+    return (
+      sessionPayload?.customer ||
+      sessionPayload?.user ||
+      sessionPayload?.data?.customer ||
+      null
+    );
+  }
 
-    if (!token) {
-      return {
-        authenticated: false,
-        customer: null,
-        session: null,
-      };
-    }
-
-    try {
-      const res = await fetch(
-        `${API_BASE}/auth/session?token=${encodeURIComponent(token)}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      const json = await res.json();
-
-      if (!res.ok || !json.authenticated) {
-        clearSessionToken();
-        return {
-          authenticated: false,
-          customer: null,
-          session: null,
-        };
-      }
-
-      return json;
-    } catch (error) {
-      console.error("[Megaska Auth] fetchSession failed", error);
-      return {
-        authenticated: false,
-        customer: null,
-        session: null,
-      };
-    }
+  function extractSessionToken(payload) {
+    return (
+      payload?.sessionToken ||
+      payload?.token ||
+      payload?.data?.sessionToken ||
+      payload?.data?.token ||
+      ""
+    );
   }
 
   async function requestOtp(phone) {
@@ -101,11 +93,50 @@ console.log("[MegaskaAuth] API_BASE =", API_BASE);
       body: JSON.stringify({ phone, otp }),
     });
 
-    if (data && data.sessionToken) {
-      saveSessionToken(data.sessionToken);
+    const token = extractSessionToken(data);
+    if (token) {
+      setSessionToken(token);
     }
 
     return data;
+  }
+
+  async function fetchSession() {
+    const token = getSessionToken();
+
+    if (!token) {
+      return {
+        authenticated: false,
+        customer: null,
+      };
+    }
+
+    try {
+      const data = await apiFetch("/auth/session", {
+        method: "GET",
+      });
+
+      if (!data?.authenticated) {
+        clearSessionToken();
+        return {
+          authenticated: false,
+          customer: null,
+        };
+      }
+
+      return {
+        authenticated: true,
+        customer: extractCustomer(data),
+        raw: data,
+      };
+    } catch (error) {
+      console.warn("[Megaska Auth] Session check failed, clearing token", error);
+      clearSessionToken();
+      return {
+        authenticated: false,
+        customer: null,
+      };
+    }
   }
 
   async function logout() {
@@ -120,7 +151,6 @@ console.log("[MegaskaAuth] API_BASE =", API_BASE);
         method: "POST",
         body: JSON.stringify({ token }),
       });
-
       clearSessionToken();
       return data;
     } catch (error) {
@@ -129,7 +159,7 @@ console.log("[MegaskaAuth] API_BASE =", API_BASE);
     }
   }
 
-  function setLoggedOutUI() {
+  function updateAuthUILoggedOut() {
     document.documentElement.classList.remove("megaska-authenticated");
     document.documentElement.classList.add("megaska-logged-out");
 
@@ -142,7 +172,9 @@ console.log("[MegaskaAuth] API_BASE =", API_BASE);
     });
   }
 
-  function setLoggedInUI(customer) {
+  function updateAuthUILoggedIn(sessionData) {
+    const customer = sessionData?.customer || sessionData || {};
+
     document.documentElement.classList.add("megaska-authenticated");
     document.documentElement.classList.remove("megaska-logged-out");
 
@@ -155,11 +187,11 @@ console.log("[MegaskaAuth] API_BASE =", API_BASE);
     });
 
     document.querySelectorAll("[data-megaska-customer-phone]").forEach((el) => {
-      el.textContent = customer?.phoneE164 || "";
+      el.textContent = customer.phoneE164 || customer.phone || "";
     });
 
     document.querySelectorAll("[data-megaska-customer-name]").forEach((el) => {
-      el.textContent = customer?.firstName || "Account";
+      el.textContent = customer.firstName || customer.name || "Account";
     });
   }
 
@@ -167,12 +199,16 @@ console.log("[MegaskaAuth] API_BASE =", API_BASE);
     const session = await fetchSession();
 
     if (session.authenticated) {
-      setLoggedInUI(session.customer);
+      updateAuthUILoggedIn(session.customer);
     } else {
-      setLoggedOutUI();
+      updateAuthUILoggedOut();
     }
 
     return session;
+  }
+
+  async function bootstrapAuth() {
+    return refreshAuthState();
   }
 
   function bindLogoutButtons() {
@@ -187,28 +223,34 @@ console.log("[MegaskaAuth] API_BASE =", API_BASE);
           await logout();
         } catch (error) {
           console.error("[Megaska Auth] logout failed", error);
+          alert("Logout failed. Please try again.");
         }
 
-        setLoggedOutUI();
-        window.location.reload();
+        updateAuthUILoggedOut();
       });
     });
   }
 
   async function init() {
     bindLogoutButtons();
-    await refreshAuthState();
+    await bootstrapAuth();
   }
 
   window.MegaskaAuth = {
-    saveSessionToken,
+    API_BASE,
     getSessionToken,
+    setSessionToken,
     clearSessionToken,
+    // Backward compatible aliases
+    saveSessionToken: setSessionToken,
     fetchSession,
     refreshAuthState,
+    bootstrapAuth,
     requestOtp,
     verifyOtp,
     logout,
+    updateAuthUILoggedOut,
+    updateAuthUILoggedIn,
     init,
   };
 
