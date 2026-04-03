@@ -235,6 +235,98 @@
     return true;
   }
 
+  async function fetchActiveCartContext() {
+    const response = await fetch("/cart.js", {
+      method: "GET",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Unable to read /cart.js (${response.status})`);
+    }
+
+    const cart = await response.json();
+    return {
+      cartToken: String(cart?.token || "").trim(),
+      checkoutUrl: String(cart?.checkout_url || "").trim(),
+      itemCount: Number(cart?.item_count || 0),
+    };
+  }
+
+  async function applyBuyerIdentityToActiveCart(customer, options) {
+    const opts = options || {};
+    const source = customer || {};
+    const email = String(source.email || "").trim();
+    const phone = String(source.phoneE164 || source.phone || "").trim();
+    const hasContactInfo = Boolean(email || phone);
+
+    if (!hasContactInfo) {
+      console.log("[Megaska Buyer Identity] skipped - missing customer contact");
+      return {
+        ok: false,
+        skipped: true,
+        reason: "missing-customer-contact",
+      };
+    }
+
+    const sessionToken = getSessionToken();
+    if (!sessionToken) {
+      console.log("[Megaska Buyer Identity] skipped - missing session token");
+      return {
+        ok: false,
+        skipped: true,
+        reason: "missing-session-token",
+      };
+    }
+
+    const cartContext = await fetchActiveCartContext();
+    const payload = {
+      cartToken: cartContext.cartToken || undefined,
+      checkoutUrl: opts.checkoutUrl || cartContext.checkoutUrl || undefined,
+    };
+
+    console.log("[Megaska Checkout Prefill] active cart detected", {
+      cartTokenPresent: Boolean(payload.cartToken),
+      checkoutUrlPresent: Boolean(payload.checkoutUrl),
+      itemCount: cartContext.itemCount,
+    });
+
+    console.log("[Megaska Buyer Identity] update request", {
+      hasEmail: Boolean(email),
+      hasPhone: Boolean(phone),
+    });
+
+    const response = await fetch(`${API_BASE}/checkout/prefill`, {
+      method: "POST",
+      headers: buildHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    let data = null;
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.error || `Buyer identity update failed (${response.status})`);
+    }
+
+    return {
+      ok: Boolean(data?.ok),
+      skipped: Boolean(data?.skipped),
+      reason: data?.reason || "",
+      cartId: data?.cartId || null,
+      checkoutUrl: data?.checkoutUrl || payload.checkoutUrl || null,
+      userErrors: Array.isArray(data?.userErrors) ? data.userErrors : [],
+      apiErrors: Array.isArray(data?.apiErrors) ? data.apiErrors : [],
+    };
+  }
+
   function updateAuthUILoggedOut() {
     document.documentElement.classList.remove("megaska-authenticated");
     document.documentElement.classList.add("megaska-logged-out");
@@ -336,6 +428,8 @@
     buildCheckoutPrefillParams,
     applyCheckoutPrefillToUrl,
     applyCheckoutPrefillToForm,
+    applyBuyerIdentityToActiveCart,
+    fetchActiveCartContext,
     updateAuthUILoggedOut,
     updateAuthUILoggedIn,
     init,
