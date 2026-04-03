@@ -10,8 +10,3 @@ description = "Blocks checkout when checkout phone differs from Megaska verified
   target = "cart.validations.generate.run"
   input_query = "src/cart_validations_generate_run.graphql"
   export = "cartValidationsGenerateRun"
-
-  [extensions.build]
-  command = "shopify app function build"
-  path = "dist/index.wasm"
-  watch = ["src/**/*.js", "src/**/*.graphql"]
