@@ -25,7 +25,6 @@
   let checkoutInterceptionEnabled = true;
   let accountMenuContainer = null;
   let accountMenuTrigger = null;
-  let lastKnownAuthState = false;
 
   const ACCOUNT_TRIGGER_SELECTORS = [
     "[data-megaska-open-login]",
@@ -578,7 +577,7 @@
       }
 
       hideAccountMenu();
-      resumePendingAction();
+      await resumePendingAction();
       renderSuccessStep("Login successful. Welcome to Megaska");
       setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS);
     } catch (error) {
@@ -622,7 +621,7 @@
       await window.MegaskaAuth.refreshAuthState();
       state.savingProfile = false;
       hideAccountMenu();
-      resumePendingAction();
+      await resumePendingAction();
       renderSuccessStep("Profile saved. Welcome to Megaska");
       setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS);
     } catch (error) {
@@ -758,7 +757,7 @@
 
       await window.MegaskaAuth.verifyOtp(normalizedPhone, sanitizeDigits(otp, OTP_LENGTH));
       await window.MegaskaAuth.refreshAuthState();
-      resumePendingAction();
+      await resumePendingAction();
       alert("Login successful.");
     } catch (error) {
       alert(error.message || "Login failed. Please try again.");
@@ -797,7 +796,54 @@
     pendingAction = action;
   }
 
-  function resumePendingAction() {
+  async function getCurrentMegaskaCustomer() {
+    try {
+      if (window.MegaskaAuth && typeof window.MegaskaAuth.fetchSession === "function") {
+        const session = await window.MegaskaAuth.fetchSession();
+        return session?.customer || null;
+      }
+    } catch (error) {
+      console.warn("[Megaska OTP] unable to fetch session for checkout prefill", error);
+    }
+    return null;
+  }
+
+  async function buildPrefilledCheckoutUrl(rawUrl) {
+    if (!rawUrl || !rawUrl.includes("/checkout")) return rawUrl;
+    const customer = await getCurrentMegaskaCustomer();
+    if (!customer) return rawUrl;
+
+    if (
+      window.MegaskaAuth &&
+      typeof window.MegaskaAuth.applyCheckoutPrefillToUrl === "function"
+    ) {
+      const prefilledUrl = window.MegaskaAuth.applyCheckoutPrefillToUrl(rawUrl, customer);
+      if (prefilledUrl !== rawUrl) {
+        console.log("[Megaska OTP] checkout prefill handoff executed", { targetUrl: prefilledUrl });
+      }
+      return prefilledUrl;
+    }
+
+    return rawUrl;
+  }
+
+  async function applyCheckoutPrefillToForm(form) {
+    const customer = await getCurrentMegaskaCustomer();
+    if (!customer) return false;
+    if (
+      window.MegaskaAuth &&
+      typeof window.MegaskaAuth.applyCheckoutPrefillToForm === "function"
+    ) {
+      const applied = window.MegaskaAuth.applyCheckoutPrefillToForm(form, customer);
+      if (applied) {
+        console.log("[Megaska OTP] checkout prefill handoff executed", { target: "form" });
+      }
+      return applied;
+    }
+    return false;
+  }
+
+  async function resumePendingAction() {
     if (!pendingAction) return;
 
     const action = pendingAction;
@@ -805,7 +851,8 @@
     console.log("[Megaska OTP] pending intent resumed", { type: action.type });
 
     if (action.type === "navigate" && action.url) {
-      window.location.assign(action.url);
+      const prefilledUrl = await buildPrefilledCheckoutUrl(action.url);
+      window.location.assign(prefilledUrl);
       return;
     }
 
@@ -934,7 +981,6 @@
 
   async function syncAccountUiState() {
     const authenticated = await isMegaskaAuthenticated();
-    lastKnownAuthState = authenticated;
     document.documentElement.classList.toggle("megaska-account-authenticated", authenticated);
     document.documentElement.classList.toggle("megaska-account-guest", !authenticated);
     if (!authenticated) {
@@ -953,7 +999,6 @@
     }
 
     const authenticated = await isMegaskaAuthenticated();
-    lastKnownAuthState = authenticated;
 
     if (!authenticated) {
       try {
@@ -994,6 +1039,14 @@
 
     if (!allowed) {
       console.log("[Megaska OTP] checkout click intercepted", { targetUrl });
+      return;
+    }
+
+    const isAnchorCheckoutTrigger = triggerEl?.tagName === "A" && Boolean(targetUrl);
+    if (isAnchorCheckoutTrigger) {
+      event.preventDefault();
+      const prefilledUrl = await buildPrefilledCheckoutUrl(targetUrl);
+      window.location.assign(prefilledUrl);
     }
   }
 
@@ -1070,7 +1123,12 @@
 
       if (!allowed) {
         console.log("[Megaska OTP] checkout submit intercepted");
+        return;
       }
+
+      event.preventDefault();
+      await applyCheckoutPrefillToForm(form);
+      form.submit();
     });
   }
 
