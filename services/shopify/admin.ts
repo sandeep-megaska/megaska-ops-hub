@@ -26,6 +26,10 @@ export type OrderMegaskaIdentityInput = {
   customerProfileId?: string | null;
   shopifyCustomerId?: string | null;
   verificationCompletedAt?: string | null;
+  phoneMatchStatus?: "match" | "mismatch" | "missing_checkout_phone" | "missing_verified_phone";
+  checkoutContactPhone?: string | null;
+  checkoutContactEmail?: string | null;
+  mismatchDetected?: boolean;
 };
 
 function getShopDomain() {
@@ -62,6 +66,12 @@ function parseCustomerId(gidOrId: string) {
   const trimmed = String(gidOrId || "").trim();
   const gidMatch = trimmed.match(/Customer\/(\d+)$/);
   return gidMatch?.[1] || trimmed;
+}
+
+function resolveOrderGid(orderId: string) {
+  const trimmed = String(orderId || "").trim();
+  if (trimmed.startsWith("gid://shopify/Order/")) return trimmed;
+  return `gid://shopify/Order/${trimmed}`;
 }
 
 async function adminGraphql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
@@ -174,6 +184,50 @@ async function createCustomer(input: ShopifyCustomerSyncInput) {
   return data.customerCreate.customer;
 }
 
+async function setOrderTags(input: { orderId: string; tags: string[] }) {
+  const tags = Array.from(new Set((input.tags || []).map((tag) => String(tag || "").trim()).filter(Boolean)));
+
+  if (!tags.length) {
+    return {
+      node: {
+        id: resolveOrderGid(input.orderId),
+        tags: [] as string[],
+      },
+      userErrors: [] as Array<{ message: string; field?: string[] }> ,
+    };
+  }
+
+  const data = await adminGraphql<{
+    tagsAdd: {
+      node?: { id: string; tags: string[] } | null;
+      userErrors: Array<{ message: string; field?: string[] }>;
+    };
+  }>(
+    `
+      mutation AddOrderTags($id: ID!, $tags: [String!]!) {
+        tagsAdd(id: $id, tags: $tags) {
+          node {
+            ... on Order {
+              id
+              tags
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+    {
+      id: resolveOrderGid(input.orderId),
+      tags,
+    }
+  );
+
+  return data.tagsAdd;
+}
+
 export function isShopifyAdminConfigured() {
   return Boolean(getShopDomain() && getAdminAccessToken());
 }
@@ -219,9 +273,7 @@ export async function findOrCreateShopifyCustomer(
 }
 
 export async function setOrderMegaskaIdentityMetafields(input: OrderMegaskaIdentityInput) {
-  const ownerId = String(input.orderId || "").trim().startsWith("gid://shopify/Order/")
-    ? String(input.orderId || "").trim()
-    : `gid://shopify/Order/${String(input.orderId || "").trim()}`;
+  const ownerId = resolveOrderGid(input.orderId);
 
   const entries = [
     { key: "verified_phone", value: String(input.verifiedPhone || "").trim() },
@@ -232,6 +284,13 @@ export async function setOrderMegaskaIdentityMetafields(input: OrderMegaskaIdent
     {
       key: "verification_completed_at",
       value: String(input.verificationCompletedAt || "").trim(),
+    },
+    { key: "phone_match_status", value: String(input.phoneMatchStatus || "").trim() },
+    { key: "checkout_contact_phone", value: String(input.checkoutContactPhone || "").trim() },
+    { key: "checkout_contact_email", value: String(input.checkoutContactEmail || "").trim() },
+    {
+      key: "mismatch_detected",
+      value: typeof input.mismatchDetected === "boolean" ? (input.mismatchDetected ? "true" : "false") : "",
     },
   ].filter((entry) => entry.value);
 
@@ -267,5 +326,19 @@ export async function setOrderMegaskaIdentityMetafields(input: OrderMegaskaIdent
     { metafields }
   );
 
-  return data.metafieldsSet;
+  const tagsToAdd = ["MEGASKA_PHONE_VERIFIED"];
+  if (input.mismatchDetected) {
+    tagsToAdd.push("MEGASKA_PHONE_MISMATCH");
+  }
+
+  const tagsResult = await setOrderTags({
+    orderId: input.orderId,
+    tags: tagsToAdd,
+  });
+
+  return {
+    metafields: data.metafieldsSet.metafields,
+    userErrors: [...data.metafieldsSet.userErrors, ...tagsResult.userErrors],
+    tags: tagsResult.node?.tags || [],
+  };
 }

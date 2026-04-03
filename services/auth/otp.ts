@@ -1,3 +1,5 @@
+import { normalizeIndianPhone as normalizeIndianPhoneE164 } from "../phone";
+
 export type OtpProvider = "twilio" | "mock";
 
 type TwilioVerifyStartResult = {
@@ -136,11 +138,5 @@ export async function verifyOtpWithTwilioVerify(phoneE164: string, otpCode: stri
 }
 
 export function normalizeIndianPhone(input: string) {
-  const digits = input.replace(/\D/g, "");
-
-  if (digits.length === 10) return `+91${digits}`;
-  if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
-  if (input.startsWith("+91") && digits.length === 12) return `+${digits}`;
-
-  return null;
+  return normalizeIndianPhoneE164(input);
 }
