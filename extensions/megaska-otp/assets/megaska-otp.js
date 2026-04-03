@@ -21,6 +21,8 @@
   let pendingAction = null;
   let checkoutInterceptionEnabled = true;
   let accountMenuContainer = null;
+  let accountMenuTrigger = null;
+  let lastKnownAuthState = false;
 
   const ACCOUNT_TRIGGER_SELECTORS = [
     "[data-megaska-open-login]",
@@ -337,6 +339,7 @@
   }
 
   function openModal(triggerSource) {
+    closeAccountMenu();
     const { modal } = getModalParts();
     state.isOpen = true;
     resetModalState();
@@ -690,10 +693,18 @@
     if (!accountMenuContainer) return;
     accountMenuContainer.remove();
     accountMenuContainer = null;
+    if (accountMenuTrigger) {
+      accountMenuTrigger.setAttribute("aria-expanded", "false");
+    }
+    accountMenuTrigger = null;
+  }
+
+  function closeAccountMenu() {
+    removeAccountMenu();
   }
 
   function hideAccountMenu() {
-    removeAccountMenu();
+    closeAccountMenu();
   }
 
   function buildAccountMenu() {
@@ -703,6 +714,7 @@
     menu.innerHTML = `
       <div class="megaska-account-menu-card">
         <p class="megaska-account-menu-title">You are signed in</p>
+        <a href="/account" class="megaska-account-menu-link" data-megaska-menu-account>My Account</a>
         <button type="button" class="megaska-account-menu-logout" data-megaska-menu-logout>Logout</button>
       </div>
     `;
@@ -728,38 +740,74 @@
       await window.MegaskaAuth.refreshAuthState();
     }
 
-    hideAccountMenu();
+    syncAccountUiState();
+    closeAccountMenu();
   }
 
-  function showAccountMenu(triggerEl) {
-    hideAccountMenu();
+  function openAccountMenu(triggerEl) {
+    closeAccountMenu();
     const menu = buildAccountMenu();
     const rect = triggerEl.getBoundingClientRect();
     menu.style.top = `${window.scrollY + rect.bottom + 8}px`;
     menu.style.left = `${window.scrollX + Math.max(8, rect.right - 180)}px`;
+    menu.querySelector("[data-megaska-menu-account]").addEventListener("click", (event) => {
+      event.preventDefault();
+    });
     menu.querySelector("[data-megaska-menu-logout]").addEventListener("click", handleLogoutClick);
     document.body.appendChild(menu);
     accountMenuContainer = menu;
+    accountMenuTrigger = triggerEl;
+    accountMenuTrigger.setAttribute("aria-expanded", "true");
+    console.log("[Megaska OTP] authenticated menu opened");
+  }
+
+  function isAccountMenuOpen() {
+    return Boolean(accountMenuContainer);
+  }
+
+  function toggleAccountMenu(triggerEl) {
+    if (isAccountMenuOpen()) {
+      closeAccountMenu();
+      return;
+    }
+    openAccountMenu(triggerEl);
+  }
+
+  async function syncAccountUiState() {
+    const authenticated = await isMegaskaAuthenticated();
+    lastKnownAuthState = authenticated;
+    document.documentElement.classList.toggle("megaska-account-authenticated", authenticated);
+    document.documentElement.classList.toggle("megaska-account-guest", !authenticated);
+    if (!authenticated) {
+      closeAccountMenu();
+    }
+    console.log("[Megaska OTP] header sync updated", { authenticated });
+    return authenticated;
   }
 
   async function handleAccountTriggerClick(event, triggerEl) {
-    const authenticated = await requireAuthenticationOrOpenModal({
-      event,
-      triggerSource: "account-intercept",
-      pendingAction: { type: "account" },
-    });
-
-    if (!authenticated) {
-      console.log("[Megaska OTP] account intercepted");
-      return;
-    }
-
     if (event && typeof event.preventDefault === "function") {
       event.preventDefault();
     }
+    if (event && typeof event.stopPropagation === "function") {
+      event.stopPropagation();
+    }
 
-    showAccountMenu(triggerEl);
-    console.log("[Megaska OTP] account intercepted", { state: "authenticated" });
+    const authenticated = await isMegaskaAuthenticated();
+    lastKnownAuthState = authenticated;
+
+    if (!authenticated) {
+      try {
+        openModal("account-intercept");
+      } catch {
+        await handlePromptFallback();
+      }
+      console.log("[Megaska OTP] account trigger intercepted", { authenticated: false });
+      return;
+    }
+
+    toggleAccountMenu(triggerEl);
+    console.log("[Megaska OTP] account trigger intercepted", { authenticated: true });
   }
 
   async function ensureMegaskaAuthenticatedBeforeCheckout(options) {
@@ -818,8 +866,26 @@
       const clickedInsideMenu =
         accountMenuContainer && event.target && accountMenuContainer.contains(event.target);
       if (!clickedInsideMenu) {
-        hideAccountMenu();
+        closeAccountMenu();
       }
+    });
+  }
+
+  function bindAuthStateSync() {
+    document.addEventListener("megaska:auth-state-changed", () => {
+      syncAccountUiState();
+    });
+
+    window.addEventListener("storage", (event) => {
+      if (event.key === "megaska_session_token") {
+        syncAccountUiState();
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      if (!isAccountMenuOpen()) return;
+      closeAccountMenu();
     });
   }
 
@@ -859,7 +925,9 @@
   function init() {
     bindGlobalClickInterceptor();
     interceptCheckoutClicks({ enabled: true });
+    bindAuthStateSync();
     ensureModal();
+    syncAccountUiState();
   }
 
   window.MegaskaOtp = {
