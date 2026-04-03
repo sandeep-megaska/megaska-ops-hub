@@ -1,0 +1,153 @@
+const SHOPIFY_API_VERSION = "2026-01";
+
+type StorefrontGraphqlEnvelope<T> = {
+  data?: T;
+  errors?: Array<{ message?: string }>;
+};
+
+export type CartBuyerIdentityInput = {
+  email?: string | null;
+  phone?: string | null;
+};
+
+export type CartBuyerIdentityUpdateResult = {
+  ok: boolean;
+  cartId?: string;
+  checkoutUrl?: string;
+  userErrors: Array<{ field?: string[] | null; message: string }>;
+  apiErrors: Array<{ message?: string }>;
+};
+
+function getShopDomain() {
+  return (process.env.SHOPIFY_STORE_DOMAIN || "").trim();
+}
+
+function getStorefrontAccessToken() {
+  return (process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || "").trim();
+}
+
+function normalizeCartId(raw: string | null | undefined) {
+  return String(raw || "").trim();
+}
+
+function normalizeCartToken(raw: string | null | undefined) {
+  return String(raw || "").trim();
+}
+
+function buildCartIdFromToken(tokenRaw: string) {
+  const token = normalizeCartToken(tokenRaw);
+  if (!token) return "";
+  if (token.startsWith("gid://shopify/Cart/")) return token;
+  return `gid://shopify/Cart/${token}`;
+}
+
+function isConfigured() {
+  return Boolean(getShopDomain() && getStorefrontAccessToken());
+}
+
+async function storefrontGraphql<T>(
+  query: string,
+  variables?: Record<string, unknown>
+): Promise<StorefrontGraphqlEnvelope<T>> {
+  const shopDomain = getShopDomain();
+  const token = getStorefrontAccessToken();
+
+  if (!shopDomain || !token) {
+    return {
+      errors: [{ message: "Storefront API is not configured" }],
+    };
+  }
+
+  const response = await fetch(`https://${shopDomain}/api/${SHOPIFY_API_VERSION}/graphql.json`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Shopify-Storefront-Access-Token": token,
+    },
+    body: JSON.stringify({
+      query,
+      variables: variables || {},
+    }),
+  });
+
+  if (!response.ok) {
+    return {
+      errors: [{ message: `Storefront API request failed (${response.status})` }],
+    };
+  }
+
+  return (await response.json()) as StorefrontGraphqlEnvelope<T>;
+}
+
+export function isShopifyStorefrontConfigured() {
+  return isConfigured();
+}
+
+export function resolveCartId(input: { cartId?: string | null; cartToken?: string | null }) {
+  const directCartId = normalizeCartId(input.cartId);
+  if (directCartId) return directCartId;
+  return buildCartIdFromToken(input.cartToken || "");
+}
+
+export async function updateCartBuyerIdentity(input: {
+  cartId?: string | null;
+  cartToken?: string | null;
+  buyerIdentity: CartBuyerIdentityInput;
+}): Promise<CartBuyerIdentityUpdateResult> {
+  const resolvedCartId = resolveCartId({
+    cartId: input.cartId,
+    cartToken: input.cartToken,
+  });
+
+  if (!resolvedCartId) {
+    return {
+      ok: false,
+      userErrors: [{ message: "Missing cart id/token for buyer identity update" }],
+      apiErrors: [],
+    };
+  }
+
+  const response = await storefrontGraphql<{
+    cartBuyerIdentityUpdate?: {
+      cart?: {
+        id: string;
+        checkoutUrl?: string | null;
+      } | null;
+      userErrors: Array<{ field?: string[] | null; message: string }>;
+    };
+  }>(
+    `
+      mutation MegaskaCartBuyerIdentityUpdate($cartId: ID!, $buyerIdentity: CartBuyerIdentityInput!) {
+        cartBuyerIdentityUpdate(cartId: $cartId, buyerIdentity: $buyerIdentity) {
+          cart {
+            id
+            checkoutUrl
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+    {
+      cartId: resolvedCartId,
+      buyerIdentity: {
+        email: input.buyerIdentity.email || undefined,
+        phone: input.buyerIdentity.phone || undefined,
+      },
+    }
+  );
+
+  return {
+    ok: Boolean(
+      response.data?.cartBuyerIdentityUpdate?.cart?.id &&
+        !(response.data?.cartBuyerIdentityUpdate?.userErrors?.length || 0) &&
+        !(response.errors?.length || 0)
+    ),
+    cartId: response.data?.cartBuyerIdentityUpdate?.cart?.id || resolvedCartId,
+    checkoutUrl: response.data?.cartBuyerIdentityUpdate?.cart?.checkoutUrl || undefined,
+    userErrors: response.data?.cartBuyerIdentityUpdate?.userErrors || [],
+    apiErrors: response.errors || [],
+  };
+}
