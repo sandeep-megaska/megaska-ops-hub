@@ -289,14 +289,17 @@
     };
 
     console.log("[Megaska Checkout Prefill] active cart detected", {
-      cartTokenPresent: Boolean(payload.cartToken),
-      checkoutUrlPresent: Boolean(payload.checkoutUrl),
+      cartToken: payload.cartToken || null,
+      cartTokenSource: "cart.js.token",
+      checkoutUrl: payload.checkoutUrl || null,
+      checkoutUrlSource: opts.checkoutUrl ? "caller.checkoutUrl" : "cart.js.checkout_url",
       itemCount: cartContext.itemCount,
     });
 
     console.log("[Megaska Buyer Identity] update request", {
-      hasEmail: Boolean(email),
-      hasPhone: Boolean(phone),
+      cartToken: payload.cartToken || null,
+      email: email || null,
+      phone: phone || null,
     });
 
     const response = await fetch(`${API_BASE}/checkout/prefill`, {
@@ -322,6 +325,7 @@
       reason: data?.reason || "",
       cartId: data?.cartId || null,
       checkoutUrl: data?.checkoutUrl || payload.checkoutUrl || null,
+      buyerIdentity: data?.buyerIdentity || null,
       userErrors: Array.isArray(data?.userErrors) ? data.userErrors : [],
       apiErrors: Array.isArray(data?.apiErrors) ? data.apiErrors : [],
     };
