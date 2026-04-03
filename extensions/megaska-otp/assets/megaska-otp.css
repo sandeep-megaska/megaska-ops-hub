@@ -218,6 +218,37 @@
   font-size: 13px;
 }
 
+.megaska-account-menu-popover {
+  position: absolute;
+  z-index: 9999;
+  width: 180px;
+}
+
+.megaska-account-menu-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(17, 24, 39, 0.16);
+  padding: 10px;
+}
+
+.megaska-account-menu-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.megaska-account-menu-logout {
+  width: 100%;
+  border: 0;
+  background: #111827;
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 @media (min-width: 800px) {
   .megaska-otp-modal {
     place-items: center;

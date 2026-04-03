@@ -1,21 +1,4 @@
-<div class="megaska-account-state" {{ block.shopify_attributes }}>
-  <div data-megaska-auth-guest>
-    <a href="#" data-megaska-open-login>Login / Signup</a>
-  </div>
-
-  <div data-megaska-auth-user hidden>
-    <span data-megaska-customer-name>Account</span>
-    <div class="megaska-account-menu">
-      <a href="{{ routes.account_url }}">Dashboard</a>
-      <a href="{{ routes.account_url }}">Orders</a>
-      <a href="#" data-megaska-logout>Logout</a>
-    </div>
-  </div>
-
-  <div style="font-size:12px; color:#666; margin-top:8px;">
-    Megaska OTP block loaded
-  </div>
-</div>
+<div class="megaska-account-state" hidden {{ block.shopify_attributes }}></div>
 
 {% schema %}
 {
