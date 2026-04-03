@@ -180,8 +180,16 @@ export async function POST(req: NextRequest) {
       cartId: attributeResult.cartId || resolvedCartId,
       ok: attributeResult.ok,
       keysWritten: verificationAttributes.map((item) => item.key),
+      trustedPhoneSource: "cart.attribute.megaska_verified_phone",
       userErrors: attributeResult.userErrors,
       apiErrors: attributeResult.apiErrors.map((err) => err.message || "unknown"),
+    });
+
+    console.log("[Megaska Checkout Validation] expected function target", {
+      functionTarget: "cart.validations.generate.run",
+      trustedPhoneAttributeKey: "megaska_verified_phone",
+      trustedPhoneVerifiedFlagKey: "megaska_phone_verified",
+      note: "Activate the Megaska checkout validation rule in Shopify Admin > Settings > Checkout > Checkout rules.",
     });
 
     return withCors(
