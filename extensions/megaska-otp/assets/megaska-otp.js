@@ -18,8 +18,9 @@
   };
   let globalClickBound = false;
   let checkoutSubmitBound = false;
-  let pendingContinuation = null;
-  let checkoutInterceptionEnabled = false;
+  let pendingAction = null;
+  let checkoutInterceptionEnabled = true;
+  let accountMenuContainer = null;
 
   const ACCOUNT_TRIGGER_SELECTORS = [
     "[data-megaska-open-login]",
@@ -41,6 +42,14 @@
     "input[name='checkout']",
     "button[data-action='checkout']",
     "[data-checkout-button]",
+  ];
+
+  const LOGOUT_TRIGGER_SELECTORS = [
+    "[data-megaska-logout]",
+    "a[href='/account/logout']",
+    "a[href*='/account/logout']",
+    "button[data-action='logout']",
+    "[data-customer-logout]",
   ];
 
   function sanitizeDigits(value, maxLength) {
@@ -447,7 +456,8 @@
     try {
       await window.MegaskaAuth.verifyOtp(state.normalizedPhone, otp);
       await window.MegaskaAuth.refreshAuthState();
-      resumePendingContinuation();
+      hideAccountMenu();
+      resumePendingAction();
       state.verifying = false;
       renderSuccessStep("Login successful. Welcome to Megaska");
       setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS);
@@ -586,6 +596,7 @@
 
       await window.MegaskaAuth.verifyOtp(normalizedPhone, sanitizeDigits(otp, OTP_LENGTH));
       await window.MegaskaAuth.refreshAuthState();
+      resumePendingAction();
       alert("Login successful.");
     } catch (error) {
       alert(error.message || "Login failed. Please try again.");
@@ -616,20 +627,20 @@
     return action.includes("/checkout");
   }
 
-  function clearPendingContinuation() {
-    pendingContinuation = null;
+  function clearPendingAction() {
+    pendingAction = null;
   }
 
-  function setPendingContinuation(action) {
-    pendingContinuation = action;
+  function setPendingAction(action) {
+    pendingAction = action;
   }
 
-  function resumePendingContinuation() {
-    if (!pendingContinuation) return;
+  function resumePendingAction() {
+    if (!pendingAction) return;
 
-    const action = pendingContinuation;
-    clearPendingContinuation();
-    console.log("[Megaska OTP] continuation resumed", { type: action.type });
+    const action = pendingAction;
+    clearPendingAction();
+    console.log("[Megaska OTP] pending intent resumed", { type: action.type });
 
     if (action.type === "navigate" && action.url) {
       window.location.assign(action.url);
@@ -662,8 +673,8 @@
       opts.event.preventDefault();
     }
 
-    if (opts.continuation) {
-      setPendingContinuation(opts.continuation);
+    if (opts.pendingAction) {
+      setPendingAction(opts.pendingAction);
     }
 
     try {
@@ -675,26 +686,91 @@
     return false;
   }
 
+  function removeAccountMenu() {
+    if (!accountMenuContainer) return;
+    accountMenuContainer.remove();
+    accountMenuContainer = null;
+  }
+
+  function hideAccountMenu() {
+    removeAccountMenu();
+  }
+
+  function buildAccountMenu() {
+    const menu = document.createElement("div");
+    menu.className = "megaska-account-menu-popover";
+    menu.setAttribute("data-megaska-account-menu", "1");
+    menu.innerHTML = `
+      <div class="megaska-account-menu-card">
+        <p class="megaska-account-menu-title">You are signed in</p>
+        <button type="button" class="megaska-account-menu-logout" data-megaska-menu-logout>Logout</button>
+      </div>
+    `;
+    return menu;
+  }
+
+  async function handleLogoutClick(event) {
+    if (event && typeof event.preventDefault === "function") {
+      event.preventDefault();
+    }
+
+    console.log("[Megaska OTP] logout intercepted");
+
+    try {
+      if (window.MegaskaAuth && typeof window.MegaskaAuth.logout === "function") {
+        await window.MegaskaAuth.logout();
+      }
+    } catch (error) {
+      console.error("[Megaska OTP] logout failed", error);
+    }
+
+    if (window.MegaskaAuth && typeof window.MegaskaAuth.refreshAuthState === "function") {
+      await window.MegaskaAuth.refreshAuthState();
+    }
+
+    hideAccountMenu();
+  }
+
+  function showAccountMenu(triggerEl) {
+    hideAccountMenu();
+    const menu = buildAccountMenu();
+    const rect = triggerEl.getBoundingClientRect();
+    menu.style.top = `${window.scrollY + rect.bottom + 8}px`;
+    menu.style.left = `${window.scrollX + Math.max(8, rect.right - 180)}px`;
+    menu.querySelector("[data-megaska-menu-logout]").addEventListener("click", handleLogoutClick);
+    document.body.appendChild(menu);
+    accountMenuContainer = menu;
+  }
+
   async function handleAccountTriggerClick(event, triggerEl) {
     const authenticated = await requireAuthenticationOrOpenModal({
       event,
-      triggerSource: "header-account-click",
+      triggerSource: "account-intercept",
+      pendingAction: { type: "account" },
     });
 
     if (!authenticated) {
-      console.log("[Megaska OTP] account click intercepted", { selector: triggerEl?.tagName });
+      console.log("[Megaska OTP] account intercepted");
+      return;
     }
+
+    if (event && typeof event.preventDefault === "function") {
+      event.preventDefault();
+    }
+
+    showAccountMenu(triggerEl);
+    console.log("[Megaska OTP] account intercepted", { state: "authenticated" });
   }
 
   async function ensureMegaskaAuthenticatedBeforeCheckout(options) {
     const opts = options || {};
-    const continuation =
-      opts.continuation ||
+    const pending =
+      opts.pendingAction ||
       (opts.targetUrl ? { type: "navigate", url: opts.targetUrl } : null);
 
     return requireAuthenticationOrOpenModal({
       event: opts.event,
-      continuation,
+      pendingAction: pending,
       triggerSource: "checkout-intercept",
     });
   }
@@ -721,6 +797,12 @@
     console.log("[Megaska OTP] binding account triggers", ACCOUNT_TRIGGER_SELECTORS);
 
     document.addEventListener("click", (event) => {
+      const logoutTrigger = findClosestMatchingElement(event, LOGOUT_TRIGGER_SELECTORS);
+      if (logoutTrigger) {
+        handleLogoutClick(event);
+        return;
+      }
+
       const accountTrigger = findClosestMatchingElement(event, ACCOUNT_TRIGGER_SELECTORS);
       if (accountTrigger) {
         handleAccountTriggerClick(event, accountTrigger);
@@ -730,6 +812,13 @@
       const checkoutTrigger = findClosestMatchingElement(event, CHECKOUT_TRIGGER_SELECTORS);
       if (checkoutTrigger && isCheckoutTarget(checkoutTrigger)) {
         handleCheckoutTriggerClick(event, checkoutTrigger);
+        return;
+      }
+
+      const clickedInsideMenu =
+        accountMenuContainer && event.target && accountMenuContainer.contains(event.target);
+      if (!clickedInsideMenu) {
+        hideAccountMenu();
       }
     });
   }
@@ -748,7 +837,7 @@
 
       const allowed = await ensureMegaskaAuthenticatedBeforeCheckout({
         event,
-        continuation: {
+        pendingAction: {
           type: "callback",
           callback: () => form.submit(),
         },
@@ -769,6 +858,7 @@
 
   function init() {
     bindGlobalClickInterceptor();
+    interceptCheckoutClicks({ enabled: true });
     ensureModal();
   }
 
@@ -780,7 +870,9 @@
     resetModalState,
     interceptCheckoutClicks,
     ensureMegaskaAuthenticatedBeforeCheckout,
-    clearPendingContinuation,
+    clearPendingAction,
+    hideAccountMenu,
+    handleLogoutClick,
   };
 
   document.addEventListener("DOMContentLoaded", init);
