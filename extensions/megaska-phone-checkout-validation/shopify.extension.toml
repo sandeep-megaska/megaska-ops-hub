@@ -1,0 +1,12 @@
+api_version = "2026-01"
+
+[[extensions]]
+name = "megaska-phone-checkout-validation"
+handle = "megaska-phone-checkout-validation"
+type = "function"
+description = "Blocks checkout when checkout phone differs from Megaska verified phone"
+
+  [[extensions.targeting]]
+  target = "cart.validations.generate.run"
+  input_query = "src/cart_validations_generate_run.graphql"
+  export = "cartValidationsGenerateRun"
