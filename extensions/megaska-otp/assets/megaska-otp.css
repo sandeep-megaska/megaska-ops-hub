@@ -34,7 +34,7 @@
   display: grid;
   grid-template-columns: 1fr;
   width: min(100%, 920px);
-  min-height: min(100dvh, 600px);
+  max-height: min(100dvh - 16px, 760px);
   background: #fff;
   border-radius: 22px 22px 0 0;
   overflow: hidden;
@@ -73,10 +73,12 @@
 
 .megaska-otp-flow {
   background: var(--megaska-otp-bg);
-  padding: 30px 22px;
+  padding: 24px 18px 18px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .megaska-otp-close {
@@ -102,13 +104,13 @@
 
 .megaska-otp-flow h2 {
   margin: 0;
-  font-size: 28px;
+  font-size: 24px;
   line-height: 1.2;
 }
 
 .megaska-otp-subtitle {
   color: var(--megaska-otp-muted);
-  margin: 10px 0 22px;
+  margin: 8px 0 16px;
 }
 
 .megaska-otp-label {
@@ -120,6 +122,26 @@
 
 .megaska-otp-label-top-gap {
   margin-top: 14px;
+}
+
+.megaska-otp-profile-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.megaska-otp-form-field {
+  min-width: 0;
+}
+
+.megaska-otp-select-input {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #6b7280 50%),
+    linear-gradient(135deg, #6b7280 50%, transparent 50%);
+  background-position: calc(100% - 18px) calc(50% - 3px), calc(100% - 12px) calc(50% - 3px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 34px;
 }
 
 .megaska-otp-phone-wrap {
@@ -152,8 +174,8 @@
   border: 1px solid #d1d5db;
   border-radius: 14px;
   background: #fff;
-  padding: 14px 16px;
-  font-size: 16px;
+  padding: 12px 14px;
+  font-size: 15px;
   color: #111827;
 }
 
@@ -188,7 +210,7 @@
 
 .megaska-otp-primary-btn {
   width: 100%;
-  margin-top: 16px;
+  margin-top: 14px;
   border: 0;
   border-radius: 12px;
   padding: 14px 16px;
@@ -302,6 +324,7 @@
 
   .megaska-otp-dialog {
     min-height: auto;
+    max-height: min(100dvh - 48px, 720px);
     border-radius: var(--megaska-otp-radius);
     grid-template-columns: 1fr 1.1fr;
   }
@@ -311,6 +334,15 @@
   }
 
   .megaska-otp-flow {
-    padding: 42px 38px;
+    padding: 30px 28px 24px;
+  }
+
+  .megaska-otp-profile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .megaska-otp-col-span-2 {
+    grid-column: span 2;
   }
 }
