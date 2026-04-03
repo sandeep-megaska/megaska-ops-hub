@@ -187,18 +187,13 @@ export async function POST(req: NextRequest) {
     return withCors(
       req,
       NextResponse.json({
-return withCors(
-  req,
-  NextResponse.json({
-    ok: updateResult.ok && attributeResult.ok,
-    cartId: attributeResult.cartId || updateResult.cartId || resolvedCartId,
-    checkoutUrl:
-      attributeResult.checkoutUrl || updateResult.checkoutUrl || body?.checkoutUrl || null,
-    buyerIdentity: updateResult.buyerIdentity || null,
-    userErrors: [...updateResult.userErrors, ...attributeResult.userErrors],
-    apiErrors: [...updateResult.apiErrors, ...attributeResult.apiErrors],
-  })
-);
+        ok: updateResult.ok && attributeResult.ok,
+        cartId: attributeResult.cartId || updateResult.cartId || resolvedCartId,
+        checkoutUrl:
+          attributeResult.checkoutUrl || updateResult.checkoutUrl || body?.checkoutUrl || null,
+        buyerIdentity: updateResult.buyerIdentity || null,
+        userErrors: [...updateResult.userErrors, ...attributeResult.userErrors],
+        apiErrors: [...updateResult.apiErrors, ...attributeResult.apiErrors],
       })
     );
   } catch (error) {
