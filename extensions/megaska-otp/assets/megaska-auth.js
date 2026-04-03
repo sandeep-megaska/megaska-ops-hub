@@ -256,11 +256,42 @@
     };
   }
 
+  async function writeMegaskaCartAttributes(attributes) {
+    const sanitized = {};
+    Object.entries(attributes || {}).forEach(([key, value]) => {
+      const normalizedKey = String(key || "").trim();
+      const normalizedValue = String(value || "").trim();
+      if (!normalizedKey || !normalizedValue) return;
+      sanitized[normalizedKey] = normalizedValue;
+    });
+
+    const response = await fetch("/cart/update.js", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        attributes: sanitized,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Unable to write cart attributes (${response.status})`);
+    }
+
+    return response.json();
+  }
+
   async function applyBuyerIdentityToActiveCart(customer, options) {
     const opts = options || {};
     const source = customer || {};
     const email = String(source.email || "").trim();
     const phone = String(source.phoneE164 || source.phone || "").trim();
+    const customerProfileId = String(source.id || "").trim();
+    const shopifyCustomerId = String(source.shopifyCustomerId || "").trim();
+    const verifiedAt = String(source.phoneVerifiedAt || "").trim();
     const hasContactInfo = Boolean(email || phone);
 
     if (!hasContactInfo) {
@@ -302,6 +333,38 @@
       phone: phone || null,
     });
 
+    console.log("[Megaska Verified Phone] active cart annotation started", {
+      cartTokenPresent: Boolean(payload.cartToken),
+      cartToken: payload.cartToken || null,
+      hasVerifiedPhone: Boolean(phone),
+    });
+
+    if (!phone) {
+      return {
+        ok: false,
+        skipped: false,
+        reason: "missing-verified-phone",
+        checkoutUrl: payload.checkoutUrl || null,
+      };
+    }
+
+    try {
+      const cartUpdateResult = await writeMegaskaCartAttributes({
+        megaska_phone_verified: "true",
+        megaska_verified_phone: phone,
+        megaska_customer_profile_id: customerProfileId,
+        megaska_shopify_customer_id: shopifyCustomerId,
+        megaska_auth_source: "otp",
+        megaska_auth_verified_at: verifiedAt,
+      });
+      console.log("[Megaska Verified Phone] active cart annotation complete", {
+        cartToken: cartUpdateResult?.token || payload.cartToken || null,
+        itemCount: Number(cartUpdateResult?.item_count || 0),
+      });
+    } catch (error) {
+      console.error("[Megaska Verified Phone] active cart annotation failed", error);
+    }
+
     const response = await fetch(`${API_BASE}/checkout/prefill`, {
       method: "POST",
       headers: buildHeaders(),
@@ -323,6 +386,7 @@
       ok: Boolean(data?.ok),
       skipped: Boolean(data?.skipped),
       reason: data?.reason || "",
+      blocked: Boolean(data?.blocked),
       cartId: data?.cartId || null,
       checkoutUrl: data?.checkoutUrl || payload.checkoutUrl || null,
       buyerIdentity: data?.buyerIdentity || null,

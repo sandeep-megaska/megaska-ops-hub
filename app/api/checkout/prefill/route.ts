@@ -5,6 +5,7 @@ import { prisma } from "../../../../services/db/prisma";
 import {
   isShopifyStorefrontConfigured,
   resolveCartId,
+  updateCartAttributes,
   updateCartBuyerIdentity,
 } from "../../../../services/shopify/storefront";
 
@@ -57,6 +58,12 @@ export async function POST(req: NextRequest) {
 
     const email = String(session.customer.email || "").trim();
     const phone = String(session.customer.phoneE164 || "").trim();
+    const phoneVerifiedAt =
+      session.customer.phoneVerifiedAt instanceof Date
+        ? session.customer.phoneVerifiedAt.toISOString()
+        : "";
+    const customerProfileId = String(session.customer.id || "").trim();
+    const shopifyCustomerId = String(session.customer.shopifyCustomerId || "").trim();
     const resolvedCartId = resolveCartId({
       cartId: body?.cartId,
       cartToken: body?.cartToken,
@@ -100,6 +107,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!phone) {
+      console.warn("[Megaska Checkout Gate] blocked - missing verified phone on session", {
+        customerProfileId: customerProfileId || null,
+        cartId: resolvedCartId,
+      });
+      return withCors(
+        req,
+        NextResponse.json(
+          {
+            ok: false,
+            blocked: true,
+            reason: "missing-verified-phone",
+            cartId: resolvedCartId,
+          },
+          { status: 403 }
+        )
+      );
+    }
+
     const hasBuyerIdentity = Boolean(email || phone);
     if (!hasBuyerIdentity) {
       return withCors(
@@ -127,6 +153,20 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    const verificationAttributes = [
+      { key: "megaska_phone_verified", value: "true" },
+      { key: "megaska_verified_phone", value: phone },
+      { key: "megaska_auth_source", value: "otp" },
+      { key: "megaska_customer_profile_id", value: customerProfileId },
+      { key: "megaska_shopify_customer_id", value: shopifyCustomerId },
+      { key: "megaska_auth_verified_at", value: phoneVerifiedAt },
+    ].filter((entry) => entry.value);
+
+    const attributeResult = await updateCartAttributes({
+      cartId: resolvedCartId,
+      attributes: verificationAttributes,
+    });
+
     console.log("[Megaska Buyer Identity] update completed", {
       targetCartId: resolvedCartId,
       resultCartId: updateResult.cartId || null,
@@ -136,16 +176,29 @@ export async function POST(req: NextRequest) {
       apiErrors: updateResult.apiErrors.map((err) => err.message || "unknown"),
       checkoutUrlReturned: Boolean(updateResult.checkoutUrl),
     });
+    console.log("[Megaska Verified Phone] cart verification metadata applied", {
+      cartId: attributeResult.cartId || resolvedCartId,
+      ok: attributeResult.ok,
+      keysWritten: verificationAttributes.map((item) => item.key),
+      userErrors: attributeResult.userErrors,
+      apiErrors: attributeResult.apiErrors.map((err) => err.message || "unknown"),
+    });
 
     return withCors(
       req,
       NextResponse.json({
-        ok: updateResult.ok,
-        cartId: updateResult.cartId || resolvedCartId,
-        checkoutUrl: updateResult.checkoutUrl || body?.checkoutUrl || null,
-        buyerIdentity: updateResult.buyerIdentity || null,
-        userErrors: updateResult.userErrors,
-        apiErrors: updateResult.apiErrors,
+return withCors(
+  req,
+  NextResponse.json({
+    ok: updateResult.ok && attributeResult.ok,
+    cartId: attributeResult.cartId || updateResult.cartId || resolvedCartId,
+    checkoutUrl:
+      attributeResult.checkoutUrl || updateResult.checkoutUrl || body?.checkoutUrl || null,
+    buyerIdentity: updateResult.buyerIdentity || null,
+    userErrors: [...updateResult.userErrors, ...attributeResult.userErrors],
+    apiErrors: [...updateResult.apiErrors, ...attributeResult.apiErrors],
+  })
+);
       })
     );
   } catch (error) {

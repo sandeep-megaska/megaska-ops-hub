@@ -880,6 +880,11 @@
     }
   }
 
+  function isCheckoutContinuationBlocked(handoff) {
+    if (!handoff) return false;
+    return handoff.blocked || handoff.reason === "missing-verified-phone";
+  }
+
   async function applyCheckoutPrefillToForm(form) {
     const customer = await getCurrentMegaskaCustomer();
     if (!customer) return false;
@@ -910,6 +915,13 @@
         detectedCheckoutUrl: prefilledUrl,
       });
       const handoff = await runBuyerIdentityHandoff(prefilledUrl);
+      if (isCheckoutContinuationBlocked(handoff)) {
+        console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
+          reason: handoff.reason || "blocked",
+        });
+        openModal("checkout-gate-blocked");
+        return;
+      }
       const targetUrl = handoff?.checkoutUrl || prefilledUrl;
       window.__megaskaCheckoutDebug = {
         cartId: handoff?.cartId || null,
@@ -935,22 +947,46 @@
     }
   }
 
-  async function isMegaskaAuthenticated() {
+  function hasVerifiedPhone(customer) {
+    const phone = String(customer?.phoneE164 || customer?.phone || "").trim();
+    return Boolean(phone);
+  }
+
+  async function getMegaskaCheckoutGateState() {
     try {
       if (window.MegaskaAuth && typeof window.MegaskaAuth.fetchSession === "function") {
         const session = await window.MegaskaAuth.fetchSession();
-        return Boolean(session?.authenticated);
+        const customer = session?.customer || null;
+        const authenticated = Boolean(session?.authenticated);
+        const verifiedPhonePresent = hasVerifiedPhone(customer);
+        return {
+          authenticated,
+          verifiedPhonePresent,
+          customer,
+        };
       }
     } catch (error) {
       console.warn("[Megaska OTP] Session check failed", error);
     }
-    return false;
+    return {
+      authenticated: false,
+      verifiedPhonePresent: false,
+      customer: null,
+    };
   }
 
   async function requireAuthenticationOrOpenModal(options) {
     const opts = options || {};
-    const authenticated = await isMegaskaAuthenticated();
-    if (authenticated) return true;
+    const gateState = await getMegaskaCheckoutGateState();
+    const allowed = gateState.authenticated && gateState.verifiedPhonePresent;
+
+    if (allowed) {
+      console.log("[Megaska Checkout Gate] allowed", {
+        authenticated: gateState.authenticated,
+        verifiedPhonePresent: gateState.verifiedPhonePresent,
+      });
+      return true;
+    }
 
     if (opts.event && typeof opts.event.preventDefault === "function") {
       opts.event.preventDefault();
@@ -959,6 +995,12 @@
     if (opts.pendingAction) {
       setPendingAction(opts.pendingAction);
     }
+
+    console.log("[Megaska Checkout Gate] blocked", {
+      authenticated: gateState.authenticated,
+      verifiedPhonePresent: gateState.verifiedPhonePresent,
+      reason: !gateState.authenticated ? "missing-session" : "missing-verified-phone",
+    });
 
     try {
       openModal(opts.triggerSource || "auth-required");
@@ -1054,7 +1096,8 @@
   }
 
   async function syncAccountUiState() {
-    const authenticated = await isMegaskaAuthenticated();
+    const gateState = await getMegaskaCheckoutGateState();
+    const authenticated = gateState.authenticated;
     document.documentElement.classList.toggle("megaska-account-authenticated", authenticated);
     document.documentElement.classList.toggle("megaska-account-guest", !authenticated);
     if (!authenticated) {
@@ -1072,7 +1115,8 @@
       event.stopPropagation();
     }
 
-    const authenticated = await isMegaskaAuthenticated();
+    const gateState = await getMegaskaCheckoutGateState();
+    const authenticated = gateState.authenticated;
 
     if (!authenticated) {
       try {
@@ -1125,6 +1169,13 @@
         detectedCheckoutUrl: prefilledUrl,
       });
       const handoff = await runBuyerIdentityHandoff(prefilledUrl);
+      if (isCheckoutContinuationBlocked(handoff)) {
+        console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
+          reason: handoff.reason || "blocked",
+        });
+        openModal("checkout-gate-blocked");
+        return;
+      }
       const finalTargetUrl = handoff?.checkoutUrl || prefilledUrl;
       window.__megaskaCheckoutDebug = {
         cartId: handoff?.cartId || null,
@@ -1223,22 +1274,18 @@
 
       event.preventDefault();
       await applyCheckoutPrefillToForm(form);
-      const formCheckoutUrl = form.getAttribute("action") || "/checkout";
-      console.log("[Megaska Checkout Prefill] checkout handoff start", {
-        source: "checkoutForm.action",
-        detectedCheckoutUrl: formCheckoutUrl,
-      });
-      const handoff = await runBuyerIdentityHandoff(formCheckoutUrl);
-      const finalCheckoutUrl = handoff?.checkoutUrl || formCheckoutUrl;
-      window.__megaskaCheckoutDebug = {
-        cartId: handoff?.cartId || null,
-        buyerIdentityPayload: {
-          email: String(handoff?.buyerIdentity?.email || "").trim() || null,
-          phone: String(handoff?.buyerIdentity?.phone || "").trim() || null,
-        },
-        mutationResult: handoff || null,
-        checkoutUrl: finalCheckoutUrl || null,
-      };
+return withCors(
+  req,
+  NextResponse.json({
+    ok: updateResult.ok && attributeResult.ok,
+    cartId: attributeResult.cartId || updateResult.cartId || resolvedCartId,
+    checkoutUrl:
+      attributeResult.checkoutUrl || updateResult.checkoutUrl || body?.checkoutUrl || null,
+    buyerIdentity: updateResult.buyerIdentity || null,
+    userErrors: [...updateResult.userErrors, ...attributeResult.userErrors],
+    apiErrors: [...updateResult.apiErrors, ...attributeResult.apiErrors],
+  })
+);
       console.log("[Megaska Checkout Prefill] checkout continuation", {
         mode: "form-submit",
         finalCheckoutUrl,

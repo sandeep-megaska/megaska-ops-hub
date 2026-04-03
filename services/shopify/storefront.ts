@@ -23,6 +23,14 @@ export type CartBuyerIdentityUpdateResult = {
   apiErrors: Array<{ message?: string }>;
 };
 
+export type CartAttributeUpdateResult = {
+  ok: boolean;
+  cartId?: string;
+  checkoutUrl?: string;
+  userErrors: Array<{ field?: string[] | null; message: string }>;
+  apiErrors: Array<{ message?: string }>;
+};
+
 function getShopDomain() {
   return (process.env.SHOPIFY_STORE_DOMAIN || "").trim();
 }
@@ -173,6 +181,82 @@ export async function updateCartBuyerIdentity(input: {
         response.data?.cartBuyerIdentityUpdate?.cart?.buyerIdentity?.customer?.id || null,
     },
     userErrors: response.data?.cartBuyerIdentityUpdate?.userErrors || [],
+    apiErrors: response.errors || [],
+  };
+}
+
+export async function updateCartAttributes(input: {
+  cartId?: string | null;
+  cartToken?: string | null;
+  attributes: Array<{ key: string; value: string }>;
+}): Promise<CartAttributeUpdateResult> {
+  const resolvedCartId = resolveCartId({
+    cartId: input.cartId,
+    cartToken: input.cartToken,
+  });
+
+  if (!resolvedCartId) {
+    return {
+      ok: false,
+      userErrors: [{ message: "Missing cart id/token for cart attribute update" }],
+      apiErrors: [],
+    };
+  }
+
+  const attributes = (input.attributes || [])
+    .map((entry) => ({
+      key: String(entry?.key || "").trim(),
+      value: String(entry?.value || "").trim(),
+    }))
+    .filter((entry) => entry.key);
+
+  if (!attributes.length) {
+    return {
+      ok: true,
+      cartId: resolvedCartId,
+      userErrors: [],
+      apiErrors: [],
+    };
+  }
+
+  const response = await storefrontGraphql<{
+    cartAttributesUpdate?: {
+      cart?: {
+        id: string;
+        checkoutUrl?: string | null;
+      } | null;
+      userErrors: Array<{ field?: string[] | null; message: string }>;
+    };
+  }>(
+    `
+      mutation MegaskaCartAttributesUpdate($cartId: ID!, $attributes: [AttributeInput!]!) {
+        cartAttributesUpdate(cartId: $cartId, attributes: $attributes) {
+          cart {
+            id
+            checkoutUrl
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+    {
+      cartId: resolvedCartId,
+      attributes,
+    }
+  );
+
+  return {
+    ok: Boolean(
+      response.data?.cartAttributesUpdate?.cart?.id &&
+        !(response.data?.cartAttributesUpdate?.userErrors?.length || 0) &&
+        !(response.errors?.length || 0)
+    ),
+    cartId: response.data?.cartAttributesUpdate?.cart?.id || resolvedCartId,
+    checkoutUrl: response.data?.cartAttributesUpdate?.cart?.checkoutUrl || undefined,
+    userErrors: response.data?.cartAttributesUpdate?.userErrors || [],
     apiErrors: response.errors || [],
   };
 }
