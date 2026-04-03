@@ -46,6 +46,16 @@
     "input[name='checkout']",
     "button[data-action='checkout']",
     "[data-checkout-button]",
+    ".shopify-payment-button__button",
+  ];
+
+  const CHECKOUT_PHONE_SELECTORS = [
+    "input[name='checkout[shipping_address][phone]']",
+    "input[name='checkout[billing_address][phone]']",
+    "input[name='phone']",
+    "input[type='tel']",
+    "#CheckoutPhone",
+    "#phone",
   ];
 
   const LOGOUT_TRIGGER_SELECTORS = [
@@ -62,9 +72,20 @@
       .slice(0, maxLength);
   }
 
-  function normalizeIndianPhone(phoneDigits) {
-    if (!/^\d{10}$/.test(phoneDigits)) return "";
-    return `+91${phoneDigits}`;
+  function normalizeIndianPhone(value) {
+    let digits = String(value || "").replace(/\D/g, "");
+    if (!digits) return "";
+
+    while (digits.startsWith("0") && digits.length > 10) {
+      digits = digits.slice(1);
+    }
+
+    if (digits.length === 12 && digits.startsWith("91")) {
+      digits = digits.slice(2);
+    }
+
+    if (!/^[6-9]\d{9}$/.test(digits)) return "";
+    return `+91${digits}`;
   }
 
   function maskPhone(phoneDigits) {
@@ -788,6 +809,84 @@
     return action.includes("/checkout");
   }
 
+  function extractVerifiedPhoneFromSession(session) {
+    const phoneCandidates = [
+      session?.phoneE164,
+      session?.customer?.phoneE164,
+      session?.profile?.phoneE164,
+      session?.customer?.phone,
+      session?.profile?.phone,
+      session?.raw?.phoneE164,
+      session?.raw?.customer?.phoneE164,
+      session?.raw?.profile?.phoneE164,
+      session?.raw?.customer?.phone,
+      session?.raw?.profile?.phone,
+    ];
+
+    for (const candidate of phoneCandidates) {
+      const normalized = normalizeIndianPhone(candidate);
+      if (normalized) return normalized;
+    }
+
+    return "";
+  }
+
+  function getBestPhoneFieldContainer(triggerEl, form) {
+    if (form && typeof form.querySelector === "function") return form;
+    if (triggerEl && typeof triggerEl.closest === "function") {
+      return (
+        triggerEl.closest("form") ||
+        triggerEl.closest("[data-cart-drawer], .cart-drawer, .drawer, .cart__footer, .cart, .sticky-cart") ||
+        document
+      );
+    }
+    return document;
+  }
+
+  function findCheckoutPhoneInput(options) {
+    const opts = options || {};
+    const container = getBestPhoneFieldContainer(opts.triggerEl, opts.form);
+    const selector = CHECKOUT_PHONE_SELECTORS.join(", ");
+
+    const localMatch = container.querySelector(selector);
+    if (localMatch) return localMatch;
+    return document.querySelector(selector);
+  }
+
+  function prefillPhoneFieldIfEmpty(field, verifiedPhone) {
+    if (!field || !verifiedPhone) return false;
+    if (String(field.value || "").trim()) return false;
+    field.value = verifiedPhone;
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
+  }
+
+  function renderCheckoutGuardError(options) {
+    const opts = options || {};
+    const message = String(opts.message || "").trim();
+    const anchor = opts.anchor || opts.field || document.body;
+    const container = anchor.parentElement || document.body;
+    const existing = container.querySelector("[data-megaska-checkout-guard-error]");
+
+    if (!message) {
+      if (existing) existing.remove();
+      return;
+    }
+
+    const errorEl = existing || document.createElement("p");
+    errorEl.setAttribute("data-megaska-checkout-guard-error", "1");
+    errorEl.setAttribute("role", "alert");
+    errorEl.style.color = "#d72c0d";
+    errorEl.style.fontSize = "13px";
+    errorEl.style.marginTop = "8px";
+    errorEl.textContent = message;
+
+    if (!existing) {
+      container.appendChild(errorEl);
+    }
+  }
+
   function clearPendingAction() {
     pendingAction = null;
   }
@@ -947,21 +1046,19 @@
     }
   }
 
-  function hasVerifiedPhone(customer) {
-    const phone = String(customer?.phoneE164 || customer?.phone || "").trim();
-    return Boolean(phone);
-  }
-
   async function getMegaskaCheckoutGateState() {
     try {
       if (window.MegaskaAuth && typeof window.MegaskaAuth.fetchSession === "function") {
         const session = await window.MegaskaAuth.fetchSession();
         const customer = session?.customer || null;
         const authenticated = Boolean(session?.authenticated);
-        const verifiedPhonePresent = hasVerifiedPhone(customer);
+        const verifiedPhone = extractVerifiedPhoneFromSession(session);
+        const verifiedPhonePresent = Boolean(verifiedPhone);
         return {
           authenticated,
           verifiedPhonePresent,
+          verifiedPhone,
+          session,
           customer,
         };
       }
@@ -971,19 +1068,114 @@
     return {
       authenticated: false,
       verifiedPhonePresent: false,
+      verifiedPhone: "",
+      session: null,
       customer: null,
+    };
+  }
+
+  async function validateCheckoutPhoneMatch(options) {
+    const opts = options || {};
+    const gateState = await getMegaskaCheckoutGateState();
+    const targetPhoneField = findCheckoutPhoneInput({
+      triggerEl: opts.triggerEl,
+      form: opts.form,
+    });
+
+    if (!gateState.authenticated) {
+      return {
+        ok: false,
+        reason: "no-session",
+        message: "Please verify your mobile number before checkout.",
+        verifiedPhone: "",
+        checkoutPhone: "",
+        phoneField: targetPhoneField,
+      };
+    }
+
+    if (!gateState.verifiedPhonePresent || !gateState.verifiedPhone) {
+      return {
+        ok: false,
+        reason: "no-verified-phone",
+        message: "Please verify your mobile number before checkout.",
+        verifiedPhone: "",
+        checkoutPhone: "",
+        phoneField: targetPhoneField,
+      };
+    }
+
+    if (!targetPhoneField) {
+      return {
+        ok: false,
+        reason: "phone-field-missing",
+        message: "Please enter your mobile number to continue checkout.",
+        verifiedPhone: gateState.verifiedPhone,
+        checkoutPhone: "",
+      };
+    }
+
+    prefillPhoneFieldIfEmpty(targetPhoneField, gateState.verifiedPhone);
+    const rawCheckoutPhone = String(targetPhoneField.value || "").trim();
+    if (!rawCheckoutPhone) {
+      return {
+        ok: false,
+        reason: "phone-empty",
+        message: "Please enter your mobile number to continue checkout.",
+        verifiedPhone: gateState.verifiedPhone,
+        checkoutPhone: "",
+        phoneField: targetPhoneField,
+      };
+    }
+
+    const normalizedCheckoutPhone = normalizeIndianPhone(rawCheckoutPhone);
+    if (!normalizedCheckoutPhone) {
+      return {
+        ok: false,
+        reason: "phone-invalid",
+        message: "Please enter a valid Indian mobile number.",
+        verifiedPhone: gateState.verifiedPhone,
+        checkoutPhone: rawCheckoutPhone,
+        phoneField: targetPhoneField,
+      };
+    }
+
+    if (normalizedCheckoutPhone !== gateState.verifiedPhone) {
+      return {
+        ok: false,
+        reason: "phone-mismatch",
+        message: "Please use your verified mobile number for delivery.",
+        verifiedPhone: gateState.verifiedPhone,
+        checkoutPhone: normalizedCheckoutPhone,
+        phoneField: targetPhoneField,
+      };
+    }
+
+    return {
+      ok: true,
+      reason: "match",
+      message: "",
+      verifiedPhone: gateState.verifiedPhone,
+      checkoutPhone: normalizedCheckoutPhone,
+      phoneField: targetPhoneField,
     };
   }
 
   async function requireAuthenticationOrOpenModal(options) {
     const opts = options || {};
-    const gateState = await getMegaskaCheckoutGateState();
-    const allowed = gateState.authenticated && gateState.verifiedPhonePresent;
+    const validation = await validateCheckoutPhoneMatch({
+      triggerEl: opts.triggerEl,
+      form: opts.form,
+    });
 
-    if (allowed) {
+    if (validation.ok) {
+      renderCheckoutGuardError({
+        anchor: opts.triggerEl,
+        field: validation.phoneField,
+        message: "",
+      });
       console.log("[Megaska Checkout Gate] allowed", {
-        authenticated: gateState.authenticated,
-        verifiedPhonePresent: gateState.verifiedPhonePresent,
+        verifiedPhone: validation.verifiedPhone,
+        checkoutPhone: validation.checkoutPhone,
       });
       return true;
     }
@@ -992,20 +1184,28 @@
       opts.event.preventDefault();
     }
 
-    if (opts.pendingAction) {
+    renderCheckoutGuardError({
+      anchor: opts.triggerEl,
+      field: validation.phoneField,
+      message: validation.message,
+    });
+
+    if (opts.pendingAction && ["no-session", "no-verified-phone"].includes(validation.reason)) {
       setPendingAction(opts.pendingAction);
     }
 
     console.log("[Megaska Checkout Gate] blocked", {
-      authenticated: gateState.authenticated,
-      verifiedPhonePresent: gateState.verifiedPhonePresent,
-      reason: !gateState.authenticated ? "missing-session" : "missing-verified-phone",
+      reason: validation.reason,
+      verifiedPhone: validation.verifiedPhone,
+      checkoutPhone: validation.checkoutPhone,
     });
 
-    try {
-      openModal(opts.triggerSource || "auth-required");
-    } catch {
-      await handlePromptFallback();
+    if (["no-session", "no-verified-phone"].includes(validation.reason)) {
+      try {
+        openModal(opts.triggerSource || "auth-required");
+      } catch {
+        await handlePromptFallback();
+      }
     }
 
     return false;
@@ -1142,6 +1342,8 @@
       event: opts.event,
       pendingAction: pending,
       triggerSource: "checkout-intercept",
+      triggerEl: opts.triggerEl,
+      form: opts.form,
     });
   }
 
@@ -1153,6 +1355,7 @@
     const allowed = await ensureMegaskaAuthenticatedBeforeCheckout({
       event,
       targetUrl,
+      triggerEl,
     });
 
     if (!allowed) {
@@ -1265,6 +1468,8 @@
           type: "callback",
           callback: () => form.submit(),
         },
+        triggerEl: form.querySelector("button[name='checkout'], input[name='checkout'], [data-checkout-button], .shopify-payment-button__button"),
+        form,
       });
 
       if (!allowed) {
@@ -1274,21 +1479,25 @@
 
       event.preventDefault();
       await applyCheckoutPrefillToForm(form);
-return withCors(
-  req,
-  NextResponse.json({
-    ok: updateResult.ok && attributeResult.ok,
-    cartId: attributeResult.cartId || updateResult.cartId || resolvedCartId,
-    checkoutUrl:
-      attributeResult.checkoutUrl || updateResult.checkoutUrl || body?.checkoutUrl || null,
-    buyerIdentity: updateResult.buyerIdentity || null,
-    userErrors: [...updateResult.userErrors, ...attributeResult.userErrors],
-    apiErrors: [...updateResult.apiErrors, ...attributeResult.apiErrors],
-  })
-);
+      const submittedAction = form.getAttribute("action") || "/checkout";
+      const prefilledUrl = await buildPrefilledCheckoutUrl(submittedAction);
+      const handoff = await runBuyerIdentityHandoff(prefilledUrl);
+      if (isCheckoutContinuationBlocked(handoff)) {
+        console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
+          reason: handoff.reason || "blocked",
+        });
+        renderCheckoutGuardError({
+          anchor: form,
+          message: "Please verify your mobile number before checkout.",
+        });
+        openModal("checkout-gate-blocked");
+        return;
+      }
+      const finalTargetUrl = handoff?.checkoutUrl || prefilledUrl || submittedAction;
+      form.setAttribute("action", finalTargetUrl);
       console.log("[Megaska Checkout Prefill] checkout continuation", {
         mode: "form-submit",
-        finalCheckoutUrl,
+        finalCheckoutUrl: finalTargetUrl,
         mutationWaited: true,
         debugSurface: "window.__megaskaCheckoutDebug",
       });
