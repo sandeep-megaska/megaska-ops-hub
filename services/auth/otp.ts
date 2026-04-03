@@ -19,12 +19,23 @@ function getTwilioConfig() {
   const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim() || "";
   const authToken = process.env.TWILIO_AUTH_TOKEN?.trim() || "";
   const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID?.trim() || "";
+  const hasAccountSid = Boolean(accountSid);
+  const hasAuthToken = Boolean(authToken);
+  const hasVerifyServiceSid = Boolean(verifyServiceSid);
+  const configured = Boolean(accountSid && authToken && verifyServiceSid);
+
+  console.info("[OTP PROVIDER] Twilio env presence", {
+    hasAccountSid,
+    hasAuthToken,
+    hasVerifyServiceSid,
+    configured,
+  });
 
   return {
     accountSid,
     authToken,
     verifyServiceSid,
-    configured: Boolean(accountSid && authToken && verifyServiceSid),
+    configured,
   };
 }
 
