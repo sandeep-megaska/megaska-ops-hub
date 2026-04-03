@@ -80,12 +80,26 @@ export async function GET(req: NextRequest) {
           phoneE164: session.customer.phoneE164,
           fullName: session.customer.fullName,
           firstName: session.customer.firstName,
+          lastName: session.customer.lastName,
           email: session.customer.email,
+          addressLine1: session.customer.addressLine1,
+          addressLine2: session.customer.addressLine2,
+          city: session.customer.city,
+          stateProvince: session.customer.stateProvince,
+          postalCode: session.customer.postalCode,
+          countryRegion: session.customer.countryRegion,
           phoneVerifiedAt: session.customer.phoneVerifiedAt,
           profileCompletedAt: session.customer.profileCompletedAt,
           shopifyCustomerId: session.customer.shopifyCustomerId,
           profileComplete: Boolean(
-            session.customer.fullName?.trim() && session.customer.email?.trim()
+            session.customer.firstName?.trim() &&
+              session.customer.lastName?.trim() &&
+              session.customer.email?.trim() &&
+              session.customer.addressLine1?.trim() &&
+              session.customer.city?.trim() &&
+              session.customer.stateProvince?.trim() &&
+              session.customer.postalCode?.trim() &&
+              session.customer.countryRegion?.trim()
           ),
         },
       })
