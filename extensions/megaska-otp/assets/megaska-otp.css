@@ -118,6 +118,10 @@
   margin-bottom: 8px;
 }
 
+.megaska-otp-label-top-gap {
+  margin-top: 14px;
+}
+
 .megaska-otp-phone-wrap {
   display: flex;
   align-items: center;
@@ -143,6 +147,16 @@
   letter-spacing: 0.04em;
 }
 
+.megaska-otp-text-input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px 16px;
+  font-size: 16px;
+  color: #111827;
+}
+
 .megaska-otp-hint {
   margin: 10px 0 0;
   color: var(--megaska-otp-muted);
@@ -166,9 +180,28 @@
 }
 
 .megaska-otp-digit:focus,
-.megaska-otp-phone-input:focus {
+.megaska-otp-phone-input:focus,
+.megaska-otp-text-input:focus {
   outline: 2px solid rgba(17, 24, 39, 0.2);
   outline-offset: 1px;
+}
+
+.megaska-otp-primary-btn {
+  width: 100%;
+  margin-top: 16px;
+  border: 0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #111827;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.megaska-otp-primary-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .megaska-otp-resend-row {

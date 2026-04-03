@@ -47,7 +47,7 @@
     let data = null;
     try {
       data = await response.json();
-    } catch (error) {
+    } catch {
       data = null;
     }
 
@@ -139,6 +139,16 @@
     }
   }
 
+  async function completeProfile(payload) {
+    return apiFetch("/profile/complete", {
+      method: "POST",
+      body: JSON.stringify({
+        fullName: payload?.fullName || "",
+        email: payload?.email || "",
+      }),
+    });
+  }
+
   async function logout() {
     const token = getSessionToken();
 
@@ -191,7 +201,8 @@
     });
 
     document.querySelectorAll("[data-megaska-customer-name]").forEach((el) => {
-      el.textContent = customer.firstName || customer.name || "Account";
+      el.textContent =
+        customer.fullName || customer.firstName || customer.name || "Account";
     });
   }
 
@@ -254,6 +265,7 @@
     bootstrapAuth,
     requestOtp,
     verifyOtp,
+    completeProfile,
     logout,
     updateAuthUILoggedOut,
     updateAuthUILoggedIn,

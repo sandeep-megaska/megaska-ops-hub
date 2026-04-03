@@ -218,6 +218,17 @@ export async function POST(req: NextRequest) {
         mock: provider === "mock",
         provider,
         challengeId: verifiedChallenge.id,
+        customer: {
+          id: customerProfile.id,
+          phoneE164: customerProfile.phoneE164,
+          fullName: customerProfile.fullName,
+          firstName: customerProfile.firstName,
+          email: customerProfile.email,
+          profileCompletedAt: customerProfile.profileCompletedAt,
+          profileComplete: Boolean(
+            customerProfile.fullName?.trim() && customerProfile.email?.trim()
+          ),
+        },
       })
     );
   } catch (error) {

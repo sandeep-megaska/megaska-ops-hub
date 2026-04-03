@@ -10,6 +10,7 @@ datasource db {
 model CustomerProfile {
   id                 String    @id @default(uuid())
   phoneE164          String    @unique
+  fullName           String?
   firstName          String?
   email              String?
   shopifyCustomerId  String?

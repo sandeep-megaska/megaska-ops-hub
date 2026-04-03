@@ -78,11 +78,15 @@ export async function GET(req: NextRequest) {
         customer: {
           id: session.customer.id,
           phoneE164: session.customer.phoneE164,
+          fullName: session.customer.fullName,
           firstName: session.customer.firstName,
           email: session.customer.email,
           phoneVerifiedAt: session.customer.phoneVerifiedAt,
           profileCompletedAt: session.customer.profileCompletedAt,
           shopifyCustomerId: session.customer.shopifyCustomerId,
+          profileComplete: Boolean(
+            session.customer.fullName?.trim() && session.customer.email?.trim()
+          ),
         },
       })
     );
