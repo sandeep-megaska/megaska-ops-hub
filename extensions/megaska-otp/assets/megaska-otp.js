@@ -2,6 +2,45 @@
   const OTP_LENGTH = 4;
   const RESEND_SECONDS = 30;
   const SUCCESS_CLOSE_DELAY_MS = 1400;
+  const COUNTRY_REGION = "India";
+  const INDIAN_STATES_AND_UTS = [
+    "Andaman and Nicobar Islands",
+    "Andhra Pradesh",
+    "Arunachal Pradesh",
+    "Assam",
+    "Bihar",
+    "Chandigarh",
+    "Chhattisgarh",
+    "Dadra and Nagar Haveli and Daman and Diu",
+    "Delhi",
+    "Goa",
+    "Gujarat",
+    "Haryana",
+    "Himachal Pradesh",
+    "Jammu and Kashmir",
+    "Jharkhand",
+    "Karnataka",
+    "Kerala",
+    "Ladakh",
+    "Lakshadweep",
+    "Madhya Pradesh",
+    "Maharashtra",
+    "Manipur",
+    "Meghalaya",
+    "Mizoram",
+    "Nagaland",
+    "Odisha",
+    "Puducherry",
+    "Punjab",
+    "Rajasthan",
+    "Sikkim",
+    "Tamil Nadu",
+    "Telangana",
+    "Tripura",
+    "Uttar Pradesh",
+    "Uttarakhand",
+    "West Bengal",
+  ];
 
   const state = {
     isOpen: false,
@@ -24,7 +63,7 @@
     profileCity: "",
     profileStateProvince: "",
     profilePostalCode: "",
-    profileCountryRegion: "India",
+    profileCountryRegion: COUNTRY_REGION,
   };
   let globalClickBound = false;
   let checkoutSubmitBound = false;
@@ -158,7 +197,7 @@
     state.profileCity = "";
     state.profileStateProvince = "";
     state.profilePostalCode = "";
-    state.profileCountryRegion = "India";
+    state.profileCountryRegion = COUNTRY_REGION;
   }
 
   function ensureModal() {
@@ -245,105 +284,125 @@
             <p class="megaska-otp-kicker">Complete your profile</p>
             <h2>Just one more step</h2>
             <p class="megaska-otp-subtitle">Add a few details to finish setting up your Megaska account.</p>
+            <div class="megaska-otp-profile-grid">
+              <div class="megaska-otp-form-field">
+                <label class="megaska-otp-label" for="megaska-firstname-input">First Name</label>
+                <input
+                  id="megaska-firstname-input"
+                  data-megaska-profile-firstname
+                  class="megaska-otp-text-input"
+                  type="text"
+                  autocomplete="given-name"
+                  placeholder="Enter your first name"
+                  aria-label="Enter your first name"
+                />
+              </div>
 
-            <label class="megaska-otp-label" for="megaska-firstname-input">First Name</label>
-            <input
-              id="megaska-firstname-input"
-              data-megaska-profile-firstname
-              class="megaska-otp-text-input"
-              type="text"
-              autocomplete="given-name"
-              placeholder="Enter your first name"
-              aria-label="Enter your first name"
-            />
+              <div class="megaska-otp-form-field">
+                <label class="megaska-otp-label" for="megaska-lastname-input">Last Name</label>
+                <input
+                  id="megaska-lastname-input"
+                  data-megaska-profile-lastname
+                  class="megaska-otp-text-input"
+                  type="text"
+                  autocomplete="family-name"
+                  placeholder="Enter your last name"
+                  aria-label="Enter your last name"
+                />
+              </div>
 
-            <label class="megaska-otp-label megaska-otp-label-top-gap" for="megaska-lastname-input">Last Name</label>
-            <input
-              id="megaska-lastname-input"
-              data-megaska-profile-lastname
-              class="megaska-otp-text-input"
-              type="text"
-              autocomplete="family-name"
-              placeholder="Enter your last name"
-              aria-label="Enter your last name"
-            />
+              <div class="megaska-otp-form-field megaska-otp-col-span-2">
+                <label class="megaska-otp-label" for="megaska-email-input">Email Address</label>
+                <input
+                  id="megaska-email-input"
+                  data-megaska-profile-email
+                  class="megaska-otp-text-input"
+                  type="email"
+                  autocomplete="email"
+                  placeholder="name@example.com"
+                  aria-label="Enter your email address"
+                />
+              </div>
 
-            <label class="megaska-otp-label megaska-otp-label-top-gap" for="megaska-email-input">Email Address</label>
-            <input
-              id="megaska-email-input"
-              data-megaska-profile-email
-              class="megaska-otp-text-input"
-              type="email"
-              autocomplete="email"
-              placeholder="name@example.com"
-              aria-label="Enter your email address"
-            />
+              <div class="megaska-otp-form-field megaska-otp-col-span-2">
+                <label class="megaska-otp-label" for="megaska-address1-input">Address line 1</label>
+                <input
+                  id="megaska-address1-input"
+                  data-megaska-profile-address1
+                  class="megaska-otp-text-input"
+                  type="text"
+                  autocomplete="address-line1"
+                  placeholder="House number, street, locality"
+                  aria-label="Enter address line 1"
+                />
+              </div>
 
-            <label class="megaska-otp-label megaska-otp-label-top-gap" for="megaska-address1-input">Address line 1</label>
-            <input
-              id="megaska-address1-input"
-              data-megaska-profile-address1
-              class="megaska-otp-text-input"
-              type="text"
-              autocomplete="address-line1"
-              placeholder="House number, street, locality"
-              aria-label="Enter address line 1"
-            />
+              <div class="megaska-otp-form-field megaska-otp-col-span-2">
+                <label class="megaska-otp-label" for="megaska-address2-input">Address line 2 (optional)</label>
+                <input
+                  id="megaska-address2-input"
+                  data-megaska-profile-address2
+                  class="megaska-otp-text-input"
+                  type="text"
+                  autocomplete="address-line2"
+                  placeholder="Apartment, suite, landmark"
+                  aria-label="Enter address line 2"
+                />
+              </div>
 
-            <label class="megaska-otp-label megaska-otp-label-top-gap" for="megaska-address2-input">Address line 2 (optional)</label>
-            <input
-              id="megaska-address2-input"
-              data-megaska-profile-address2
-              class="megaska-otp-text-input"
-              type="text"
-              autocomplete="address-line2"
-              placeholder="Apartment, suite, landmark"
-              aria-label="Enter address line 2"
-            />
+              <div class="megaska-otp-form-field">
+                <label class="megaska-otp-label" for="megaska-city-input">City</label>
+                <input
+                  id="megaska-city-input"
+                  data-megaska-profile-city
+                  class="megaska-otp-text-input"
+                  type="text"
+                  autocomplete="address-level2"
+                  placeholder="Enter city"
+                  aria-label="Enter city"
+                />
+              </div>
 
-            <label class="megaska-otp-label megaska-otp-label-top-gap" for="megaska-city-input">City</label>
-            <input
-              id="megaska-city-input"
-              data-megaska-profile-city
-              class="megaska-otp-text-input"
-              type="text"
-              autocomplete="address-level2"
-              placeholder="Enter city"
-              aria-label="Enter city"
-            />
+              <div class="megaska-otp-form-field">
+                <label class="megaska-otp-label" for="megaska-state-input">State</label>
+                <select
+                  id="megaska-state-input"
+                  data-megaska-profile-state
+                  class="megaska-otp-text-input megaska-otp-select-input"
+                  autocomplete="address-level1"
+                  aria-label="Select state"
+                >
+                  <option value="">Select state</option>
+                  ${INDIAN_STATES_AND_UTS.map((region) => `<option value="${region}">${region}</option>`).join("")}
+                </select>
+              </div>
 
-            <label class="megaska-otp-label megaska-otp-label-top-gap" for="megaska-state-input">State / Province</label>
-            <input
-              id="megaska-state-input"
-              data-megaska-profile-state
-              class="megaska-otp-text-input"
-              type="text"
-              autocomplete="address-level1"
-              placeholder="Enter state or province"
-              aria-label="Enter state or province"
-            />
+              <div class="megaska-otp-form-field">
+                <label class="megaska-otp-label" for="megaska-postal-input">PIN Code</label>
+                <input
+                  id="megaska-postal-input"
+                  data-megaska-profile-postal
+                  class="megaska-otp-text-input"
+                  type="text"
+                  autocomplete="postal-code"
+                  placeholder="Enter PIN code"
+                  aria-label="Enter PIN code"
+                />
+              </div>
 
-            <label class="megaska-otp-label megaska-otp-label-top-gap" for="megaska-postal-input">Postal / PIN code</label>
-            <input
-              id="megaska-postal-input"
-              data-megaska-profile-postal
-              class="megaska-otp-text-input"
-              type="text"
-              autocomplete="postal-code"
-              placeholder="Enter postal or PIN code"
-              aria-label="Enter postal or PIN code"
-            />
-
-            <label class="megaska-otp-label megaska-otp-label-top-gap" for="megaska-country-input">Country / Region</label>
-            <input
-              id="megaska-country-input"
-              data-megaska-profile-country
-              class="megaska-otp-text-input"
-              type="text"
-              autocomplete="country-name"
-              placeholder="India"
-              aria-label="Enter country or region"
-            />
+              <div class="megaska-otp-form-field">
+                <label class="megaska-otp-label" for="megaska-country-input">Country</label>
+                <input
+                  id="megaska-country-input"
+                  class="megaska-otp-text-input"
+                  type="text"
+                  value="${COUNTRY_REGION}"
+                  aria-label="Country"
+                  readonly
+                  tabindex="-1"
+                />
+              </div>
+            </div>
 
             <button type="button" class="megaska-otp-primary-btn" data-megaska-profile-submit>
               Save and Continue
@@ -453,7 +512,7 @@
 
     modal
       .querySelector("[data-megaska-profile-state]")
-      .addEventListener("input", (event) => {
+      .addEventListener("change", (event) => {
         state.profileStateProvince = String(event.target.value || "");
         if (state.errorMessage) {
           state.errorMessage = "";
@@ -465,16 +524,6 @@
       .querySelector("[data-megaska-profile-postal]")
       .addEventListener("input", (event) => {
         state.profilePostalCode = String(event.target.value || "");
-        if (state.errorMessage) {
-          state.errorMessage = "";
-          renderStep();
-        }
-      });
-
-    modal
-      .querySelector("[data-megaska-profile-country]")
-      .addEventListener("input", (event) => {
-        state.profileCountryRegion = String(event.target.value || "");
         if (state.errorMessage) {
           state.errorMessage = "";
           renderStep();
@@ -508,7 +557,6 @@
       profileCityInput: modal.querySelector("[data-megaska-profile-city]"),
       profileStateInput: modal.querySelector("[data-megaska-profile-state]"),
       profilePostalInput: modal.querySelector("[data-megaska-profile-postal]"),
-      profileCountryInput: modal.querySelector("[data-megaska-profile-country]"),
       profileSubmitBtn: modal.querySelector("[data-megaska-profile-submit]"),
       errorEl: modal.querySelector("[data-megaska-otp-error]"),
       successMessage: modal.querySelector("[data-megaska-success-message]"),
@@ -533,7 +581,6 @@
       profileCityInput,
       profileStateInput,
       profilePostalInput,
-      profileCountryInput,
       profileSubmitBtn,
       errorEl,
       successMessage,
@@ -555,7 +602,6 @@
     profileCityInput.value = state.profileCity;
     profileStateInput.value = state.profileStateProvince;
     profilePostalInput.value = state.profilePostalCode;
-    profileCountryInput.value = state.profileCountryRegion;
     profileFirstNameInput.disabled = state.savingProfile;
     profileLastNameInput.disabled = state.savingProfile;
     profileEmailInput.disabled = state.savingProfile;
@@ -564,7 +610,6 @@
     profileCityInput.disabled = state.savingProfile;
     profileStateInput.disabled = state.savingProfile;
     profilePostalInput.disabled = state.savingProfile;
-    profileCountryInput.disabled = state.savingProfile;
     profileSubmitBtn.disabled = state.savingProfile;
     profileSubmitBtn.textContent = state.savingProfile ? "Saving..." : "Save and Continue";
 
@@ -734,7 +779,7 @@
     state.profileCity = normalizeText(customer?.city || "");
     state.profileStateProvince = normalizeText(customer?.stateProvince || "");
     state.profilePostalCode = normalizeText(customer?.postalCode || "");
-    state.profileCountryRegion = normalizeText(customer?.countryRegion || "India");
+    state.profileCountryRegion = COUNTRY_REGION;
     renderStep();
     focusProfileInput();
   }
@@ -833,7 +878,7 @@
     const city = normalizeText(state.profileCity);
     const stateProvince = normalizeText(state.profileStateProvince);
     const postalCode = normalizeText(state.profilePostalCode);
-    const countryRegion = normalizeText(state.profileCountryRegion || "India");
+    const countryRegion = COUNTRY_REGION;
 
     if (!firstName) {
       state.errorMessage = "Please enter your first name.";
@@ -875,7 +920,7 @@
     }
 
     if (!stateProvince) {
-      state.errorMessage = "Please enter your state or province.";
+      state.errorMessage = "Please select your state.";
       renderStep();
       const { profileStateInput } = getModalParts();
       setTimeout(() => profileStateInput.focus(), 0);
@@ -887,14 +932,6 @@
       renderStep();
       const { profilePostalInput } = getModalParts();
       setTimeout(() => profilePostalInput.focus(), 0);
-      return;
-    }
-
-    if (!countryRegion) {
-      state.errorMessage = "Please enter your country or region.";
-      renderStep();
-      const { profileCountryInput } = getModalParts();
-      setTimeout(() => profileCountryInput.focus(), 0);
       return;
     }
 
