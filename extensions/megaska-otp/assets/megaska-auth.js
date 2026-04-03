@@ -204,6 +204,12 @@
       updateAuthUILoggedOut();
     }
 
+    document.dispatchEvent(
+      new CustomEvent("megaska:auth-state-changed", {
+        detail: { authenticated: session.authenticated, customer: session.customer || null },
+      })
+    );
+
     return session;
   }
 
