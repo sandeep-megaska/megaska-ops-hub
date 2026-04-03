@@ -11,10 +11,13 @@
     otpDigits: ["", "", "", ""],
     requesting: false,
     verifying: false,
+    savingProfile: false,
     resendSeconds: 0,
     resendTimerId: null,
     errorMessage: "",
     successMessage: "Welcome back to Megaska",
+    profileFullName: "",
+    profileEmail: "",
   };
   let globalClickBound = false;
   let checkoutSubmitBound = false;
@@ -73,7 +76,7 @@
   }
 
   function isBusy() {
-    return state.requesting || state.verifying;
+    return state.requesting || state.verifying || state.savingProfile;
   }
 
   function isModalOpen() {
@@ -116,9 +119,12 @@
     state.otpDigits = ["", "", "", ""];
     state.requesting = false;
     state.verifying = false;
+    state.savingProfile = false;
     state.resendSeconds = 0;
     state.errorMessage = "";
     state.successMessage = "Welcome back to Megaska";
+    state.profileFullName = "";
+    state.profileEmail = "";
   }
 
   function ensureModal() {
@@ -201,6 +207,38 @@
             </div>
           </div>
 
+          <div data-megaska-step-profile hidden>
+            <p class="megaska-otp-kicker">Complete your profile</p>
+            <h2>Just one more step</h2>
+            <p class="megaska-otp-subtitle">Add a few details to finish setting up your Megaska account.</p>
+
+            <label class="megaska-otp-label" for="megaska-fullname-input">Full Name</label>
+            <input
+              id="megaska-fullname-input"
+              data-megaska-profile-fullname
+              class="megaska-otp-text-input"
+              type="text"
+              autocomplete="name"
+              placeholder="Enter your full name"
+              aria-label="Enter your full name"
+            />
+
+            <label class="megaska-otp-label megaska-otp-label-top-gap" for="megaska-email-input">Email Address</label>
+            <input
+              id="megaska-email-input"
+              data-megaska-profile-email
+              class="megaska-otp-text-input"
+              type="email"
+              autocomplete="email"
+              placeholder="name@example.com"
+              aria-label="Enter your email address"
+            />
+
+            <button type="button" class="megaska-otp-primary-btn" data-megaska-profile-submit>
+              Save and Continue
+            </button>
+          </div>
+
           <div data-megaska-step-success hidden class="megaska-otp-success">
             <div class="megaska-otp-success-icon" aria-hidden="true">✓</div>
             <h2>You’re in</h2>
@@ -239,6 +277,30 @@
       });
     });
 
+    modal
+      .querySelector("[data-megaska-profile-submit]")
+      .addEventListener("click", handleProfileSubmit);
+
+    modal
+      .querySelector("[data-megaska-profile-fullname]")
+      .addEventListener("input", (event) => {
+        state.profileFullName = String(event.target.value || "");
+        if (state.errorMessage) {
+          state.errorMessage = "";
+          renderStep();
+        }
+      });
+
+    modal
+      .querySelector("[data-megaska-profile-email]")
+      .addEventListener("input", (event) => {
+        state.profileEmail = String(event.target.value || "");
+        if (state.errorMessage) {
+          state.errorMessage = "";
+          renderStep();
+        }
+      });
+
     document.addEventListener("keydown", handleEscClose);
 
     return modal;
@@ -250,6 +312,7 @@
       modal,
       stepPhone: modal.querySelector("[data-megaska-step-phone]"),
       stepOtp: modal.querySelector("[data-megaska-step-otp]"),
+      stepProfile: modal.querySelector("[data-megaska-step-profile]"),
       stepSuccess: modal.querySelector("[data-megaska-step-success]"),
       phoneInput: modal.querySelector("[data-megaska-phone-input]"),
       phoneHint: modal.querySelector("[data-megaska-phone-hint]"),
@@ -257,6 +320,9 @@
       otpInputs: Array.from(modal.querySelectorAll("[data-megaska-otp-digit]")),
       resendText: modal.querySelector("[data-megaska-resend-text]"),
       resendBtn: modal.querySelector("[data-megaska-resend]"),
+      profileFullNameInput: modal.querySelector("[data-megaska-profile-fullname]"),
+      profileEmailInput: modal.querySelector("[data-megaska-profile-email]"),
+      profileSubmitBtn: modal.querySelector("[data-megaska-profile-submit]"),
       errorEl: modal.querySelector("[data-megaska-otp-error]"),
       successMessage: modal.querySelector("[data-megaska-success-message]"),
     };
@@ -266,22 +332,33 @@
     const {
       stepPhone,
       stepOtp,
+      stepProfile,
       stepSuccess,
       phoneInput,
       phoneHint,
       phoneDisplay,
       otpInputs,
+      profileFullNameInput,
+      profileEmailInput,
+      profileSubmitBtn,
       errorEl,
       successMessage,
     } = getModalParts();
 
     stepPhone.hidden = state.step !== "phone";
     stepOtp.hidden = state.step !== "otp";
+    stepProfile.hidden = state.step !== "profile";
     stepSuccess.hidden = state.step !== "success";
 
     phoneInput.value = state.phoneDigits;
     phoneDisplay.textContent = maskPhone(state.phoneDigits);
     successMessage.textContent = state.successMessage;
+    profileFullNameInput.value = state.profileFullName;
+    profileEmailInput.value = state.profileEmail;
+    profileFullNameInput.disabled = state.savingProfile;
+    profileEmailInput.disabled = state.savingProfile;
+    profileSubmitBtn.disabled = state.savingProfile;
+    profileSubmitBtn.textContent = state.savingProfile ? "Saving..." : "Save and Continue";
 
     otpInputs.forEach((input, index) => {
       input.value = state.otpDigits[index] || "";
@@ -336,6 +413,11 @@
     const { otpInputs } = getModalParts();
     const safeIndex = Math.max(0, Math.min(OTP_LENGTH - 1, index));
     setTimeout(() => otpInputs[safeIndex].focus(), 0);
+  }
+
+  function focusProfileInput() {
+    const { profileFullNameInput } = getModalParts();
+    setTimeout(() => profileFullNameInput.focus(), 0);
   }
 
   function openModal(triggerSource) {
@@ -398,6 +480,35 @@
     renderStep();
   }
 
+  function normalizeFullName(value) {
+    return String(value || "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function normalizeEmail(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  }
+
+  function needsProfileCompletion(customer) {
+    const fullName = normalizeFullName(customer?.fullName || customer?.firstName || "");
+    const email = normalizeEmail(customer?.email || "");
+    return !(fullName && email);
+  }
+
+  function renderProfileStep(customer) {
+    state.step = "profile";
+    state.errorMessage = "";
+    state.profileFullName = normalizeFullName(customer?.fullName || customer?.firstName || "");
+    state.profileEmail = normalizeEmail(customer?.email || "");
+    renderStep();
+    focusProfileInput();
+  }
+
   async function submitPhoneIfReady() {
     if (!isModalOpen()) return;
     if (state.requesting || state.verifying) return;
@@ -458,10 +569,16 @@
 
     try {
       await window.MegaskaAuth.verifyOtp(state.normalizedPhone, otp);
-      await window.MegaskaAuth.refreshAuthState();
+      const refreshedSession = await window.MegaskaAuth.refreshAuthState();
+      state.verifying = false;
+
+      if (needsProfileCompletion(refreshedSession?.customer)) {
+        renderProfileStep(refreshedSession?.customer);
+        return;
+      }
+
       hideAccountMenu();
       resumePendingAction();
-      state.verifying = false;
       renderSuccessStep("Login successful. Welcome to Megaska");
       setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS);
     } catch (error) {
@@ -470,6 +587,48 @@
       state.otpDigits = ["", "", "", ""];
       renderStep();
       focusOtpInput(0);
+    }
+  }
+
+  async function handleProfileSubmit() {
+    if (!isModalOpen()) return;
+    if (state.step !== "profile") return;
+    if (state.savingProfile) return;
+
+    const fullName = normalizeFullName(state.profileFullName);
+    const email = normalizeEmail(state.profileEmail);
+
+    if (!fullName) {
+      state.errorMessage = "Please enter your full name.";
+      renderStep();
+      focusProfileInput();
+      return;
+    }
+
+    if (!email || !isValidEmail(email)) {
+      state.errorMessage = "Please enter a valid email address.";
+      renderStep();
+      const { profileEmailInput } = getModalParts();
+      setTimeout(() => profileEmailInput.focus(), 0);
+      return;
+    }
+
+    state.savingProfile = true;
+    state.errorMessage = "";
+    renderStep();
+
+    try {
+      await window.MegaskaAuth.completeProfile({ fullName, email });
+      await window.MegaskaAuth.refreshAuthState();
+      state.savingProfile = false;
+      hideAccountMenu();
+      resumePendingAction();
+      renderSuccessStep("Profile saved. Welcome to Megaska");
+      setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS);
+    } catch (error) {
+      state.savingProfile = false;
+      state.errorMessage = error.message || "Unable to save your profile right now.";
+      renderStep();
     }
   }
 

@@ -1191,6 +1191,7 @@ export namespace Prisma {
   export type CustomerProfileMinAggregateOutputType = {
     id: string | null
     phoneE164: string | null
+    fullName: string | null
     firstName: string | null
     email: string | null
     shopifyCustomerId: string | null
@@ -1203,6 +1204,7 @@ export namespace Prisma {
   export type CustomerProfileMaxAggregateOutputType = {
     id: string | null
     phoneE164: string | null
+    fullName: string | null
     firstName: string | null
     email: string | null
     shopifyCustomerId: string | null
@@ -1215,6 +1217,7 @@ export namespace Prisma {
   export type CustomerProfileCountAggregateOutputType = {
     id: number
     phoneE164: number
+    fullName: number
     firstName: number
     email: number
     shopifyCustomerId: number
@@ -1229,6 +1232,7 @@ export namespace Prisma {
   export type CustomerProfileMinAggregateInputType = {
     id?: true
     phoneE164?: true
+    fullName?: true
     firstName?: true
     email?: true
     shopifyCustomerId?: true
@@ -1241,6 +1245,7 @@ export namespace Prisma {
   export type CustomerProfileMaxAggregateInputType = {
     id?: true
     phoneE164?: true
+    fullName?: true
     firstName?: true
     email?: true
     shopifyCustomerId?: true
@@ -1253,6 +1258,7 @@ export namespace Prisma {
   export type CustomerProfileCountAggregateInputType = {
     id?: true
     phoneE164?: true
+    fullName?: true
     firstName?: true
     email?: true
     shopifyCustomerId?: true
@@ -1338,6 +1344,7 @@ export namespace Prisma {
   export type CustomerProfileGroupByOutputType = {
     id: string
     phoneE164: string
+    fullName: string | null
     firstName: string | null
     email: string | null
     shopifyCustomerId: string | null
@@ -1367,6 +1374,7 @@ export namespace Prisma {
   export type CustomerProfileSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
     phoneE164?: boolean
+    fullName?: boolean
     firstName?: boolean
     email?: boolean
     shopifyCustomerId?: boolean
@@ -1382,6 +1390,7 @@ export namespace Prisma {
   export type CustomerProfileSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
     phoneE164?: boolean
+    fullName?: boolean
     firstName?: boolean
     email?: boolean
     shopifyCustomerId?: boolean
@@ -1394,6 +1403,7 @@ export namespace Prisma {
   export type CustomerProfileSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
     phoneE164?: boolean
+    fullName?: boolean
     firstName?: boolean
     email?: boolean
     shopifyCustomerId?: boolean
@@ -1406,6 +1416,7 @@ export namespace Prisma {
   export type CustomerProfileSelectScalar = {
     id?: boolean
     phoneE164?: boolean
+    fullName?: boolean
     firstName?: boolean
     email?: boolean
     shopifyCustomerId?: boolean
@@ -1415,7 +1426,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type CustomerProfileOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "phoneE164" | "firstName" | "email" | "shopifyCustomerId" | "phoneVerifiedAt" | "profileCompletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["customerProfile"]>
+  export type CustomerProfileOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "phoneE164" | "fullName" | "firstName" | "email" | "shopifyCustomerId" | "phoneVerifiedAt" | "profileCompletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["customerProfile"]>
   export type CustomerProfileInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     sessions?: boolean | CustomerProfile$sessionsArgs<ExtArgs>
     otpChallenges?: boolean | CustomerProfile$otpChallengesArgs<ExtArgs>
@@ -1433,6 +1444,7 @@ export namespace Prisma {
     scalars: $Extensions.GetPayloadResult<{
       id: string
       phoneE164: string
+      fullName: string | null
       firstName: string | null
       email: string | null
       shopifyCustomerId: string | null
@@ -1867,6 +1879,7 @@ export namespace Prisma {
   interface CustomerProfileFieldRefs {
     readonly id: FieldRef<"CustomerProfile", 'String'>
     readonly phoneE164: FieldRef<"CustomerProfile", 'String'>
+    readonly fullName: FieldRef<"CustomerProfile", 'String'>
     readonly firstName: FieldRef<"CustomerProfile", 'String'>
     readonly email: FieldRef<"CustomerProfile", 'String'>
     readonly shopifyCustomerId: FieldRef<"CustomerProfile", 'String'>
@@ -5690,6 +5703,7 @@ export namespace Prisma {
   export const CustomerProfileScalarFieldEnum: {
     id: 'id',
     phoneE164: 'phoneE164',
+    fullName: 'fullName',
     firstName: 'firstName',
     email: 'email',
     shopifyCustomerId: 'shopifyCustomerId',
@@ -5873,6 +5887,7 @@ export namespace Prisma {
     NOT?: CustomerProfileWhereInput | CustomerProfileWhereInput[]
     id?: StringFilter<"CustomerProfile"> | string
     phoneE164?: StringFilter<"CustomerProfile"> | string
+    fullName?: StringNullableFilter<"CustomerProfile"> | string | null
     firstName?: StringNullableFilter<"CustomerProfile"> | string | null
     email?: StringNullableFilter<"CustomerProfile"> | string | null
     shopifyCustomerId?: StringNullableFilter<"CustomerProfile"> | string | null
@@ -5887,6 +5902,7 @@ export namespace Prisma {
   export type CustomerProfileOrderByWithRelationInput = {
     id?: SortOrder
     phoneE164?: SortOrder
+    fullName?: SortOrderInput | SortOrder
     firstName?: SortOrderInput | SortOrder
     email?: SortOrderInput | SortOrder
     shopifyCustomerId?: SortOrderInput | SortOrder
@@ -5904,6 +5920,7 @@ export namespace Prisma {
     AND?: CustomerProfileWhereInput | CustomerProfileWhereInput[]
     OR?: CustomerProfileWhereInput[]
     NOT?: CustomerProfileWhereInput | CustomerProfileWhereInput[]
+    fullName?: StringNullableFilter<"CustomerProfile"> | string | null
     firstName?: StringNullableFilter<"CustomerProfile"> | string | null
     email?: StringNullableFilter<"CustomerProfile"> | string | null
     shopifyCustomerId?: StringNullableFilter<"CustomerProfile"> | string | null
@@ -5918,6 +5935,7 @@ export namespace Prisma {
   export type CustomerProfileOrderByWithAggregationInput = {
     id?: SortOrder
     phoneE164?: SortOrder
+    fullName?: SortOrderInput | SortOrder
     firstName?: SortOrderInput | SortOrder
     email?: SortOrderInput | SortOrder
     shopifyCustomerId?: SortOrderInput | SortOrder
@@ -5936,6 +5954,7 @@ export namespace Prisma {
     NOT?: CustomerProfileScalarWhereWithAggregatesInput | CustomerProfileScalarWhereWithAggregatesInput[]
     id?: StringWithAggregatesFilter<"CustomerProfile"> | string
     phoneE164?: StringWithAggregatesFilter<"CustomerProfile"> | string
+    fullName?: StringNullableWithAggregatesFilter<"CustomerProfile"> | string | null
     firstName?: StringNullableWithAggregatesFilter<"CustomerProfile"> | string | null
     email?: StringNullableWithAggregatesFilter<"CustomerProfile"> | string | null
     shopifyCustomerId?: StringNullableWithAggregatesFilter<"CustomerProfile"> | string | null
@@ -6177,6 +6196,7 @@ export namespace Prisma {
   export type CustomerProfileCreateInput = {
     id?: string
     phoneE164: string
+    fullName?: string | null
     firstName?: string | null
     email?: string | null
     shopifyCustomerId?: string | null
@@ -6191,6 +6211,7 @@ export namespace Prisma {
   export type CustomerProfileUncheckedCreateInput = {
     id?: string
     phoneE164: string
+    fullName?: string | null
     firstName?: string | null
     email?: string | null
     shopifyCustomerId?: string | null
@@ -6205,6 +6226,7 @@ export namespace Prisma {
   export type CustomerProfileUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
     phoneE164?: StringFieldUpdateOperationsInput | string
+    fullName?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
     shopifyCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -6219,6 +6241,7 @@ export namespace Prisma {
   export type CustomerProfileUncheckedUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
     phoneE164?: StringFieldUpdateOperationsInput | string
+    fullName?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
     shopifyCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -6233,6 +6256,7 @@ export namespace Prisma {
   export type CustomerProfileCreateManyInput = {
     id?: string
     phoneE164: string
+    fullName?: string | null
     firstName?: string | null
     email?: string | null
     shopifyCustomerId?: string | null
@@ -6245,6 +6269,7 @@ export namespace Prisma {
   export type CustomerProfileUpdateManyMutationInput = {
     id?: StringFieldUpdateOperationsInput | string
     phoneE164?: StringFieldUpdateOperationsInput | string
+    fullName?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
     shopifyCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -6257,6 +6282,7 @@ export namespace Prisma {
   export type CustomerProfileUncheckedUpdateManyInput = {
     id?: StringFieldUpdateOperationsInput | string
     phoneE164?: StringFieldUpdateOperationsInput | string
+    fullName?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
     shopifyCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -6603,6 +6629,7 @@ export namespace Prisma {
   export type CustomerProfileCountOrderByAggregateInput = {
     id?: SortOrder
     phoneE164?: SortOrder
+    fullName?: SortOrder
     firstName?: SortOrder
     email?: SortOrder
     shopifyCustomerId?: SortOrder
@@ -6615,6 +6642,7 @@ export namespace Prisma {
   export type CustomerProfileMaxOrderByAggregateInput = {
     id?: SortOrder
     phoneE164?: SortOrder
+    fullName?: SortOrder
     firstName?: SortOrder
     email?: SortOrder
     shopifyCustomerId?: SortOrder
@@ -6627,6 +6655,7 @@ export namespace Prisma {
   export type CustomerProfileMinOrderByAggregateInput = {
     id?: SortOrder
     phoneE164?: SortOrder
+    fullName?: SortOrder
     firstName?: SortOrder
     email?: SortOrder
     shopifyCustomerId?: SortOrder
@@ -7358,6 +7387,7 @@ export namespace Prisma {
   export type CustomerProfileCreateWithoutSessionsInput = {
     id?: string
     phoneE164: string
+    fullName?: string | null
     firstName?: string | null
     email?: string | null
     shopifyCustomerId?: string | null
@@ -7371,6 +7401,7 @@ export namespace Prisma {
   export type CustomerProfileUncheckedCreateWithoutSessionsInput = {
     id?: string
     phoneE164: string
+    fullName?: string | null
     firstName?: string | null
     email?: string | null
     shopifyCustomerId?: string | null
@@ -7400,6 +7431,7 @@ export namespace Prisma {
   export type CustomerProfileUpdateWithoutSessionsInput = {
     id?: StringFieldUpdateOperationsInput | string
     phoneE164?: StringFieldUpdateOperationsInput | string
+    fullName?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
     shopifyCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -7413,6 +7445,7 @@ export namespace Prisma {
   export type CustomerProfileUncheckedUpdateWithoutSessionsInput = {
     id?: StringFieldUpdateOperationsInput | string
     phoneE164?: StringFieldUpdateOperationsInput | string
+    fullName?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
     shopifyCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -7426,6 +7459,7 @@ export namespace Prisma {
   export type CustomerProfileCreateWithoutOtpChallengesInput = {
     id?: string
     phoneE164: string
+    fullName?: string | null
     firstName?: string | null
     email?: string | null
     shopifyCustomerId?: string | null
@@ -7439,6 +7473,7 @@ export namespace Prisma {
   export type CustomerProfileUncheckedCreateWithoutOtpChallengesInput = {
     id?: string
     phoneE164: string
+    fullName?: string | null
     firstName?: string | null
     email?: string | null
     shopifyCustomerId?: string | null
@@ -7468,6 +7503,7 @@ export namespace Prisma {
   export type CustomerProfileUpdateWithoutOtpChallengesInput = {
     id?: StringFieldUpdateOperationsInput | string
     phoneE164?: StringFieldUpdateOperationsInput | string
+    fullName?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
     shopifyCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
@@ -7481,6 +7517,7 @@ export namespace Prisma {
   export type CustomerProfileUncheckedUpdateWithoutOtpChallengesInput = {
     id?: StringFieldUpdateOperationsInput | string
     phoneE164?: StringFieldUpdateOperationsInput | string
+    fullName?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
     shopifyCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
