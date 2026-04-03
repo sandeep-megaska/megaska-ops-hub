@@ -203,6 +203,10 @@
     const countryRegion = String(source.countryRegion || "").trim();
     const params = {};
 
+    // Keep Shopify checkout prefill aligned with Megaska flow:
+    // - Contact section: email only
+    // - Shipping section: phone
+    // Do not populate contact phone fields (e.g. checkout[phone]).
     if (email) params["checkout[email]"] = email;
     if (phone) params["checkout[shipping_address][phone]"] = phone;
     if (firstName) {
@@ -239,6 +243,11 @@
     if (!Object.keys(params).length) return rawUrl;
 
     const url = new URL(rawUrl, window.location.origin);
+    // Remove any legacy contact phone query params to avoid forcing phone
+    // into checkout contact fields.
+    url.searchParams.delete("checkout[phone]");
+    url.searchParams.delete("checkout[contact][phone]");
+
     Object.entries(params).forEach(([key, value]) => {
       if (!url.searchParams.get(key)) {
         url.searchParams.set(key, value);
@@ -252,6 +261,13 @@
     const params = buildCheckoutPrefillParams(customer);
     const entries = Object.entries(params);
     if (!entries.length) return false;
+
+    // Remove legacy hidden contact phone inputs if they exist.
+    form
+      .querySelectorAll(
+        "input[type='hidden'][name='checkout[phone]'], input[type='hidden'][name='checkout[contact][phone]']"
+      )
+      .forEach((legacyInput) => legacyInput.remove());
 
     entries.forEach(([name, value]) => {
       let input = form.querySelector(`input[type="hidden"][name="${name}"]`);
