@@ -58,6 +58,14 @@ export async function POST(req: NextRequest) {
 
     const email = String(session.customer.email || "").trim();
     const phone = String(session.customer.phoneE164 || "").trim();
+    const firstName = String(session.customer.firstName || "").trim();
+    const lastName = String(session.customer.lastName || "").trim();
+    const address1 = String(session.customer.addressLine1 || "").trim();
+    const address2 = String(session.customer.addressLine2 || "").trim();
+    const city = String(session.customer.city || "").trim();
+    const province = String(session.customer.stateProvince || "").trim();
+    const zip = String(session.customer.postalCode || "").trim();
+    const country = String(session.customer.countryRegion || "").trim();
     const phoneVerifiedAt =
       session.customer.phoneVerifiedAt instanceof Date
         ? session.customer.phoneVerifiedAt.toISOString()
@@ -150,6 +158,14 @@ export async function POST(req: NextRequest) {
       buyerIdentity: {
         email,
         phone,
+        firstName,
+        lastName,
+        address1,
+        address2,
+        city,
+        province,
+        zip,
+        country,
       },
     });
 

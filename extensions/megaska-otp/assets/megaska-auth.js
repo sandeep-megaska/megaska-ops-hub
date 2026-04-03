@@ -143,8 +143,15 @@
     return apiFetch("/profile/complete", {
       method: "POST",
       body: JSON.stringify({
-        fullName: payload?.fullName || "",
+        firstName: payload?.firstName || "",
+        lastName: payload?.lastName || "",
         email: payload?.email || "",
+        addressLine1: payload?.addressLine1 || "",
+        addressLine2: payload?.addressLine2 || "",
+        city: payload?.city || "",
+        stateProvince: payload?.stateProvince || "",
+        postalCode: payload?.postalCode || "",
+        countryRegion: payload?.countryRegion || "",
       }),
     });
   }
@@ -184,17 +191,43 @@
     const source = customer || {};
     const fullName = source.fullName || source.firstName || "";
     const nameParts = splitName(fullName);
+    const firstName = String(source.firstName || nameParts.firstName || "").trim();
+    const lastName = String(source.lastName || nameParts.lastName || "").trim();
     const email = String(source.email || "").trim();
     const phone = String(source.phoneE164 || source.phone || "").trim();
+    const addressLine1 = String(source.addressLine1 || "").trim();
+    const addressLine2 = String(source.addressLine2 || "").trim();
+    const city = String(source.city || "").trim();
+    const stateProvince = String(source.stateProvince || "").trim();
+    const postalCode = String(source.postalCode || "").trim();
+    const countryRegion = String(source.countryRegion || "").trim();
     const params = {};
 
     if (email) params["checkout[email]"] = email;
     if (phone) params["checkout[shipping_address][phone]"] = phone;
-    if (nameParts.firstName) {
-      params["checkout[shipping_address][first_name]"] = nameParts.firstName;
+    if (firstName) {
+      params["checkout[shipping_address][first_name]"] = firstName;
     }
-    if (nameParts.lastName) {
-      params["checkout[shipping_address][last_name]"] = nameParts.lastName;
+    if (lastName) {
+      params["checkout[shipping_address][last_name]"] = lastName;
+    }
+    if (addressLine1) {
+      params["checkout[shipping_address][address1]"] = addressLine1;
+    }
+    if (addressLine2) {
+      params["checkout[shipping_address][address2]"] = addressLine2;
+    }
+    if (city) {
+      params["checkout[shipping_address][city]"] = city;
+    }
+    if (stateProvince) {
+      params["checkout[shipping_address][province]"] = stateProvince;
+    }
+    if (postalCode) {
+      params["checkout[shipping_address][zip]"] = postalCode;
+    }
+    if (countryRegion) {
+      params["checkout[shipping_address][country]"] = countryRegion;
     }
 
     return params;

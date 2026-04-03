@@ -12,7 +12,14 @@ model CustomerProfile {
   phoneE164           String   @unique
   fullName            String?
   firstName           String?
+  lastName            String?
   email               String?
+  addressLine1        String?
+  addressLine2        String?
+  city                String?
+  stateProvince       String?
+  postalCode          String?
+  countryRegion       String?
   shopifyCustomerId   String?
   phoneVerifiedAt     DateTime?
   profileCompletedAt  DateTime?

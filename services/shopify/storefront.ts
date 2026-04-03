@@ -8,6 +8,14 @@ type StorefrontGraphqlEnvelope<T> = {
 export type CartBuyerIdentityInput = {
   email?: string | null;
   phone?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  address1?: string | null;
+  address2?: string | null;
+  city?: string | null;
+  province?: string | null;
+  zip?: string | null;
+  country?: string | null;
 };
 
 export type CartBuyerIdentityUpdateResult = {
@@ -162,6 +170,20 @@ export async function updateCartBuyerIdentity(input: {
       buyerIdentity: {
         email: input.buyerIdentity.email || undefined,
         phone: input.buyerIdentity.phone || undefined,
+        deliveryAddressPreferences: [
+          {
+            deliveryAddress: {
+              firstName: input.buyerIdentity.firstName || undefined,
+              lastName: input.buyerIdentity.lastName || undefined,
+              address1: input.buyerIdentity.address1 || undefined,
+              address2: input.buyerIdentity.address2 || undefined,
+              city: input.buyerIdentity.city || undefined,
+              province: input.buyerIdentity.province || undefined,
+              zip: input.buyerIdentity.zip || undefined,
+              country: input.buyerIdentity.country || undefined,
+            },
+          },
+        ],
       },
     }
   );

@@ -15,6 +15,10 @@ function normalizeFullName(fullNameRaw: string) {
   return fullNameRaw.replace(/\s+/g, " ").trim();
 }
 
+function normalizeText(valueRaw: string) {
+  return valueRaw.replace(/\s+/g, " ").trim();
+}
+
 export async function OPTIONS(req: NextRequest) {
   return handleOptions(req);
 }
@@ -22,13 +26,28 @@ export async function OPTIONS(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const fullName = normalizeFullName(String(body?.fullName ?? ""));
+    const firstName = normalizeText(String(body?.firstName ?? ""));
+    const lastName = normalizeText(String(body?.lastName ?? ""));
+    const fullName = normalizeFullName(`${firstName} ${lastName}`);
     const email = normalizeEmail(String(body?.email ?? ""));
+    const addressLine1 = normalizeText(String(body?.addressLine1 ?? ""));
+    const addressLine2 = normalizeText(String(body?.addressLine2 ?? ""));
+    const city = normalizeText(String(body?.city ?? ""));
+    const stateProvince = normalizeText(String(body?.stateProvince ?? ""));
+    const postalCode = normalizeText(String(body?.postalCode ?? ""));
+    const countryRegion = normalizeText(String(body?.countryRegion ?? "India"));
 
-    if (!fullName) {
+    if (!firstName) {
       return withCors(
         req,
-        NextResponse.json({ success: false, error: "Full name is required" }, { status: 400 })
+        NextResponse.json({ success: false, error: "First name is required" }, { status: 400 })
+      );
+    }
+
+    if (!lastName) {
+      return withCors(
+        req,
+        NextResponse.json({ success: false, error: "Last name is required" }, { status: 400 })
       );
     }
 
@@ -37,6 +56,20 @@ export async function POST(req: NextRequest) {
       return withCors(
         req,
         NextResponse.json({ success: false, error: "Valid email is required" }, { status: 400 })
+      );
+    }
+
+    if (!addressLine1 || !city || !stateProvince || !postalCode || !countryRegion) {
+      return withCors(
+        req,
+        NextResponse.json(
+          {
+            success: false,
+            error:
+              "Address line 1, city, state/province, postal/PIN code, and country/region are required",
+          },
+          { status: 400 }
+        )
       );
     }
 
@@ -89,8 +122,16 @@ export async function POST(req: NextRequest) {
         id: session.customer.id,
       },
       data: {
+        firstName,
+        lastName,
         fullName,
         email,
+        addressLine1,
+        addressLine2: addressLine2 || null,
+        city,
+        stateProvince,
+        postalCode,
+        countryRegion,
         profileCompletedAt: now,
       },
     });
@@ -184,12 +225,28 @@ export async function POST(req: NextRequest) {
           phoneE164: updatedCustomer.phoneE164,
           fullName: updatedCustomer.fullName,
           firstName: updatedCustomer.firstName,
+          lastName: updatedCustomer.lastName,
           email: updatedCustomer.email,
+          addressLine1: updatedCustomer.addressLine1,
+          addressLine2: updatedCustomer.addressLine2,
+          city: updatedCustomer.city,
+          stateProvince: updatedCustomer.stateProvince,
+          postalCode: updatedCustomer.postalCode,
+          countryRegion: updatedCustomer.countryRegion,
           profileCompletedAt: updatedCustomer.profileCompletedAt,
           phoneVerifiedAt: updatedCustomer.phoneVerifiedAt,
           shopifyCustomerId: updatedCustomer.shopifyCustomerId,
         },
-        profileComplete: Boolean(updatedCustomer.fullName?.trim() && updatedCustomer.email?.trim()),
+        profileComplete: Boolean(
+          updatedCustomer.firstName?.trim() &&
+            updatedCustomer.lastName?.trim() &&
+            updatedCustomer.email?.trim() &&
+            updatedCustomer.addressLine1?.trim() &&
+            updatedCustomer.city?.trim() &&
+            updatedCustomer.stateProvince?.trim() &&
+            updatedCustomer.postalCode?.trim() &&
+            updatedCustomer.countryRegion?.trim()
+        ),
         shopifyCustomerId: updatedCustomer.shopifyCustomerId,
         shopifySync,
       })

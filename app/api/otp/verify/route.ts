@@ -223,10 +223,24 @@ export async function POST(req: NextRequest) {
           phoneE164: customerProfile.phoneE164,
           fullName: customerProfile.fullName,
           firstName: customerProfile.firstName,
+          lastName: customerProfile.lastName,
           email: customerProfile.email,
+          addressLine1: customerProfile.addressLine1,
+          addressLine2: customerProfile.addressLine2,
+          city: customerProfile.city,
+          stateProvince: customerProfile.stateProvince,
+          postalCode: customerProfile.postalCode,
+          countryRegion: customerProfile.countryRegion,
           profileCompletedAt: customerProfile.profileCompletedAt,
           profileComplete: Boolean(
-            customerProfile.fullName?.trim() && customerProfile.email?.trim()
+            customerProfile.firstName?.trim() &&
+              customerProfile.lastName?.trim() &&
+              customerProfile.email?.trim() &&
+              customerProfile.addressLine1?.trim() &&
+              customerProfile.city?.trim() &&
+              customerProfile.stateProvince?.trim() &&
+              customerProfile.postalCode?.trim() &&
+              customerProfile.countryRegion?.trim()
           ),
         },
       })
