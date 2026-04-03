@@ -863,6 +863,8 @@
         skipped: Boolean(result?.skipped),
         reason: result?.reason || "",
         cartId: result?.cartId || null,
+        buyerIdentity: result?.buyerIdentity || null,
+        checkoutUrl: result?.checkoutUrl || rawCheckoutUrl || null,
         userErrors: result?.userErrors || [],
         apiErrors: (result?.apiErrors || []).map((err) => err?.message || err),
       });
@@ -903,11 +905,26 @@
 
     if (action.type === "navigate" && action.url) {
       const prefilledUrl = await buildPrefilledCheckoutUrl(action.url);
+      console.log("[Megaska Checkout Prefill] checkout handoff start", {
+        source: "pendingAction.navigate.url",
+        detectedCheckoutUrl: prefilledUrl,
+      });
       const handoff = await runBuyerIdentityHandoff(prefilledUrl);
       const targetUrl = handoff?.checkoutUrl || prefilledUrl;
+      window.__megaskaCheckoutDebug = {
+        cartId: handoff?.cartId || null,
+        buyerIdentityPayload: {
+          email: String(handoff?.buyerIdentity?.email || "").trim() || null,
+          phone: String(handoff?.buyerIdentity?.phone || "").trim() || null,
+        },
+        mutationResult: handoff || null,
+        checkoutUrl: targetUrl || null,
+      };
       console.log("[Megaska Checkout Prefill] checkout continuation", {
         mode: "navigate",
-        targetUrl,
+        finalCheckoutUrl: targetUrl,
+        mutationWaited: true,
+        debugSurface: "window.__megaskaCheckoutDebug",
       });
       window.location.assign(targetUrl);
       return;
@@ -1103,11 +1120,26 @@
     if (isAnchorCheckoutTrigger) {
       event.preventDefault();
       const prefilledUrl = await buildPrefilledCheckoutUrl(targetUrl);
+      console.log("[Megaska Checkout Prefill] checkout handoff start", {
+        source: "interceptedCheckoutAnchor.href",
+        detectedCheckoutUrl: prefilledUrl,
+      });
       const handoff = await runBuyerIdentityHandoff(prefilledUrl);
       const finalTargetUrl = handoff?.checkoutUrl || prefilledUrl;
+      window.__megaskaCheckoutDebug = {
+        cartId: handoff?.cartId || null,
+        buyerIdentityPayload: {
+          email: String(handoff?.buyerIdentity?.email || "").trim() || null,
+          phone: String(handoff?.buyerIdentity?.phone || "").trim() || null,
+        },
+        mutationResult: handoff || null,
+        checkoutUrl: finalTargetUrl || null,
+      };
       console.log("[Megaska Checkout Prefill] checkout continuation", {
         mode: "click",
-        targetUrl: finalTargetUrl,
+        finalCheckoutUrl: finalTargetUrl,
+        mutationWaited: true,
+        debugSurface: "window.__megaskaCheckoutDebug",
       });
       window.location.assign(finalTargetUrl);
     }
@@ -1191,10 +1223,27 @@
 
       event.preventDefault();
       await applyCheckoutPrefillToForm(form);
-      await runBuyerIdentityHandoff(form.getAttribute("action") || "/checkout");
+      const formCheckoutUrl = form.getAttribute("action") || "/checkout";
+      console.log("[Megaska Checkout Prefill] checkout handoff start", {
+        source: "checkoutForm.action",
+        detectedCheckoutUrl: formCheckoutUrl,
+      });
+      const handoff = await runBuyerIdentityHandoff(formCheckoutUrl);
+      const finalCheckoutUrl = handoff?.checkoutUrl || formCheckoutUrl;
+      window.__megaskaCheckoutDebug = {
+        cartId: handoff?.cartId || null,
+        buyerIdentityPayload: {
+          email: String(handoff?.buyerIdentity?.email || "").trim() || null,
+          phone: String(handoff?.buyerIdentity?.phone || "").trim() || null,
+        },
+        mutationResult: handoff || null,
+        checkoutUrl: finalCheckoutUrl || null,
+      };
       console.log("[Megaska Checkout Prefill] checkout continuation", {
         mode: "form-submit",
-        action: form.getAttribute("action") || "/checkout",
+        finalCheckoutUrl,
+        mutationWaited: true,
+        debugSurface: "window.__megaskaCheckoutDebug",
       });
       form.submit();
     });

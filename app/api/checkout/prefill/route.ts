@@ -61,12 +61,18 @@ export async function POST(req: NextRequest) {
       cartId: body?.cartId,
       cartToken: body?.cartToken,
     });
+    const cartSource = String(body?.cartId || "").trim()
+      ? "body.cartId"
+      : String(body?.cartToken || "").trim()
+        ? "body.cartToken"
+        : "none";
 
     console.log("[Megaska Checkout Prefill] resolved active cart", {
       cartId: resolvedCartId || null,
+      cartSource,
       cartIdProvided: Boolean(String(body?.cartId || "").trim()),
       cartTokenProvided: Boolean(String(body?.cartToken || "").trim()),
-      checkoutUrlProvided: Boolean(String(body?.checkoutUrl || "").trim()),
+      checkoutUrl: String(body?.checkoutUrl || "").trim() || null,
     });
 
     if (!isShopifyStorefrontConfigured()) {
@@ -109,8 +115,8 @@ export async function POST(req: NextRequest) {
 
     console.log("[Megaska Buyer Identity] update started", {
       cartId: resolvedCartId,
-      hasEmail: Boolean(email),
-      hasPhone: Boolean(phone),
+      email: email || null,
+      phone: phone || null,
     });
 
     const updateResult = await updateCartBuyerIdentity({
@@ -124,6 +130,7 @@ export async function POST(req: NextRequest) {
     console.log("[Megaska Buyer Identity] update completed", {
       targetCartId: resolvedCartId,
       resultCartId: updateResult.cartId || null,
+      resultBuyerIdentity: updateResult.buyerIdentity || null,
       ok: updateResult.ok,
       userErrors: updateResult.userErrors,
       apiErrors: updateResult.apiErrors.map((err) => err.message || "unknown"),
@@ -136,6 +143,7 @@ export async function POST(req: NextRequest) {
         ok: updateResult.ok,
         cartId: updateResult.cartId || resolvedCartId,
         checkoutUrl: updateResult.checkoutUrl || body?.checkoutUrl || null,
+        buyerIdentity: updateResult.buyerIdentity || null,
         userErrors: updateResult.userErrors,
         apiErrors: updateResult.apiErrors,
       })
