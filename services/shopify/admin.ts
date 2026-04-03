@@ -26,10 +26,14 @@ export type OrderMegaskaIdentityInput = {
   customerProfileId?: string | null;
   shopifyCustomerId?: string | null;
   verificationCompletedAt?: string | null;
-  phoneMatchStatus?: "match" | "mismatch" | "missing_checkout_phone" | "missing_verified_phone";
-  checkoutContactPhone?: string | null;
-  checkoutContactEmail?: string | null;
+  phoneMatchStatus?: "match" | "mismatch" | "missing_order_phone" | "missing_verified_phone";
+  originalCheckoutPhone?: string | null;
+  orderContactEmail?: string | null;
   mismatchDetected?: boolean;
+  correctedOrderPhone?: string | null;
+  phoneCorrected?: boolean;
+  correctionAttempted?: boolean;
+  correctionError?: string | null;
 };
 
 function getShopDomain() {
@@ -228,6 +232,38 @@ async function setOrderTags(input: { orderId: string; tags: string[] }) {
   return data.tagsAdd;
 }
 
+export async function updateOrderPhone(input: { orderId: string; phone: string }) {
+  const data = await adminGraphql<{
+    orderUpdate: {
+      order?: { id: string; phone?: string | null } | null;
+      userErrors: Array<{ message: string; field?: string[] }>;
+    };
+  }>(
+    `
+      mutation UpdateOrderPhone($input: OrderInput!) {
+        orderUpdate(input: $input) {
+          order {
+            id
+            phone
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+    {
+      input: {
+        id: resolveOrderGid(input.orderId),
+        phone: String(input.phone || "").trim(),
+      },
+    }
+  );
+
+  return data.orderUpdate;
+}
+
 export function isShopifyAdminConfigured() {
   return Boolean(getShopDomain() && getAdminAccessToken());
 }
@@ -286,12 +322,22 @@ export async function setOrderMegaskaIdentityMetafields(input: OrderMegaskaIdent
       value: String(input.verificationCompletedAt || "").trim(),
     },
     { key: "phone_match_status", value: String(input.phoneMatchStatus || "").trim() },
-    { key: "checkout_contact_phone", value: String(input.checkoutContactPhone || "").trim() },
-    { key: "checkout_contact_email", value: String(input.checkoutContactEmail || "").trim() },
+    { key: "original_checkout_phone", value: String(input.originalCheckoutPhone || "").trim() },
+    { key: "corrected_order_phone", value: String(input.correctedOrderPhone || "").trim() },
+    {
+      key: "phone_corrected",
+      value: typeof input.phoneCorrected === "boolean" ? (input.phoneCorrected ? "true" : "false") : "",
+    },
+    { key: "order_contact_email", value: String(input.orderContactEmail || "").trim() },
     {
       key: "mismatch_detected",
       value: typeof input.mismatchDetected === "boolean" ? (input.mismatchDetected ? "true" : "false") : "",
     },
+    {
+      key: "correction_attempted",
+      value: typeof input.correctionAttempted === "boolean" ? (input.correctionAttempted ? "true" : "false") : "",
+    },
+    { key: "correction_error", value: String(input.correctionError || "").trim() },
   ].filter((entry) => entry.value);
 
   const metafields = entries.map((entry) => ({
@@ -326,9 +372,15 @@ export async function setOrderMegaskaIdentityMetafields(input: OrderMegaskaIdent
     { metafields }
   );
 
-  const tagsToAdd = ["MEGASKA_PHONE_VERIFIED"];
+  const tagsToAdd: string[] = [];
+  if (input.phoneMatchStatus === "match") {
+    tagsToAdd.push("MEGASKA_PHONE_VERIFIED");
+  }
   if (input.mismatchDetected) {
     tagsToAdd.push("MEGASKA_PHONE_MISMATCH");
+  }
+  if (input.phoneCorrected) {
+    tagsToAdd.push("MEGASKA_PHONE_CORRECTED");
   }
 
   const tagsResult = await setOrderTags({

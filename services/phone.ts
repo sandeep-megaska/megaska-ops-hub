@@ -1,7 +1,7 @@
 export type PhoneMatchStatus =
   | "match"
   | "mismatch"
-  | "missing_checkout_phone"
+  | "missing_order_phone"
   | "missing_verified_phone";
 
 export function normalizeIndianPhone(input: string | null | undefined) {
@@ -22,39 +22,39 @@ export function normalizeIndianPhone(input: string | null | undefined) {
 
 export function compareMegaskaPhoneIdentity(input: {
   verifiedPhone: string | null | undefined;
-  checkoutPhone: string | null | undefined;
+  orderPhone: string | null | undefined;
 }): {
   verifiedPhoneNormalized: string;
-  checkoutPhoneNormalized: string;
+  orderPhoneNormalized: string;
   status: PhoneMatchStatus;
   mismatchDetected: boolean;
 } {
   const verifiedPhoneNormalized = normalizeIndianPhone(input.verifiedPhone) || "";
-  const checkoutPhoneNormalized = normalizeIndianPhone(input.checkoutPhone) || "";
+  const orderPhoneNormalized = normalizeIndianPhone(input.orderPhone) || "";
 
   if (!verifiedPhoneNormalized) {
     return {
       verifiedPhoneNormalized,
-      checkoutPhoneNormalized,
+      orderPhoneNormalized,
       status: "missing_verified_phone",
       mismatchDetected: true,
     };
   }
 
-  if (!checkoutPhoneNormalized) {
+  if (!orderPhoneNormalized) {
     return {
       verifiedPhoneNormalized,
-      checkoutPhoneNormalized,
-      status: "missing_checkout_phone",
+      orderPhoneNormalized,
+      status: "missing_order_phone",
       mismatchDetected: true,
     };
   }
 
-  const isMatch = verifiedPhoneNormalized === checkoutPhoneNormalized;
+  const isMatch = verifiedPhoneNormalized === orderPhoneNormalized;
 
   return {
     verifiedPhoneNormalized,
-    checkoutPhoneNormalized,
+    orderPhoneNormalized,
     status: isMatch ? "match" : "mismatch",
     mismatchDetected: !isMatch,
   };
