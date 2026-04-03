@@ -863,6 +863,8 @@
         skipped: Boolean(result?.skipped),
         reason: result?.reason || "",
         cartId: result?.cartId || null,
+        buyerIdentity: result?.buyerIdentity || null,
+        checkoutUrl: result?.checkoutUrl || rawCheckoutUrl || null,
         userErrors: result?.userErrors || [],
         apiErrors: (result?.apiErrors || []).map((err) => err?.message || err),
       });
@@ -908,6 +910,10 @@
 
     if (action.type === "navigate" && action.url) {
       const prefilledUrl = await buildPrefilledCheckoutUrl(action.url);
+      console.log("[Megaska Checkout Prefill] checkout handoff start", {
+        source: "pendingAction.navigate.url",
+        detectedCheckoutUrl: prefilledUrl,
+      });
       const handoff = await runBuyerIdentityHandoff(prefilledUrl);
       if (isCheckoutContinuationBlocked(handoff)) {
         console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
@@ -917,9 +923,20 @@
         return;
       }
       const targetUrl = handoff?.checkoutUrl || prefilledUrl;
+      window.__megaskaCheckoutDebug = {
+        cartId: handoff?.cartId || null,
+        buyerIdentityPayload: {
+          email: String(handoff?.buyerIdentity?.email || "").trim() || null,
+          phone: String(handoff?.buyerIdentity?.phone || "").trim() || null,
+        },
+        mutationResult: handoff || null,
+        checkoutUrl: targetUrl || null,
+      };
       console.log("[Megaska Checkout Prefill] checkout continuation", {
         mode: "navigate",
-        targetUrl,
+        finalCheckoutUrl: targetUrl,
+        mutationWaited: true,
+        debugSurface: "window.__megaskaCheckoutDebug",
       });
       window.location.assign(targetUrl);
       return;
@@ -1147,6 +1164,10 @@
     if (isAnchorCheckoutTrigger) {
       event.preventDefault();
       const prefilledUrl = await buildPrefilledCheckoutUrl(targetUrl);
+      console.log("[Megaska Checkout Prefill] checkout handoff start", {
+        source: "interceptedCheckoutAnchor.href",
+        detectedCheckoutUrl: prefilledUrl,
+      });
       const handoff = await runBuyerIdentityHandoff(prefilledUrl);
       if (isCheckoutContinuationBlocked(handoff)) {
         console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
@@ -1156,9 +1177,20 @@
         return;
       }
       const finalTargetUrl = handoff?.checkoutUrl || prefilledUrl;
+      window.__megaskaCheckoutDebug = {
+        cartId: handoff?.cartId || null,
+        buyerIdentityPayload: {
+          email: String(handoff?.buyerIdentity?.email || "").trim() || null,
+          phone: String(handoff?.buyerIdentity?.phone || "").trim() || null,
+        },
+        mutationResult: handoff || null,
+        checkoutUrl: finalTargetUrl || null,
+      };
       console.log("[Megaska Checkout Prefill] checkout continuation", {
         mode: "click",
-        targetUrl: finalTargetUrl,
+        finalCheckoutUrl: finalTargetUrl,
+        mutationWaited: true,
+        debugSurface: "window.__megaskaCheckoutDebug",
       });
       window.location.assign(finalTargetUrl);
     }
@@ -1242,17 +1274,23 @@
 
       event.preventDefault();
       await applyCheckoutPrefillToForm(form);
-      const handoff = await runBuyerIdentityHandoff(form.getAttribute("action") || "/checkout");
-      if (isCheckoutContinuationBlocked(handoff)) {
-        console.warn("[Megaska Checkout Gate] form submit stopped after handoff", {
-          reason: handoff.reason || "blocked",
-        });
-        openModal("checkout-gate-blocked");
-        return;
-      }
+return withCors(
+  req,
+  NextResponse.json({
+    ok: updateResult.ok && attributeResult.ok,
+    cartId: attributeResult.cartId || updateResult.cartId || resolvedCartId,
+    checkoutUrl:
+      attributeResult.checkoutUrl || updateResult.checkoutUrl || body?.checkoutUrl || null,
+    buyerIdentity: updateResult.buyerIdentity || null,
+    userErrors: [...updateResult.userErrors, ...attributeResult.userErrors],
+    apiErrors: [...updateResult.apiErrors, ...attributeResult.apiErrors],
+  })
+);
       console.log("[Megaska Checkout Prefill] checkout continuation", {
         mode: "form-submit",
-        action: form.getAttribute("action") || "/checkout",
+        finalCheckoutUrl,
+        mutationWaited: true,
+        debugSurface: "window.__megaskaCheckoutDebug",
       });
       form.submit();
     });

@@ -14,6 +14,11 @@ export type CartBuyerIdentityUpdateResult = {
   ok: boolean;
   cartId?: string;
   checkoutUrl?: string;
+  buyerIdentity?: {
+    email?: string | null;
+    phone?: string | null;
+    customerId?: string | null;
+  };
   userErrors: Array<{ field?: string[] | null; message: string }>;
   apiErrors: Array<{ message?: string }>;
 };
@@ -120,6 +125,13 @@ export async function updateCartBuyerIdentity(input: {
       cart?: {
         id: string;
         checkoutUrl?: string | null;
+        buyerIdentity?: {
+          email?: string | null;
+          phone?: string | null;
+          customer?: {
+            id?: string | null;
+          } | null;
+        } | null;
       } | null;
       userErrors: Array<{ field?: string[] | null; message: string }>;
     };
@@ -130,6 +142,13 @@ export async function updateCartBuyerIdentity(input: {
           cart {
             id
             checkoutUrl
+            buyerIdentity {
+              email
+              phone
+              customer {
+                id
+              }
+            }
           }
           userErrors {
             field
@@ -155,6 +174,12 @@ export async function updateCartBuyerIdentity(input: {
     ),
     cartId: response.data?.cartBuyerIdentityUpdate?.cart?.id || resolvedCartId,
     checkoutUrl: response.data?.cartBuyerIdentityUpdate?.cart?.checkoutUrl || undefined,
+    buyerIdentity: {
+      email: response.data?.cartBuyerIdentityUpdate?.cart?.buyerIdentity?.email || null,
+      phone: response.data?.cartBuyerIdentityUpdate?.cart?.buyerIdentity?.phone || null,
+      customerId:
+        response.data?.cartBuyerIdentityUpdate?.cart?.buyerIdentity?.customer?.id || null,
+    },
     userErrors: response.data?.cartBuyerIdentityUpdate?.userErrors || [],
     apiErrors: response.errors || [],
   };
