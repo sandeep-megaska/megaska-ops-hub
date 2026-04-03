@@ -4,6 +4,7 @@ import { compareMegaskaPhoneIdentity, normalizeIndianPhone } from "../../../../.
 import {
   isShopifyAdminConfigured,
   setOrderMegaskaIdentityMetafields,
+  updateOrderPhone,
 } from "../../../../../services/shopify/admin";
 
 type ShopifyOrderWebhookPayload = {
@@ -57,7 +58,7 @@ function toAttributeMap(noteAttributes: ShopifyOrderWebhookPayload["note_attribu
   return map;
 }
 
-function resolveCheckoutContactPhone(payload: ShopifyOrderWebhookPayload) {
+function resolveOrderContactPhone(payload: ShopifyOrderWebhookPayload) {
   return String(
     payload.phone ||
       payload.shipping_address?.phone ||
@@ -100,12 +101,12 @@ export async function POST(req: NextRequest) {
   const shopifyCustomerId = String(attributes.megaska_shopify_customer_id || "").trim();
   const verificationCompletedAt = String(attributes.megaska_auth_verified_at || "").trim();
 
-  const checkoutContactPhone = resolveCheckoutContactPhone(payload);
-  const checkoutContactEmail = resolveCheckoutContactEmail(payload);
+  const orderContactPhone = resolveOrderContactPhone(payload);
+  const orderContactEmail = resolveCheckoutContactEmail(payload);
 
   const phoneMatch = compareMegaskaPhoneIdentity({
     verifiedPhone,
-    checkoutPhone: checkoutContactPhone,
+    orderPhone: orderContactPhone,
   });
 
   console.log("[Megaska Order Identity] webhook received", {
@@ -125,9 +126,9 @@ export async function POST(req: NextRequest) {
 
   console.log("[Megaska Phone Match] comparison computed", {
     orderId: orderId || null,
-    checkoutContactPhone: checkoutContactPhone || null,
-    checkoutContactPhoneNormalized: phoneMatch.checkoutPhoneNormalized || null,
-    checkoutContactEmail: checkoutContactEmail || null,
+    originalOrderPhone: orderContactPhone || null,
+    originalOrderPhoneNormalized: phoneMatch.orderPhoneNormalized || null,
+    orderContactEmail: orderContactEmail || null,
     phoneMatchStatus: phoneMatch.status,
     mismatchDetected: phoneMatch.mismatchDetected,
   });
@@ -153,9 +154,56 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const normalizedVerifiedPhone = normalizeIndianPhone(verifiedPhone) || verifiedPhone;
+    const correctionEligible = phoneMatch.status === "mismatch" || phoneMatch.status === "missing_order_phone";
+
+    let correctionAttempted = false;
+    let phoneCorrected = false;
+    let correctedOrderPhone = "";
+    let correctionError = "";
+
+    if (correctionEligible) {
+      correctionAttempted = true;
+      console.log("[Megaska Phone Correction] correction attempt started", {
+        orderId,
+        phoneMatchStatus: phoneMatch.status,
+        trustedVerifiedPhone: normalizedVerifiedPhone,
+        originalOrderPhone: orderContactPhone || null,
+      });
+
+      try {
+        const correctionResult = await updateOrderPhone({
+          orderId,
+          phone: normalizedVerifiedPhone,
+        });
+
+        const updateError = correctionResult.userErrors[0]?.message;
+        if (updateError) {
+          correctionError = updateError;
+          console.error("[Megaska Phone Correction] correction failed", {
+            orderId,
+            error: correctionError,
+          });
+        } else {
+          phoneCorrected = true;
+          correctedOrderPhone = String(correctionResult.order?.phone || normalizedVerifiedPhone).trim();
+          console.log("[Megaska Phone Correction] correction succeeded", {
+            orderId,
+            correctedOrderPhone: correctedOrderPhone || normalizedVerifiedPhone,
+          });
+        }
+      } catch (error) {
+        correctionError = error instanceof Error ? error.message : "Unknown error";
+        console.error("[Megaska Phone Correction] correction failed", {
+          orderId,
+          error: correctionError,
+        });
+      }
+    }
+
     const result = await setOrderMegaskaIdentityMetafields({
       orderId,
-      verifiedPhone: normalizeIndianPhone(verifiedPhone) || verifiedPhone,
+      verifiedPhone: normalizedVerifiedPhone,
       phoneVerified,
       authSource,
       customerProfileId,
@@ -163,8 +211,12 @@ export async function POST(req: NextRequest) {
       verificationCompletedAt,
       phoneMatchStatus: phoneMatch.status,
       mismatchDetected: phoneMatch.mismatchDetected,
-      checkoutContactPhone,
-      checkoutContactEmail,
+      originalCheckoutPhone: orderContactPhone,
+      orderContactEmail,
+      correctedOrderPhone,
+      phoneCorrected,
+      correctionAttempted,
+      correctionError,
     });
 
     console.log("[Megaska Order Identity] metafields and tags written", {
@@ -172,6 +224,8 @@ export async function POST(req: NextRequest) {
       keys: result.metafields.map((metafield) => metafield.key),
       tags: result.tags,
       userErrors: result.userErrors,
+      correctionAttempted,
+      phoneCorrected,
     });
 
     return NextResponse.json({
@@ -179,6 +233,8 @@ export async function POST(req: NextRequest) {
       orderId,
       phoneMatchStatus: phoneMatch.status,
       mismatchDetected: phoneMatch.mismatchDetected,
+      correctionAttempted,
+      phoneCorrected,
       metafieldsWritten: result.metafields.length,
       tagsWritten: result.tags,
       userErrors: result.userErrors,
