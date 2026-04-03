@@ -1193,7 +1193,14 @@ export namespace Prisma {
     phoneE164: string | null
     fullName: string | null
     firstName: string | null
+    lastName: string | null
     email: string | null
+    addressLine1: string | null
+    addressLine2: string | null
+    city: string | null
+    stateProvince: string | null
+    postalCode: string | null
+    countryRegion: string | null
     shopifyCustomerId: string | null
     phoneVerifiedAt: Date | null
     profileCompletedAt: Date | null
@@ -1206,7 +1213,14 @@ export namespace Prisma {
     phoneE164: string | null
     fullName: string | null
     firstName: string | null
+    lastName: string | null
     email: string | null
+    addressLine1: string | null
+    addressLine2: string | null
+    city: string | null
+    stateProvince: string | null
+    postalCode: string | null
+    countryRegion: string | null
     shopifyCustomerId: string | null
     phoneVerifiedAt: Date | null
     profileCompletedAt: Date | null
@@ -1219,7 +1233,14 @@ export namespace Prisma {
     phoneE164: number
     fullName: number
     firstName: number
+    lastName: number
     email: number
+    addressLine1: number
+    addressLine2: number
+    city: number
+    stateProvince: number
+    postalCode: number
+    countryRegion: number
     shopifyCustomerId: number
     phoneVerifiedAt: number
     profileCompletedAt: number
@@ -1234,7 +1255,14 @@ export namespace Prisma {
     phoneE164?: true
     fullName?: true
     firstName?: true
+    lastName?: true
     email?: true
+    addressLine1?: true
+    addressLine2?: true
+    city?: true
+    stateProvince?: true
+    postalCode?: true
+    countryRegion?: true
     shopifyCustomerId?: true
     phoneVerifiedAt?: true
     profileCompletedAt?: true
@@ -1247,7 +1275,14 @@ export namespace Prisma {
     phoneE164?: true
     fullName?: true
     firstName?: true
+    lastName?: true
     email?: true
+    addressLine1?: true
+    addressLine2?: true
+    city?: true
+    stateProvince?: true
+    postalCode?: true
+    countryRegion?: true
     shopifyCustomerId?: true
     phoneVerifiedAt?: true
     profileCompletedAt?: true
@@ -1260,7 +1295,14 @@ export namespace Prisma {
     phoneE164?: true
     fullName?: true
     firstName?: true
+    lastName?: true
     email?: true
+    addressLine1?: true
+    addressLine2?: true
+    city?: true
+    stateProvince?: true
+    postalCode?: true
+    countryRegion?: true
     shopifyCustomerId?: true
     phoneVerifiedAt?: true
     profileCompletedAt?: true
@@ -1346,7 +1388,14 @@ export namespace Prisma {
     phoneE164: string
     fullName: string | null
     firstName: string | null
+    lastName: string | null
     email: string | null
+    addressLine1: string | null
+    addressLine2: string | null
+    city: string | null
+    stateProvince: string | null
+    postalCode: string | null
+    countryRegion: string | null
     shopifyCustomerId: string | null
     phoneVerifiedAt: Date | null
     profileCompletedAt: Date | null
@@ -1376,7 +1425,14 @@ export namespace Prisma {
     phoneE164?: boolean
     fullName?: boolean
     firstName?: boolean
+    lastName?: boolean
     email?: boolean
+    addressLine1?: boolean
+    addressLine2?: boolean
+    city?: boolean
+    stateProvince?: boolean
+    postalCode?: boolean
+    countryRegion?: boolean
     shopifyCustomerId?: boolean
     phoneVerifiedAt?: boolean
     profileCompletedAt?: boolean
@@ -1392,7 +1448,14 @@ export namespace Prisma {
     phoneE164?: boolean
     fullName?: boolean
     firstName?: boolean
+    lastName?: boolean
     email?: boolean
+    addressLine1?: boolean
+    addressLine2?: boolean
+    city?: boolean
+    stateProvince?: boolean
+    postalCode?: boolean
+    countryRegion?: boolean
     shopifyCustomerId?: boolean
     phoneVerifiedAt?: boolean
     profileCompletedAt?: boolean
@@ -1405,7 +1468,14 @@ export namespace Prisma {
     phoneE164?: boolean
     fullName?: boolean
     firstName?: boolean
+    lastName?: boolean
     email?: boolean
+    addressLine1?: boolean
+    addressLine2?: boolean
+    city?: boolean
+    stateProvince?: boolean
+    postalCode?: boolean
+    countryRegion?: boolean
     shopifyCustomerId?: boolean
     phoneVerifiedAt?: boolean
     profileCompletedAt?: boolean
@@ -1418,7 +1488,14 @@ export namespace Prisma {
     phoneE164?: boolean
     fullName?: boolean
     firstName?: boolean
+    lastName?: boolean
     email?: boolean
+    addressLine1?: boolean
+    addressLine2?: boolean
+    city?: boolean
+    stateProvince?: boolean
+    postalCode?: boolean
+    countryRegion?: boolean
     shopifyCustomerId?: boolean
     phoneVerifiedAt?: boolean
     profileCompletedAt?: boolean
@@ -1426,7 +1503,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type CustomerProfileOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "phoneE164" | "fullName" | "firstName" | "email" | "shopifyCustomerId" | "phoneVerifiedAt" | "profileCompletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["customerProfile"]>
+  export type CustomerProfileOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "phoneE164" | "fullName" | "firstName" | "lastName" | "email" | "addressLine1" | "addressLine2" | "city" | "stateProvince" | "postalCode" | "countryRegion" | "shopifyCustomerId" | "phoneVerifiedAt" | "profileCompletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["customerProfile"]>
   export type CustomerProfileInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     sessions?: boolean | CustomerProfile$sessionsArgs<ExtArgs>
     otpChallenges?: boolean | CustomerProfile$otpChallengesArgs<ExtArgs>
@@ -1446,7 +1523,14 @@ export namespace Prisma {
       phoneE164: string
       fullName: string | null
       firstName: string | null
+      lastName: string | null
       email: string | null
+      addressLine1: string | null
+      addressLine2: string | null
+      city: string | null
+      stateProvince: string | null
+      postalCode: string | null
+      countryRegion: string | null
       shopifyCustomerId: string | null
       phoneVerifiedAt: Date | null
       profileCompletedAt: Date | null
@@ -1881,7 +1965,14 @@ export namespace Prisma {
     readonly phoneE164: FieldRef<"CustomerProfile", 'String'>
     readonly fullName: FieldRef<"CustomerProfile", 'String'>
     readonly firstName: FieldRef<"CustomerProfile", 'String'>
+    readonly lastName: FieldRef<"CustomerProfile", 'String'>
     readonly email: FieldRef<"CustomerProfile", 'String'>
+    readonly addressLine1: FieldRef<"CustomerProfile", 'String'>
+    readonly addressLine2: FieldRef<"CustomerProfile", 'String'>
+    readonly city: FieldRef<"CustomerProfile", 'String'>
+    readonly stateProvince: FieldRef<"CustomerProfile", 'String'>
+    readonly postalCode: FieldRef<"CustomerProfile", 'String'>
+    readonly countryRegion: FieldRef<"CustomerProfile", 'String'>
     readonly shopifyCustomerId: FieldRef<"CustomerProfile", 'String'>
     readonly phoneVerifiedAt: FieldRef<"CustomerProfile", 'DateTime'>
     readonly profileCompletedAt: FieldRef<"CustomerProfile", 'DateTime'>
@@ -5705,7 +5796,14 @@ export namespace Prisma {
     phoneE164: 'phoneE164',
     fullName: 'fullName',
     firstName: 'firstName',
+    lastName: 'lastName',
     email: 'email',
+    addressLine1: 'addressLine1',
+    addressLine2: 'addressLine2',
+    city: 'city',
+    stateProvince: 'stateProvince',
+    postalCode: 'postalCode',
+    countryRegion: 'countryRegion',
     shopifyCustomerId: 'shopifyCustomerId',
     phoneVerifiedAt: 'phoneVerifiedAt',
     profileCompletedAt: 'profileCompletedAt',
@@ -5889,7 +5987,14 @@ export namespace Prisma {
     phoneE164?: StringFilter<"CustomerProfile"> | string
     fullName?: StringNullableFilter<"CustomerProfile"> | string | null
     firstName?: StringNullableFilter<"CustomerProfile"> | string | null
+    lastName?: StringNullableFilter<"CustomerProfile"> | string | null
     email?: StringNullableFilter<"CustomerProfile"> | string | null
+    addressLine1?: StringNullableFilter<"CustomerProfile"> | string | null
+    addressLine2?: StringNullableFilter<"CustomerProfile"> | string | null
+    city?: StringNullableFilter<"CustomerProfile"> | string | null
+    stateProvince?: StringNullableFilter<"CustomerProfile"> | string | null
+    postalCode?: StringNullableFilter<"CustomerProfile"> | string | null
+    countryRegion?: StringNullableFilter<"CustomerProfile"> | string | null
     shopifyCustomerId?: StringNullableFilter<"CustomerProfile"> | string | null
     phoneVerifiedAt?: DateTimeNullableFilter<"CustomerProfile"> | Date | string | null
     profileCompletedAt?: DateTimeNullableFilter<"CustomerProfile"> | Date | string | null
@@ -5904,7 +6009,14 @@ export namespace Prisma {
     phoneE164?: SortOrder
     fullName?: SortOrderInput | SortOrder
     firstName?: SortOrderInput | SortOrder
+    lastName?: SortOrderInput | SortOrder
     email?: SortOrderInput | SortOrder
+    addressLine1?: SortOrderInput | SortOrder
+    addressLine2?: SortOrderInput | SortOrder
+    city?: SortOrderInput | SortOrder
+    stateProvince?: SortOrderInput | SortOrder
+    postalCode?: SortOrderInput | SortOrder
+    countryRegion?: SortOrderInput | SortOrder
     shopifyCustomerId?: SortOrderInput | SortOrder
     phoneVerifiedAt?: SortOrderInput | SortOrder
     profileCompletedAt?: SortOrderInput | SortOrder
@@ -5922,7 +6034,14 @@ export namespace Prisma {
     NOT?: CustomerProfileWhereInput | CustomerProfileWhereInput[]
     fullName?: StringNullableFilter<"CustomerProfile"> | string | null
     firstName?: StringNullableFilter<"CustomerProfile"> | string | null
+    lastName?: StringNullableFilter<"CustomerProfile"> | string | null
     email?: StringNullableFilter<"CustomerProfile"> | string | null
+    addressLine1?: StringNullableFilter<"CustomerProfile"> | string | null
+    addressLine2?: StringNullableFilter<"CustomerProfile"> | string | null
+    city?: StringNullableFilter<"CustomerProfile"> | string | null
+    stateProvince?: StringNullableFilter<"CustomerProfile"> | string | null
+    postalCode?: StringNullableFilter<"CustomerProfile"> | string | null
+    countryRegion?: StringNullableFilter<"CustomerProfile"> | string | null
     shopifyCustomerId?: StringNullableFilter<"CustomerProfile"> | string | null
     phoneVerifiedAt?: DateTimeNullableFilter<"CustomerProfile"> | Date | string | null
     profileCompletedAt?: DateTimeNullableFilter<"CustomerProfile"> | Date | string | null
@@ -5937,7 +6056,14 @@ export namespace Prisma {
     phoneE164?: SortOrder
     fullName?: SortOrderInput | SortOrder
     firstName?: SortOrderInput | SortOrder
+    lastName?: SortOrderInput | SortOrder
     email?: SortOrderInput | SortOrder
+    addressLine1?: SortOrderInput | SortOrder
+    addressLine2?: SortOrderInput | SortOrder
+    city?: SortOrderInput | SortOrder
+    stateProvince?: SortOrderInput | SortOrder
+    postalCode?: SortOrderInput | SortOrder
+    countryRegion?: SortOrderInput | SortOrder
     shopifyCustomerId?: SortOrderInput | SortOrder
     phoneVerifiedAt?: SortOrderInput | SortOrder
     profileCompletedAt?: SortOrderInput | SortOrder
@@ -5956,7 +6082,14 @@ export namespace Prisma {
     phoneE164?: StringWithAggregatesFilter<"CustomerProfile"> | string
     fullName?: StringNullableWithAggregatesFilter<"CustomerProfile"> | string | null
     firstName?: StringNullableWithAggregatesFilter<"CustomerProfile"> | string | null
+    lastName?: StringNullableWithAggregatesFilter<"CustomerProfile"> | string | null
     email?: StringNullableWithAggregatesFilter<"CustomerProfile"> | string | null
+    addressLine1?: StringNullableWithAggregatesFilter<"CustomerProfile"> | string | null
+    addressLine2?: StringNullableWithAggregatesFilter<"CustomerProfile"> | string | null
+    city?: StringNullableWithAggregatesFilter<"CustomerProfile"> | string | null
+    stateProvince?: StringNullableWithAggregatesFilter<"CustomerProfile"> | string | null
+    postalCode?: StringNullableWithAggregatesFilter<"CustomerProfile"> | string | null
+    countryRegion?: StringNullableWithAggregatesFilter<"CustomerProfile"> | string | null
     shopifyCustomerId?: StringNullableWithAggregatesFilter<"CustomerProfile"> | string | null
     phoneVerifiedAt?: DateTimeNullableWithAggregatesFilter<"CustomerProfile"> | Date | string | null
     profileCompletedAt?: DateTimeNullableWithAggregatesFilter<"CustomerProfile"> | Date | string | null
@@ -6198,7 +6331,14 @@ export namespace Prisma {
     phoneE164: string
     fullName?: string | null
     firstName?: string | null
+    lastName?: string | null
     email?: string | null
+    addressLine1?: string | null
+    addressLine2?: string | null
+    city?: string | null
+    stateProvince?: string | null
+    postalCode?: string | null
+    countryRegion?: string | null
     shopifyCustomerId?: string | null
     phoneVerifiedAt?: Date | string | null
     profileCompletedAt?: Date | string | null
@@ -6213,7 +6353,14 @@ export namespace Prisma {
     phoneE164: string
     fullName?: string | null
     firstName?: string | null
+    lastName?: string | null
     email?: string | null
+    addressLine1?: string | null
+    addressLine2?: string | null
+    city?: string | null
+    stateProvince?: string | null
+    postalCode?: string | null
+    countryRegion?: string | null
     shopifyCustomerId?: string | null
     phoneVerifiedAt?: Date | string | null
     profileCompletedAt?: Date | string | null
@@ -6228,7 +6375,14 @@ export namespace Prisma {
     phoneE164?: StringFieldUpdateOperationsInput | string
     fullName?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: NullableStringFieldUpdateOperationsInput | string | null
+    lastName?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
+    addressLine1?: NullableStringFieldUpdateOperationsInput | string | null
+    addressLine2?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    stateProvince?: NullableStringFieldUpdateOperationsInput | string | null
+    postalCode?: NullableStringFieldUpdateOperationsInput | string | null
+    countryRegion?: NullableStringFieldUpdateOperationsInput | string | null
     shopifyCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     phoneVerifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     profileCompletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -6243,7 +6397,14 @@ export namespace Prisma {
     phoneE164?: StringFieldUpdateOperationsInput | string
     fullName?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: NullableStringFieldUpdateOperationsInput | string | null
+    lastName?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
+    addressLine1?: NullableStringFieldUpdateOperationsInput | string | null
+    addressLine2?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    stateProvince?: NullableStringFieldUpdateOperationsInput | string | null
+    postalCode?: NullableStringFieldUpdateOperationsInput | string | null
+    countryRegion?: NullableStringFieldUpdateOperationsInput | string | null
     shopifyCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     phoneVerifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     profileCompletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -6258,7 +6419,14 @@ export namespace Prisma {
     phoneE164: string
     fullName?: string | null
     firstName?: string | null
+    lastName?: string | null
     email?: string | null
+    addressLine1?: string | null
+    addressLine2?: string | null
+    city?: string | null
+    stateProvince?: string | null
+    postalCode?: string | null
+    countryRegion?: string | null
     shopifyCustomerId?: string | null
     phoneVerifiedAt?: Date | string | null
     profileCompletedAt?: Date | string | null
@@ -6271,7 +6439,14 @@ export namespace Prisma {
     phoneE164?: StringFieldUpdateOperationsInput | string
     fullName?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: NullableStringFieldUpdateOperationsInput | string | null
+    lastName?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
+    addressLine1?: NullableStringFieldUpdateOperationsInput | string | null
+    addressLine2?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    stateProvince?: NullableStringFieldUpdateOperationsInput | string | null
+    postalCode?: NullableStringFieldUpdateOperationsInput | string | null
+    countryRegion?: NullableStringFieldUpdateOperationsInput | string | null
     shopifyCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     phoneVerifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     profileCompletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -6284,7 +6459,14 @@ export namespace Prisma {
     phoneE164?: StringFieldUpdateOperationsInput | string
     fullName?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: NullableStringFieldUpdateOperationsInput | string | null
+    lastName?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
+    addressLine1?: NullableStringFieldUpdateOperationsInput | string | null
+    addressLine2?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    stateProvince?: NullableStringFieldUpdateOperationsInput | string | null
+    postalCode?: NullableStringFieldUpdateOperationsInput | string | null
+    countryRegion?: NullableStringFieldUpdateOperationsInput | string | null
     shopifyCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     phoneVerifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     profileCompletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -6631,7 +6813,14 @@ export namespace Prisma {
     phoneE164?: SortOrder
     fullName?: SortOrder
     firstName?: SortOrder
+    lastName?: SortOrder
     email?: SortOrder
+    addressLine1?: SortOrder
+    addressLine2?: SortOrder
+    city?: SortOrder
+    stateProvince?: SortOrder
+    postalCode?: SortOrder
+    countryRegion?: SortOrder
     shopifyCustomerId?: SortOrder
     phoneVerifiedAt?: SortOrder
     profileCompletedAt?: SortOrder
@@ -6644,7 +6833,14 @@ export namespace Prisma {
     phoneE164?: SortOrder
     fullName?: SortOrder
     firstName?: SortOrder
+    lastName?: SortOrder
     email?: SortOrder
+    addressLine1?: SortOrder
+    addressLine2?: SortOrder
+    city?: SortOrder
+    stateProvince?: SortOrder
+    postalCode?: SortOrder
+    countryRegion?: SortOrder
     shopifyCustomerId?: SortOrder
     phoneVerifiedAt?: SortOrder
     profileCompletedAt?: SortOrder
@@ -6657,7 +6853,14 @@ export namespace Prisma {
     phoneE164?: SortOrder
     fullName?: SortOrder
     firstName?: SortOrder
+    lastName?: SortOrder
     email?: SortOrder
+    addressLine1?: SortOrder
+    addressLine2?: SortOrder
+    city?: SortOrder
+    stateProvince?: SortOrder
+    postalCode?: SortOrder
+    countryRegion?: SortOrder
     shopifyCustomerId?: SortOrder
     phoneVerifiedAt?: SortOrder
     profileCompletedAt?: SortOrder
@@ -7389,7 +7592,14 @@ export namespace Prisma {
     phoneE164: string
     fullName?: string | null
     firstName?: string | null
+    lastName?: string | null
     email?: string | null
+    addressLine1?: string | null
+    addressLine2?: string | null
+    city?: string | null
+    stateProvince?: string | null
+    postalCode?: string | null
+    countryRegion?: string | null
     shopifyCustomerId?: string | null
     phoneVerifiedAt?: Date | string | null
     profileCompletedAt?: Date | string | null
@@ -7403,7 +7613,14 @@ export namespace Prisma {
     phoneE164: string
     fullName?: string | null
     firstName?: string | null
+    lastName?: string | null
     email?: string | null
+    addressLine1?: string | null
+    addressLine2?: string | null
+    city?: string | null
+    stateProvince?: string | null
+    postalCode?: string | null
+    countryRegion?: string | null
     shopifyCustomerId?: string | null
     phoneVerifiedAt?: Date | string | null
     profileCompletedAt?: Date | string | null
@@ -7433,7 +7650,14 @@ export namespace Prisma {
     phoneE164?: StringFieldUpdateOperationsInput | string
     fullName?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: NullableStringFieldUpdateOperationsInput | string | null
+    lastName?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
+    addressLine1?: NullableStringFieldUpdateOperationsInput | string | null
+    addressLine2?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    stateProvince?: NullableStringFieldUpdateOperationsInput | string | null
+    postalCode?: NullableStringFieldUpdateOperationsInput | string | null
+    countryRegion?: NullableStringFieldUpdateOperationsInput | string | null
     shopifyCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     phoneVerifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     profileCompletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -7447,7 +7671,14 @@ export namespace Prisma {
     phoneE164?: StringFieldUpdateOperationsInput | string
     fullName?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: NullableStringFieldUpdateOperationsInput | string | null
+    lastName?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
+    addressLine1?: NullableStringFieldUpdateOperationsInput | string | null
+    addressLine2?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    stateProvince?: NullableStringFieldUpdateOperationsInput | string | null
+    postalCode?: NullableStringFieldUpdateOperationsInput | string | null
+    countryRegion?: NullableStringFieldUpdateOperationsInput | string | null
     shopifyCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     phoneVerifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     profileCompletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -7461,7 +7692,14 @@ export namespace Prisma {
     phoneE164: string
     fullName?: string | null
     firstName?: string | null
+    lastName?: string | null
     email?: string | null
+    addressLine1?: string | null
+    addressLine2?: string | null
+    city?: string | null
+    stateProvince?: string | null
+    postalCode?: string | null
+    countryRegion?: string | null
     shopifyCustomerId?: string | null
     phoneVerifiedAt?: Date | string | null
     profileCompletedAt?: Date | string | null
@@ -7475,7 +7713,14 @@ export namespace Prisma {
     phoneE164: string
     fullName?: string | null
     firstName?: string | null
+    lastName?: string | null
     email?: string | null
+    addressLine1?: string | null
+    addressLine2?: string | null
+    city?: string | null
+    stateProvince?: string | null
+    postalCode?: string | null
+    countryRegion?: string | null
     shopifyCustomerId?: string | null
     phoneVerifiedAt?: Date | string | null
     profileCompletedAt?: Date | string | null
@@ -7505,7 +7750,14 @@ export namespace Prisma {
     phoneE164?: StringFieldUpdateOperationsInput | string
     fullName?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: NullableStringFieldUpdateOperationsInput | string | null
+    lastName?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
+    addressLine1?: NullableStringFieldUpdateOperationsInput | string | null
+    addressLine2?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    stateProvince?: NullableStringFieldUpdateOperationsInput | string | null
+    postalCode?: NullableStringFieldUpdateOperationsInput | string | null
+    countryRegion?: NullableStringFieldUpdateOperationsInput | string | null
     shopifyCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     phoneVerifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     profileCompletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -7519,7 +7771,14 @@ export namespace Prisma {
     phoneE164?: StringFieldUpdateOperationsInput | string
     fullName?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: NullableStringFieldUpdateOperationsInput | string | null
+    lastName?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
+    addressLine1?: NullableStringFieldUpdateOperationsInput | string | null
+    addressLine2?: NullableStringFieldUpdateOperationsInput | string | null
+    city?: NullableStringFieldUpdateOperationsInput | string | null
+    stateProvince?: NullableStringFieldUpdateOperationsInput | string | null
+    postalCode?: NullableStringFieldUpdateOperationsInput | string | null
+    countryRegion?: NullableStringFieldUpdateOperationsInput | string | null
     shopifyCustomerId?: NullableStringFieldUpdateOperationsInput | string | null
     phoneVerifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     profileCompletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
