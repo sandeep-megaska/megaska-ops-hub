@@ -18,6 +18,16 @@ type ShopifyCustomerSyncResult = {
   matchedBy?: "email" | "phone";
 };
 
+export type OrderMegaskaIdentityInput = {
+  orderId: string;
+  verifiedPhone: string;
+  phoneVerified: boolean;
+  authSource: string;
+  customerProfileId?: string | null;
+  shopifyCustomerId?: string | null;
+  verificationCompletedAt?: string | null;
+};
+
 function getShopDomain() {
   return (process.env.SHOPIFY_STORE_DOMAIN || "").trim();
 }
@@ -206,4 +216,56 @@ export async function findOrCreateShopifyCustomer(
     shopifyCustomerId: parseCustomerId(created.id),
     source: "created",
   };
+}
+
+export async function setOrderMegaskaIdentityMetafields(input: OrderMegaskaIdentityInput) {
+  const ownerId = String(input.orderId || "").trim().startsWith("gid://shopify/Order/")
+    ? String(input.orderId || "").trim()
+    : `gid://shopify/Order/${String(input.orderId || "").trim()}`;
+
+  const entries = [
+    { key: "verified_phone", value: String(input.verifiedPhone || "").trim() },
+    { key: "phone_verified", value: input.phoneVerified ? "true" : "false" },
+    { key: "auth_source", value: String(input.authSource || "otp").trim() },
+    { key: "customer_profile_id", value: String(input.customerProfileId || "").trim() },
+    { key: "shopify_customer_id", value: String(input.shopifyCustomerId || "").trim() },
+    {
+      key: "verification_completed_at",
+      value: String(input.verificationCompletedAt || "").trim(),
+    },
+  ].filter((entry) => entry.value);
+
+  const metafields = entries.map((entry) => ({
+    ownerId,
+    namespace: "megaska",
+    key: entry.key,
+    type: "single_line_text_field",
+    value: entry.value,
+  }));
+
+  const data = await adminGraphql<{
+    metafieldsSet: {
+      metafields: Array<{ id: string; key: string; namespace: string }>;
+      userErrors: Array<{ message: string; field?: string[] }>;
+    };
+  }>(
+    `
+      mutation SetMegaskaOrderIdentity($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) {
+          metafields {
+            id
+            namespace
+            key
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+    { metafields }
+  );
+
+  return data.metafieldsSet;
 }
