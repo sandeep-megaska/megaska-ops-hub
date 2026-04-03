@@ -34,6 +34,7 @@
   display: grid;
   grid-template-columns: 1fr;
   width: min(100%, 920px);
+  height: min(100dvh - 16px, 760px);
   max-height: min(100dvh - 16px, 760px);
   background: #fff;
   border-radius: 22px 22px 0 0;
@@ -77,6 +78,8 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
+  min-height: 0;
+  max-height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -324,6 +327,7 @@
 
   .megaska-otp-dialog {
     min-height: auto;
+    height: min(100dvh - 48px, 720px);
     max-height: min(100dvh - 48px, 720px);
     border-radius: var(--megaska-otp-radius);
     grid-template-columns: 1fr 1.1fr;
