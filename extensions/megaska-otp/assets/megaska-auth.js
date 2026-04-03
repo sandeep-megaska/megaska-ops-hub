@@ -169,6 +169,72 @@
     }
   }
 
+  function splitName(fullNameRaw) {
+    const normalized = String(fullNameRaw || "").replace(/\s+/g, " ").trim();
+    if (!normalized) return { firstName: "", lastName: "" };
+
+    const parts = normalized.split(" ");
+    return {
+      firstName: parts[0] || "",
+      lastName: parts.slice(1).join(" ").trim(),
+    };
+  }
+
+  function buildCheckoutPrefillParams(customer) {
+    const source = customer || {};
+    const fullName = source.fullName || source.firstName || "";
+    const nameParts = splitName(fullName);
+    const email = String(source.email || "").trim();
+    const phone = String(source.phoneE164 || source.phone || "").trim();
+    const params = {};
+
+    if (email) params["checkout[email]"] = email;
+    if (phone) params["checkout[shipping_address][phone]"] = phone;
+    if (nameParts.firstName) {
+      params["checkout[shipping_address][first_name]"] = nameParts.firstName;
+    }
+    if (nameParts.lastName) {
+      params["checkout[shipping_address][last_name]"] = nameParts.lastName;
+    }
+
+    return params;
+  }
+
+  function applyCheckoutPrefillToUrl(rawUrl, customer) {
+    if (!rawUrl) return rawUrl;
+    const params = buildCheckoutPrefillParams(customer);
+    if (!Object.keys(params).length) return rawUrl;
+
+    const url = new URL(rawUrl, window.location.origin);
+    Object.entries(params).forEach(([key, value]) => {
+      if (!url.searchParams.get(key)) {
+        url.searchParams.set(key, value);
+      }
+    });
+    return `${url.pathname}${url.search}${url.hash}`;
+  }
+
+  function applyCheckoutPrefillToForm(form, customer) {
+    if (!form || typeof form.querySelector !== "function") return false;
+    const params = buildCheckoutPrefillParams(customer);
+    const entries = Object.entries(params);
+    if (!entries.length) return false;
+
+    entries.forEach(([name, value]) => {
+      let input = form.querySelector(`input[type="hidden"][name="${name}"]`);
+      if (!input) {
+        input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.setAttribute("data-megaska-prefill", "1");
+        form.appendChild(input);
+      }
+      input.value = value;
+    });
+
+    return true;
+  }
+
   function updateAuthUILoggedOut() {
     document.documentElement.classList.remove("megaska-authenticated");
     document.documentElement.classList.add("megaska-logged-out");
@@ -267,6 +333,9 @@
     verifyOtp,
     completeProfile,
     logout,
+    buildCheckoutPrefillParams,
+    applyCheckoutPrefillToUrl,
+    applyCheckoutPrefillToForm,
     updateAuthUILoggedOut,
     updateAuthUILoggedIn,
     init,

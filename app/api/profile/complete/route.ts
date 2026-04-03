@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../services/db/prisma";
 import { hashSessionToken } from "../../../../services/auth/session";
 import { withCors, handleOptions } from "../../_lib/cors";
+import {
+  findOrCreateShopifyCustomer,
+  isShopifyAdminConfigured,
+} from "../../../../services/shopify/admin";
 
 function normalizeEmail(emailRaw: string) {
   return emailRaw.trim().toLowerCase();
@@ -80,7 +84,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const updatedCustomer = await prisma.customerProfile.update({
+    let updatedCustomer = await prisma.customerProfile.update({
       where: {
         id: session.customer.id,
       },
@@ -90,6 +94,77 @@ export async function POST(req: NextRequest) {
         profileCompletedAt: now,
       },
     });
+
+    let shopifySync:
+      | {
+          ok: boolean;
+          status:
+            | "skipped-already-linked"
+            | "skipped-not-configured"
+            | "linked-existing"
+            | "created-new"
+            | "failed";
+          matchedBy?: "email" | "phone";
+          message?: string;
+        }
+      | undefined;
+
+    if (updatedCustomer.shopifyCustomerId) {
+      console.log("[SHOPIFY SYNC] skipped because already linked", {
+        customerProfileId: updatedCustomer.id,
+        shopifyCustomerId: updatedCustomer.shopifyCustomerId,
+      });
+      shopifySync = { ok: true, status: "skipped-already-linked" };
+    } else if (!isShopifyAdminConfigured()) {
+      console.warn("[SHOPIFY SYNC] skipped because Shopify admin config is missing", {
+        customerProfileId: updatedCustomer.id,
+      });
+      shopifySync = { ok: false, status: "skipped-not-configured" };
+    } else {
+      try {
+        const syncResult = await findOrCreateShopifyCustomer({
+          fullName: updatedCustomer.fullName,
+          email: updatedCustomer.email,
+          phoneE164: updatedCustomer.phoneE164,
+        });
+
+        updatedCustomer = await prisma.customerProfile.update({
+          where: { id: updatedCustomer.id },
+          data: { shopifyCustomerId: syncResult.shopifyCustomerId },
+        });
+
+        if (syncResult.source === "existing") {
+          console.log("[SHOPIFY SYNC] existing Shopify customer linked", {
+            customerProfileId: updatedCustomer.id,
+            shopifyCustomerId: syncResult.shopifyCustomerId,
+            matchedBy: syncResult.matchedBy,
+          });
+          shopifySync = {
+            ok: true,
+            status: "linked-existing",
+            matchedBy: syncResult.matchedBy,
+          };
+        } else {
+          console.log("[SHOPIFY SYNC] new Shopify customer created", {
+            customerProfileId: updatedCustomer.id,
+            shopifyCustomerId: syncResult.shopifyCustomerId,
+          });
+          shopifySync = { ok: true, status: "created-new" };
+        }
+      } catch (syncError) {
+        const message =
+          syncError instanceof Error ? syncError.message : "Shopify sync failed";
+        console.error("[SHOPIFY SYNC] failed", {
+          customerProfileId: updatedCustomer.id,
+          message,
+        });
+        shopifySync = {
+          ok: false,
+          status: "failed",
+          message,
+        };
+      }
+    }
 
     await prisma.authSession.update({
       where: {
@@ -114,6 +189,9 @@ export async function POST(req: NextRequest) {
           phoneVerifiedAt: updatedCustomer.phoneVerifiedAt,
           shopifyCustomerId: updatedCustomer.shopifyCustomerId,
         },
+        profileComplete: Boolean(updatedCustomer.fullName?.trim() && updatedCustomer.email?.trim()),
+        shopifyCustomerId: updatedCustomer.shopifyCustomerId,
+        shopifySync,
       })
     );
   } catch (error) {
