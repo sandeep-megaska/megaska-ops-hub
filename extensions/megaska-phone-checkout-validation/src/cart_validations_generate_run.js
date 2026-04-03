@@ -1,5 +1,5 @@
 const PHONE_FIELD_TARGET = "$.cart.deliveryGroups[0].deliveryAddress.phone";
-const VALIDATION_MESSAGE = "Please use your verified mobile number for delivery.";
+const VALIDATION_MESSAGE = "MEGASKA TEST BLOCK 123";
 
 function normalizeIndianPhone(value) {
   const raw = String(value || "").trim();
@@ -74,18 +74,5 @@ function validationError(message, target = PHONE_FIELD_TARGET) {
  * @returns {{operations: Array<{validationAdd: {errors: Array<{message: string; target?: string}>}}>} }
  */
 export function cartValidationsGenerateRun(input) {
-  const trustedPhoneNormalized = normalizeIndianPhone(getTrustedPhone(input));
-  const trustedPhoneVerified = getTrustedPhoneVerifiedFlag(input);
-
-  if (!trustedPhoneNormalized || !trustedPhoneVerified) {
-    return validationResult([]);
-  }
-
-  const checkoutPhoneNormalized = normalizeIndianPhone(getCheckoutPhone(input));
-
-  if (!checkoutPhoneNormalized || checkoutPhoneNormalized !== trustedPhoneNormalized) {
-    return validationResult([validationError(VALIDATION_MESSAGE)]);
-  }
-
-  return validationResult([]);
+  return validationResult([validationError(VALIDATION_MESSAGE)]);
 }
