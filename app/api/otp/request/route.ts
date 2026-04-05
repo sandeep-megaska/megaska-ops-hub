@@ -4,7 +4,7 @@ import { withCors, handleOptions } from "../../_lib/cors";
 import {
   getOtpProvider,
   normalizeIndianPhone,
-  sendOtpWithTwilioVerify,
+  sendOtpWithMsg91,
 } from "../../../../services/auth/otp";
 
 function generateOtp() {
@@ -39,31 +39,32 @@ export async function POST(req: NextRequest) {
     const provider = getOtpProvider();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    if (provider === "twilio") {
+    if (provider === "msg91") {
+      console.info("[OTP REQUEST PROVIDER]", { provider, phoneE164 });
+
       try {
-        const twilioVerification = await sendOtpWithTwilioVerify(phoneE164);
+        const msg91Verification = await sendOtpWithMsg91(phoneE164);
 
         const challenge = await prisma.oTPChallenge.create({
           data: {
             phoneE164,
             provider,
-            providerSid: twilioVerification.sid || null,
+            providerSid: null,
             status: "pending",
             attemptsCount: 0,
             expiresAt,
             metadata: {
-              mode: "twilio",
-              twilioStatus: twilioVerification.status,
+              mode: "msg91",
+              msg91Status: msg91Verification.status,
             },
           },
         });
 
-        console.log("[OTP REQUEST CREATED]", {
+        console.info("[OTP REQUEST MSG91 SUCCESS]", {
           challengeId: challenge.id,
           phoneE164,
           provider,
-          twilioVerificationSid: twilioVerification.sid,
-          twilioStatus: twilioVerification.status,
+          msg91Status: msg91Verification.status,
         });
 
         return withCors(
@@ -76,12 +77,12 @@ export async function POST(req: NextRequest) {
             provider,
           })
         );
-      } catch (twilioError) {
-        console.error("[OTP REQUEST TWILIO ERROR]", {
+      } catch (msg91Error) {
+        console.error("[OTP REQUEST MSG91 FAILURE]", {
           phoneE164,
           provider,
           message:
-            twilioError instanceof Error ? twilioError.message : "Twilio request failed",
+            msg91Error instanceof Error ? msg91Error.message : "MSG91 request failed",
         });
 
         return withCors(
@@ -90,7 +91,7 @@ export async function POST(req: NextRequest) {
             {
               error: "Unable to send OTP right now. Please try again shortly.",
             },
-            { status: 502 }
+            { status: 503 }
           )
         );
       }

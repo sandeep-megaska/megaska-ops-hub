@@ -1,56 +1,56 @@
 import { normalizeIndianPhone as normalizeIndianPhoneE164 } from "../phone";
 
-export type OtpProvider = "twilio" | "mock";
+export type OtpProvider = "msg91" | "mock";
 
-type TwilioVerifyStartResult = {
-  sid: string;
+type Msg91SendResult = {
   status: string;
+  message: string;
 };
 
-type TwilioVerifyCheckResult = {
-  sid: string;
+type Msg91VerifyResult = {
   status: string;
   valid: boolean;
+  message: string;
 };
 
-const TWILIO_VERIFY_API_BASE = "https://verify.twilio.com/v2";
+const MSG91_OTP_API_BASE = "https://control.msg91.com/api/v5/otp";
 
-function getTwilioConfig() {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim() || "";
-  const authToken = process.env.TWILIO_AUTH_TOKEN?.trim() || "";
-  const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID?.trim() || "";
-  const hasAccountSid = Boolean(accountSid);
-  const hasAuthToken = Boolean(authToken);
-  const hasVerifyServiceSid = Boolean(verifyServiceSid);
-  const configured = Boolean(accountSid && authToken && verifyServiceSid);
+function getMsg91Config() {
+  const authKey = process.env.MSG91_AUTH_KEY?.trim() || "";
+  const templateId = process.env.MSG91_TEMPLATE_ID?.trim() || "";
+  const hasAuthKey = Boolean(authKey);
+  const hasTemplateId = Boolean(templateId);
+  const configured = Boolean(authKey && templateId);
 
-  console.info("[OTP PROVIDER] Twilio env presence", {
-    hasAccountSid,
-    hasAuthToken,
-    hasVerifyServiceSid,
+  console.info("[OTP PROVIDER] MSG91 env presence", {
+    hasAuthKey,
+    hasTemplateId,
     configured,
   });
 
   return {
-    accountSid,
-    authToken,
-    verifyServiceSid,
+    authKey,
+    templateId,
     configured,
   };
 }
 
 export function getOtpProvider(): OtpProvider {
-  const { configured } = getTwilioConfig();
+  const { configured } = getMsg91Config();
 
   if (configured) {
-    return "twilio";
+    return "msg91";
   }
 
-  console.warn("[OTP PROVIDER] Twilio env not fully configured, falling back to mock provider");
+  console.warn("[OTP PROVIDER] MSG91 env not fully configured, falling back to mock provider");
   return "mock";
 }
 
-async function parseTwilioError(response: Response) {
+function getMsg91Mobile(phoneE164: string) {
+  return phoneE164.replace(/\D/g, "");
+}
+
+async function parseMsg91Response(response: Response) {
   let payload: unknown = null;
   try {
     payload = await response.json();
@@ -59,92 +59,73 @@ async function parseTwilioError(response: Response) {
   }
 
   const payloadRecord = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : null;
-  const message =
-    (typeof payloadRecord?.message === "string" && payloadRecord.message) ||
-    (typeof payloadRecord?.detail === "string" && payloadRecord.detail) ||
-    `Twilio Verify request failed (${response.status})`;
+  const message = [
+    typeof payloadRecord?.message === "string" ? payloadRecord.message : "",
+    typeof payloadRecord?.detail === "string" ? payloadRecord.detail : "",
+    typeof payloadRecord?.error === "string" ? payloadRecord.error : "",
+  ].find(Boolean) || `MSG91 OTP request failed (${response.status})`;
 
   const code = typeof payloadRecord?.code === "number" ? payloadRecord.code : response.status;
 
   return { message, code, payload: payloadRecord };
 }
 
-export async function sendOtpWithTwilioVerify(phoneE164: string): Promise<TwilioVerifyStartResult> {
-  const { accountSid, authToken, verifyServiceSid, configured } = getTwilioConfig();
+export async function sendOtpWithMsg91(phoneE164: string): Promise<Msg91SendResult> {
+  const { authKey, templateId, configured } = getMsg91Config();
 
   if (!configured) {
-    throw new Error("Twilio Verify is not configured");
+    throw new Error("MSG91 OTP provider is not configured");
   }
 
-  const auth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
-  const body = new URLSearchParams({
-    To: phoneE164,
-    Channel: "sms",
+  const mobile = getMsg91Mobile(phoneE164);
+  const params = new URLSearchParams({
+    authkey: authKey,
+    mobile,
+    template_id: templateId,
   });
 
-  const response = await fetch(
-    `${TWILIO_VERIFY_API_BASE}/Services/${verifyServiceSid}/Verifications`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body,
-      cache: "no-store",
-    }
-  );
+  const response = await fetch(`${MSG91_OTP_API_BASE}?${params.toString()}`, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  const msg91Response = await parseMsg91Response(response);
 
   if (!response.ok) {
-    const twilioError = await parseTwilioError(response);
-    throw new Error(twilioError.message);
+    throw new Error(msg91Response.message);
   }
 
-  const result = (await response.json()) as Record<string, unknown>;
-
   return {
-    sid: String(result.sid ?? ""),
-    status: String(result.status ?? "pending"),
+    status: "pending",
+    message: msg91Response.message,
   };
 }
 
-export async function verifyOtpWithTwilioVerify(phoneE164: string, otpCode: string): Promise<TwilioVerifyCheckResult> {
-  const { accountSid, authToken, verifyServiceSid, configured } = getTwilioConfig();
+export async function verifyOtpWithMsg91(phoneE164: string, otpCode: string): Promise<Msg91VerifyResult> {
+  const { authKey, configured } = getMsg91Config();
 
   if (!configured) {
-    throw new Error("Twilio Verify is not configured");
+    throw new Error("MSG91 OTP provider is not configured");
   }
 
-  const auth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
-  const body = new URLSearchParams({
-    To: phoneE164,
-    Code: otpCode,
+  const mobile = getMsg91Mobile(phoneE164);
+  const params = new URLSearchParams({
+    authkey: authKey,
+    mobile,
+    otp: otpCode,
   });
 
-  const response = await fetch(
-    `${TWILIO_VERIFY_API_BASE}/Services/${verifyServiceSid}/VerificationCheck`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body,
-      cache: "no-store",
-    }
-  );
+  const response = await fetch(`${MSG91_OTP_API_BASE}/verify?${params.toString()}`, {
+    method: "GET",
+    cache: "no-store",
+  });
 
-  if (!response.ok) {
-    const twilioError = await parseTwilioError(response);
-    throw new Error(twilioError.message);
-  }
-
-  const result = (await response.json()) as Record<string, unknown>;
+  const msg91Response = await parseMsg91Response(response);
 
   return {
-    sid: String(result.sid ?? ""),
-    status: String(result.status ?? "pending"),
-    valid: Boolean(result.valid),
+    status: response.ok ? "approved" : "failed",
+    valid: response.ok,
+    message: msg91Response.message,
   };
 }
 
