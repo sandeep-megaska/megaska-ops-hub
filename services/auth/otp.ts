@@ -47,7 +47,7 @@ export function getOtpProvider(): OtpProvider {
 }
 
 function getMsg91Mobile(phoneE164: string) {
-  return phoneE164.replace(/\D/g, "");
+  return phoneE164.replace(/\D/g, "").replace(/^\+/, "");
 }
 
 async function parseMsg91Response(response: Response) {
@@ -85,11 +85,28 @@ export async function sendOtpWithMsg91(phoneE164: string): Promise<Msg91SendResu
   });
 
   const response = await fetch(`${MSG91_OTP_API_BASE}?${params.toString()}`, {
-    method: "GET",
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: "{}",
     cache: "no-store",
   });
 
+  console.info("[OTP MSG91 SEND REQUEST ACCEPTED]", {
+    endpoint: MSG91_OTP_API_BASE,
+    method: "POST",
+    mobile,
+    templateId,
+  });
+
   const msg91Response = await parseMsg91Response(response);
+
+  console.info("[OTP MSG91 SEND RESPONSE BODY]", {
+    status: response.status,
+    ok: response.ok,
+    body: msg91Response.payload,
+  });
 
   if (!response.ok) {
     throw new Error(msg91Response.message);
@@ -110,17 +127,25 @@ export async function verifyOtpWithMsg91(phoneE164: string, otpCode: string): Pr
 
   const mobile = getMsg91Mobile(phoneE164);
   const params = new URLSearchParams({
-    authkey: authKey,
     mobile,
     otp: otpCode,
   });
 
   const response = await fetch(`${MSG91_OTP_API_BASE}/verify?${params.toString()}`, {
     method: "GET",
+    headers: {
+      authkey: authKey,
+    },
     cache: "no-store",
   });
 
   const msg91Response = await parseMsg91Response(response);
+
+  console.info("[OTP MSG91 VERIFY RESPONSE BODY]", {
+    status: response.status,
+    ok: response.ok,
+    body: msg91Response.payload,
+  });
 
   return {
     status: response.ok ? "approved" : "failed",
