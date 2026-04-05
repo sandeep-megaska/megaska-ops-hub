@@ -37,10 +37,9 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## OTP provider environment variables
 
-Set these server-side variables in Vercel/Next.js runtime to enable Twilio Verify in production:
+Set these server-side variables in Vercel/Next.js runtime to enable MSG91 OTP in production/testing:
 
-- `TWILIO_ACCOUNT_SID`
-- `TWILIO_AUTH_TOKEN`
-- `TWILIO_VERIFY_SERVICE_SID`
+- `MSG91_AUTH_KEY`
+- `MSG91_TEMPLATE_ID`
 
-If any of the three variables is missing, the OTP API automatically falls back to mock mode for development/testing. Never expose these as `NEXT_PUBLIC_*`.
+If any required MSG91 variable is missing, the OTP API automatically falls back to mock mode for development/testing. Never expose these as `NEXT_PUBLIC_*`.

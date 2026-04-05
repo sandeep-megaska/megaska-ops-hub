@@ -8,7 +8,7 @@ import { withCors, handleOptions } from "../../_lib/cors";
 import {
   getOtpProvider,
   normalizeIndianPhone,
-  verifyOtpWithTwilioVerify,
+  verifyOtpWithMsg91,
 } from "../../../../services/auth/otp";
 
 export async function OPTIONS(req: NextRequest) {
@@ -76,31 +76,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const provider = challenge.provider === "twilio" ? "twilio" : getOtpProvider();
+    const provider = getOtpProvider();
 
-    if (provider === "twilio") {
+    if (provider === "msg91") {
+      console.info("[OTP VERIFY PROVIDER]", { provider, challengeId: challenge.id, phoneE164 });
+
       try {
-        const check = await verifyOtpWithTwilioVerify(phoneE164, otpRaw);
+        const check = await verifyOtpWithMsg91(phoneE164, otpRaw);
 
-        console.log("[OTP VERIFY RESULT]", {
+        console.info("[OTP VERIFY MSG91 RESULT]", {
           challengeId: challenge.id,
           phoneE164,
           provider,
           status: check.status,
-          twilioVerificationSid: check.sid,
+          valid: check.valid,
         });
 
-        const approved = check.valid || check.status === "approved";
+        const approved = check.valid && check.status === "approved";
 
         if (!approved) {
           await prisma.oTPChallenge.update({
             where: { id: challenge.id },
             data: {
               attemptsCount: { increment: 1 },
-              providerSid: check.sid || challenge.providerSid,
               metadata: {
-                mode: "twilio",
-                twilioStatus: check.status,
+                mode: "msg91",
+                msg91Status: check.status,
               },
             },
           });
@@ -110,22 +111,22 @@ export async function POST(req: NextRequest) {
             NextResponse.json({ error: "Invalid or expired OTP" }, { status: 400 })
           );
         }
-      } catch (twilioError) {
-        console.error("[OTP VERIFY TWILIO ERROR]", {
+      } catch (msg91Error) {
+        console.error("[OTP VERIFY MSG91 FAILURE]", {
           challengeId: challenge.id,
           phoneE164,
           provider,
           message:
-            twilioError instanceof Error
-              ? twilioError.message
-              : "Twilio verification failed",
+            msg91Error instanceof Error
+              ? msg91Error.message
+              : "MSG91 verification failed",
         });
 
         return withCors(
           req,
           NextResponse.json(
             { error: "Unable to verify OTP right now. Please retry." },
-            { status: 502 }
+            { status: 503 }
           )
         );
       }

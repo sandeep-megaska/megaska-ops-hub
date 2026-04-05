@@ -46,7 +46,7 @@ model AuthSession {
   model OTPChallenge {
     id              String   @id @default(uuid())
     phoneE164       String
-    provider        String   // twilio
+  provider        String   // msg91, mock
     providerSid     String?
     status          String   // pending, verified, failed, expired
     attemptsCount   Int      @default(0)
