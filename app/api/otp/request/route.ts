@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../services/db/prisma";
 import { withCors, handleOptions } from "../../_lib/cors";
 import {
-  getOtpProvider,
+  getOtpProviderFallbackOrder,
   normalizeIndianPhone,
+  OtpProvider,
   sendOtpWithMsg91,
+  sendOtpWithTwilio,
 } from "../../../../services/auth/otp";
 
 function generateOtp() {
@@ -13,6 +15,114 @@ function generateOtp() {
 
 export async function OPTIONS(req: NextRequest) {
   return handleOptions(req);
+}
+
+async function createMockChallenge(phoneE164: string, expiresAt: Date) {
+  const otp = generateOtp();
+
+  const challenge = await prisma.oTPChallenge.create({
+    data: {
+      phoneE164,
+      provider: "mock",
+      status: "pending",
+      attemptsCount: 0,
+      expiresAt,
+      metadata: {
+        otp,
+        mode: "mock",
+      },
+    },
+  });
+
+  console.info("[OTP REQUEST SEND SUCCESS]", {
+    challengeId: challenge.id,
+    phoneE164,
+    provider: "mock",
+  });
+
+  console.log("[OTP REQUEST CREATED MOCK OTP]", {
+    challengeId: challenge.id,
+    phoneE164,
+    provider: "mock",
+    otp,
+  });
+
+  return NextResponse.json({
+    success: true,
+    otpSent: true,
+    challengeId: challenge.id,
+    phone: phoneE164,
+    mock: true,
+    provider: "mock",
+  });
+}
+
+async function createProviderChallenge(phoneE164: string, provider: Exclude<OtpProvider, "mock">, expiresAt: Date) {
+  if (provider === "twilio") {
+    const twilioVerification = await sendOtpWithTwilio(phoneE164);
+
+    const challenge = await prisma.oTPChallenge.create({
+      data: {
+        phoneE164,
+        provider,
+        providerSid: twilioVerification.sid,
+        status: "pending",
+        attemptsCount: 0,
+        expiresAt,
+        metadata: {
+          mode: "twilio",
+          twilioStatus: twilioVerification.status,
+        },
+      },
+    });
+
+    console.info("[OTP REQUEST SEND SUCCESS]", {
+      challengeId: challenge.id,
+      phoneE164,
+      provider,
+      providerStatus: twilioVerification.status,
+    });
+
+    return NextResponse.json({
+      success: true,
+      otpSent: true,
+      challengeId: challenge.id,
+      phone: phoneE164,
+      provider,
+    });
+  }
+
+  const msg91Verification = await sendOtpWithMsg91(phoneE164);
+
+  const challenge = await prisma.oTPChallenge.create({
+    data: {
+      phoneE164,
+      provider,
+      providerSid: null,
+      status: "pending",
+      attemptsCount: 0,
+      expiresAt,
+      metadata: {
+        mode: "msg91",
+        msg91Status: msg91Verification.status,
+      },
+    },
+  });
+
+  console.info("[OTP REQUEST SEND SUCCESS]", {
+    challengeId: challenge.id,
+    phoneE164,
+    provider,
+    providerStatus: msg91Verification.status,
+  });
+
+  return NextResponse.json({
+    success: true,
+    otpSent: true,
+    challengeId: challenge.id,
+    phone: phoneE164,
+    provider,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -36,100 +146,56 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const provider = getOtpProvider();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    const providerOrder = getOtpProviderFallbackOrder();
 
-    if (provider === "msg91") {
-      console.info("[OTP REQUEST PROVIDER]", { provider, phoneE164 });
+    console.info("[OTP REQUEST PROVIDER ORDER]", {
+      phoneE164,
+      providerOrder,
+    });
+
+    const failures: Array<{ provider: OtpProvider; message: string }> = [];
+
+    for (const provider of providerOrder) {
+      console.info("[OTP REQUEST ATTEMPT]", {
+        provider,
+        phoneE164,
+      });
 
       try {
-        const msg91Verification = await sendOtpWithMsg91(phoneE164);
+        const response =
+          provider === "mock"
+            ? await createMockChallenge(phoneE164, expiresAt)
+            : await createProviderChallenge(phoneE164, provider, expiresAt);
 
-        const challenge = await prisma.oTPChallenge.create({
-          data: {
-            phoneE164,
-            provider,
-            providerSid: null,
-            status: "pending",
-            attemptsCount: 0,
-            expiresAt,
-            metadata: {
-              mode: "msg91",
-              msg91Status: msg91Verification.status,
-            },
-          },
-        });
+        return withCors(req, response);
+      } catch (providerError) {
+        const message =
+          providerError instanceof Error ? providerError.message : "Provider send failed";
 
-        console.info("[OTP REQUEST MSG91 SUCCESS]", {
-          challengeId: challenge.id,
-          phoneE164,
+        failures.push({ provider, message });
+
+        console.warn("[OTP REQUEST SEND FAILURE]", {
           provider,
-          msg91Status: msg91Verification.status,
-        });
-
-        return withCors(
-          req,
-          NextResponse.json({
-            success: true,
-            otpSent: true,
-            challengeId: challenge.id,
-            phone: phoneE164,
-            provider,
-          })
-        );
-      } catch (msg91Error) {
-        console.error("[OTP REQUEST MSG91 FAILURE]", {
           phoneE164,
-          provider,
-          message:
-            msg91Error instanceof Error ? msg91Error.message : "MSG91 request failed",
+          message,
         });
-
-        return withCors(
-          req,
-          NextResponse.json(
-            {
-              error: "Unable to send OTP right now. Please try again shortly.",
-            },
-            { status: 503 }
-          )
-        );
       }
     }
 
-    const otp = generateOtp();
-
-    const challenge = await prisma.oTPChallenge.create({
-      data: {
-        phoneE164,
-        provider: "mock",
-        status: "pending",
-        attemptsCount: 0,
-        expiresAt,
-        metadata: {
-          otp,
-          mode: "mock",
-        },
-      },
-    });
-
-    console.log("[OTP REQUEST CREATED]", {
-      challengeId: challenge.id,
+    console.error("[OTP REQUEST ALL PROVIDERS FAILED]", {
       phoneE164,
-      provider: "mock",
-      otp,
+      failures,
     });
 
     return withCors(
       req,
-      NextResponse.json({
-        success: true,
-        otpSent: true,
-        challengeId: challenge.id,
-        phone: phoneE164,
-        mock: true,
-        provider: "mock",
-      })
+      NextResponse.json(
+        {
+          error: "Unable to send OTP right now. Please try again shortly.",
+        },
+        { status: 503 }
+      )
     );
   } catch (error) {
     console.error("[OTP REQUEST ERROR]", error);
