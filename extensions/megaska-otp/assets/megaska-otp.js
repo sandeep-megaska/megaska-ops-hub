@@ -112,6 +112,27 @@
     "[data-customer-logout]",
   ];
 
+  const CART_DRAWER_SELECTORS = [".cart-drawer", ".drawer", ".mini-cart", "[data-cart-drawer]"];
+
+  const CART_DRAWER_OPEN_CLASSES = [
+    "active",
+    "open",
+    "is-open",
+    "drawer--active",
+    "drawer--open",
+    "cart-drawer--active",
+    "cart-drawer--open",
+    "mini-cart--active",
+    "mini-cart--open",
+  ];
+
+  const CART_DRAWER_CLOSE_EVENTS = [
+    "cart:close",
+    "drawer:close",
+    "cart-drawer:close",
+    "theme:cart:close",
+  ];
+
   function sanitizeDigits(value, maxLength) {
     return String(value || "")
       .replace(/\D/g, "")
@@ -689,6 +710,7 @@
 
   function openModal(triggerSource) {
     closeAccountMenu();
+    closeCartDrawerBeforeModal();
     const { modal } = getModalParts();
     state.isOpen = true;
     resetModalState();
@@ -1640,6 +1662,44 @@
 
   function closeAccountMenu() {
     removeAccountMenu();
+  }
+
+  function closeCartDrawerBeforeModal() {
+    const drawers = Array.from(document.querySelectorAll(CART_DRAWER_SELECTORS.join(",")));
+    if (!drawers.length) return;
+
+    drawers.forEach((drawer) => {
+      try {
+        CART_DRAWER_CLOSE_EVENTS.forEach((eventName) => {
+          drawer.dispatchEvent(new CustomEvent(eventName, { bubbles: true, cancelable: true }));
+          document.dispatchEvent(new CustomEvent(eventName, { bubbles: true, cancelable: true }));
+        });
+
+        if (typeof drawer.close === "function") {
+          drawer.close();
+        }
+
+        const closeTrigger = drawer.querySelector(
+          "[data-close], [data-cart-close], [data-drawer-close], .drawer__close, .cart-drawer__close, [aria-label='Close cart'], [aria-label='Close']"
+        );
+
+        if (closeTrigger && typeof closeTrigger.click === "function") {
+          closeTrigger.click();
+        }
+
+        CART_DRAWER_OPEN_CLASSES.forEach((className) => drawer.classList.remove(className));
+        drawer.removeAttribute("open");
+
+        if (drawer.getAttribute("aria-hidden") === "false") {
+          drawer.setAttribute("aria-hidden", "true");
+        }
+      } catch (error) {
+        console.warn("[Megaska OTP] cart drawer close skipped", error);
+      }
+    });
+
+    document.documentElement.classList.remove("drawer-open", "cart-open", "mini-cart-open", "js-drawer-open");
+    document.body.classList.remove("drawer-open", "cart-open", "mini-cart-open", "js-drawer-open");
   }
 
   function hideAccountMenu() {
