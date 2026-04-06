@@ -19,8 +19,8 @@
   inset: 0;
   z-index: 9999;
   display: grid;
-  place-items: end center;
-  padding: 0;
+  place-items: center;
+  padding: 16px;
 }
 
 .megaska-otp-backdrop {
@@ -216,11 +216,14 @@
 .megaska-otp-phone-wrap {
   display: flex;
   align-items: center;
+  gap: 10px;
   background: #fff;
   border: 1px solid #cbd5e1;
   border-radius: 12px;
-  padding: 0 14px;
-  height: 52px;
+  padding: 0 12px;
+  height: 54px;
+  box-sizing: border-box;
+  overflow: hidden;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -230,25 +233,44 @@
 }
 
 .megaska-otp-country {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
   font-weight: 600;
-  width: 66px;
-  margin-right: 12px;
+  width: auto;
+  min-width: fit-content;
+  margin-right: 2px;
   padding-right: 12px;
   border-right: 1px solid #e2e8f0;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.1;
+  letter-spacing: 0;
   color: #334155;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", system-ui, -apple-system, sans-serif;
 }
 
 .megaska-otp-phone-input {
+  flex: 1 1 auto;
+  min-width: 0;
   border: 0;
   outline: 0 !important;
   background: transparent;
-  width: 100%;
+  width: 1%;
   padding: 0;
   height: 100%;
-  font-size: 16px;
-  letter-spacing: 0.04em;
+  line-height: 1.2;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  box-sizing: border-box;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.megaska-otp-phone-input::placeholder {
+  color: #94a3b8;
+  letter-spacing: 0.01em;
 }
 
 .megaska-otp-text-input {
@@ -446,25 +468,21 @@
 
 @media (max-width: 799px) {
   .megaska-otp-dialog {
-    max-width: none;
+    width: min(92vw, 360px);
+    max-width: 360px;
     min-width: 0;
-    border-radius: 20px 20px 0 0;
-    max-height: 78vh;
-    animation: megaskaOtpSlideUp 260ms ease-out;
+    border-radius: 19px;
+    max-height: 85vh;
+    animation: megaskaOtpSlideUp 220ms ease-out;
   }
 
   .megaska-otp-flow {
-    padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+    padding: 18px;
     gap: 12px;
   }
 
   .megaska-otp-handle {
-    display: block;
-    width: 42px;
-    height: 4px;
-    border-radius: 999px;
-    background: #cbd5e1;
-    margin: 0 auto 14px;
+    display: none;
   }
 
   .megaska-otp-logo-wrap {
@@ -508,7 +526,7 @@
   }
 
   .megaska-otp-phone-wrap {
-    height: 50px;
+    height: 52px;
   }
 
   .megaska-otp-primary-btn,
