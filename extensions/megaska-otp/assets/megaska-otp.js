@@ -232,7 +232,7 @@
             <div class="megaska-otp-trust-strip" aria-label="Login benefits">
               <span class="megaska-otp-chip">Secure login</span>
               <span class="megaska-otp-chip">Faster checkout</span>
-              <span class="megaska-otp-chip">India only</span>
+              <span class="megaska-otp-chip">Free shipping</span>
             </div>
           </div>
 
