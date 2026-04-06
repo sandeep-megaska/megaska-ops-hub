@@ -255,10 +255,14 @@
           <div data-megaska-step-phone class="megaska-otp-step-phone">
             <label class="megaska-otp-label" for="megaska-phone-input">Mobile number</label>
             <div class="megaska-otp-phone-wrap" role="group" aria-label="Indian mobile number">
-              <span class="megaska-otp-country" aria-hidden="true">
-                <span class="megaska-otp-flag"></span>
-                <span class="megaska-otp-dial-code">+91</span>
-              </span>
+             <span class="megaska-otp-country" aria-hidden="true">
+  <img 
+    src="https://flagcdn.com/w20/in.png" 
+    alt="India" 
+    class="megaska-otp-flag"
+  />
+  <span class="megaska-otp-dial-code">+91</span>
+</span>
               <input
                 id="megaska-phone-input"
                 data-megaska-phone-input
@@ -276,6 +280,9 @@
           </div>
 
           <div data-megaska-step-otp hidden class="megaska-otp-step-otp">
+          <div class="offer-banner">
+  🎉 15% OFF • Use Code: <strong>MEGA15</strong>
+</div>
             <h2 class="megaska-otp-step-title">OTP Verification</h2>
             <p class="megaska-otp-step-subtitle">
               We sent a verification code to <span data-megaska-phone-display></span>
