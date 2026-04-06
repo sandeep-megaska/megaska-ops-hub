@@ -891,14 +891,15 @@
       await window.MegaskaAuth.verifyOtp(state.normalizedPhone, otp);
       const refreshedSession = await window.MegaskaAuth.refreshAuthState();
       state.verifying = false;
+      const sessionCustomer = refreshedSession?.customer || null;
 
-      if (needsProfileCompletion(refreshedSession?.customer)) {
-        renderProfileStep(refreshedSession?.customer);
+      if (needsProfileCompletion(sessionCustomer)) {
+        renderProfileStep(sessionCustomer);
         return;
       }
 
       hideAccountMenu();
-      await resumePendingAction();
+      await resumePendingAction(sessionCustomer);
       renderSuccessStep("Login successful. Welcome to Megaska");
       setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS);
     } catch (error) {
@@ -996,10 +997,11 @@
         postalCode,
         countryRegion,
       });
-      await window.MegaskaAuth.refreshAuthState();
+      const refreshedSession = await window.MegaskaAuth.refreshAuthState();
+      const sessionCustomer = refreshedSession?.customer || null;
       state.savingProfile = false;
       hideAccountMenu();
-      await resumePendingAction();
+      await resumePendingAction(sessionCustomer);
       renderSuccessStep("Profile saved. Welcome to Megaska");
       setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS);
     } catch (error) {
@@ -1267,9 +1269,16 @@
     return null;
   }
 
-  async function buildPrefilledCheckoutUrl(rawUrl) {
+  async function resolveMegaskaCustomer(preferredCustomer) {
+    if (preferredCustomer && typeof preferredCustomer === "object") {
+      return preferredCustomer;
+    }
+    return getCurrentMegaskaCustomer();
+  }
+
+  async function buildPrefilledCheckoutUrl(rawUrl, preferredCustomer) {
     if (!rawUrl || !rawUrl.includes("/checkout")) return rawUrl;
-    const customer = await getCurrentMegaskaCustomer();
+    const customer = await resolveMegaskaCustomer(preferredCustomer);
     if (!customer) return rawUrl;
 
     if (
@@ -1286,8 +1295,28 @@
     return rawUrl;
   }
 
-  async function runBuyerIdentityHandoff(rawCheckoutUrl) {
-    const customer = await getCurrentMegaskaCustomer();
+  function mergeCheckoutQueryParams(baseUrl, prefilledUrl) {
+    const fallback = prefilledUrl || baseUrl || "";
+    if (!baseUrl || !prefilledUrl || !prefilledUrl.includes("?")) return fallback;
+
+    try {
+      const base = new URL(baseUrl, window.location.origin);
+      const prefilled = new URL(prefilledUrl, window.location.origin);
+
+      prefilled.searchParams.forEach((value, key) => {
+        if (!base.searchParams.get(key)) {
+          base.searchParams.set(key, value);
+        }
+      });
+
+      return `${base.pathname}${base.search}${base.hash}`;
+    } catch {
+      return fallback;
+    }
+  }
+
+  async function runBuyerIdentityHandoff(rawCheckoutUrl, preferredCustomer) {
+    const customer = await resolveMegaskaCustomer(preferredCustomer);
     if (!customer) {
       return {
         ok: false,
@@ -1316,6 +1345,10 @@
       const result = await window.MegaskaAuth.applyBuyerIdentityToActiveCart(customer, {
         checkoutUrl: rawCheckoutUrl,
       });
+      const mergedCheckoutUrl = mergeCheckoutQueryParams(
+        result?.checkoutUrl || rawCheckoutUrl,
+        rawCheckoutUrl
+      );
       console.log("[Megaska Checkout Prefill] buyer identity update finished", {
         waitedMs: Date.now() - startedAt,
         ok: Boolean(result?.ok),
@@ -1323,11 +1356,13 @@
         reason: result?.reason || "",
         cartId: result?.cartId || null,
         buyerIdentity: result?.buyerIdentity || null,
-        checkoutUrl: result?.checkoutUrl || rawCheckoutUrl || null,
+        checkoutUrl: mergedCheckoutUrl || null,
         userErrors: result?.userErrors || [],
         apiErrors: (result?.apiErrors || []).map((err) => err?.message || err),
       });
-      return result;
+      return Object.assign({}, result || {}, {
+        checkoutUrl: mergedCheckoutUrl,
+      });
     } catch (error) {
       console.error("[Megaska Checkout Prefill] buyer identity update failed", error);
       return {
@@ -1344,8 +1379,8 @@
     return handoff.blocked || handoff.reason === "missing-verified-phone";
   }
 
-  async function applyCheckoutPrefillToForm(form) {
-    const customer = await getCurrentMegaskaCustomer();
+  async function applyCheckoutPrefillToForm(form, preferredCustomer) {
+    const customer = await resolveMegaskaCustomer(preferredCustomer);
     if (!customer) return false;
     if (
       window.MegaskaAuth &&
@@ -1360,7 +1395,7 @@
     return false;
   }
 
-  async function resumePendingAction() {
+  async function resumePendingAction(preferredCustomer) {
     if (!pendingAction) return;
 
     const action = pendingAction;
@@ -1368,12 +1403,13 @@
     console.log("[Megaska OTP] pending intent resumed", { type: action.type });
 
     if (action.type === "navigate" && action.url) {
-      const prefilledUrl = await buildPrefilledCheckoutUrl(action.url);
+      const customer = await resolveMegaskaCustomer(preferredCustomer);
+      const prefilledUrl = await buildPrefilledCheckoutUrl(action.url, customer);
       console.log("[Megaska Checkout Prefill] checkout handoff start", {
         source: "pendingAction.navigate.url",
         detectedCheckoutUrl: prefilledUrl,
       });
-      const handoff = await runBuyerIdentityHandoff(prefilledUrl);
+      const handoff = await runBuyerIdentityHandoff(prefilledUrl, customer);
       if (isCheckoutContinuationBlocked(handoff)) {
         console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
           reason: handoff.reason || "blocked",
@@ -1726,12 +1762,13 @@
     const isAnchorCheckoutTrigger = triggerEl?.tagName === "A" && Boolean(targetUrl);
     if (isAnchorCheckoutTrigger) {
       event.preventDefault();
-      const prefilledUrl = await buildPrefilledCheckoutUrl(targetUrl);
+      const customer = await getCurrentMegaskaCustomer();
+      const prefilledUrl = await buildPrefilledCheckoutUrl(targetUrl, customer);
       console.log("[Megaska Checkout Prefill] checkout handoff start", {
         source: "interceptedCheckoutAnchor.href",
         detectedCheckoutUrl: prefilledUrl,
       });
-      const handoff = await runBuyerIdentityHandoff(prefilledUrl);
+      const handoff = await runBuyerIdentityHandoff(prefilledUrl, customer);
       if (isCheckoutContinuationBlocked(handoff)) {
         console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
           reason: handoff.reason || "blocked",
@@ -1838,10 +1875,11 @@
       }
 
       event.preventDefault();
-      await applyCheckoutPrefillToForm(form);
+      const customer = await getCurrentMegaskaCustomer();
+      await applyCheckoutPrefillToForm(form, customer);
       const submittedAction = form.getAttribute("action") || "/checkout";
-      const prefilledUrl = await buildPrefilledCheckoutUrl(submittedAction);
-      const handoff = await runBuyerIdentityHandoff(prefilledUrl);
+      const prefilledUrl = await buildPrefilledCheckoutUrl(submittedAction, customer);
+      const handoff = await runBuyerIdentityHandoff(prefilledUrl, customer);
       if (isCheckoutContinuationBlocked(handoff)) {
         console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
           reason: handoff.reason || "blocked",
