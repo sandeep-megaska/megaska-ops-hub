@@ -572,3 +572,36 @@
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
+.megaska-otp-modal {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e2e8f0;
+}
+.offer-banner {
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-radius: 10px;
+  text-align: center;
+  margin-bottom: 14px;
+}
+.megaska-otp-country {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 10px;
+  border-right: 1px solid #e2e8f0;
+}
+
+.megaska-otp-flag {
+  width: 18px;
+  height: 12px;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.megaska-otp-dial-code {
+  font-weight: 500;
+  color: #0f172a;
+}
