@@ -213,23 +213,30 @@
     modal.innerHTML = `
       <div class="megaska-otp-backdrop" data-megaska-otp-backdrop></div>
       <div class="megaska-otp-dialog" role="dialog" aria-modal="true" aria-labelledby="megaska-otp-title">
-        <section class="megaska-otp-brand" aria-hidden="true">
-          <div class="megaska-otp-brand-badge">MEGASKA</div>
-          <h3>Secure sign in for a smoother shopping experience</h3>
-          <ul>
-            <li>Faster checkout</li>
-            <li>Easy order tracking</li>
-            <li>Quick access to your account</li>
-          </ul>
-        </section>
         <section class="megaska-otp-flow">
           <button type="button" class="megaska-otp-close" data-megaska-otp-close aria-label="Close login modal">×</button>
+          <div class="megaska-otp-handle" aria-hidden="true"></div>
+          <div class="megaska-otp-header">
+            <div class="megaska-otp-logo-wrap">
+              <img
+                class="megaska-otp-logo"
+                src="/public/megaska_logo.png"
+                alt="Megaska"
+                loading="lazy"
+                decoding="async"
+                onerror="this.style.display='none';"
+              />
+            </div>
+            <h2 id="megaska-otp-title" class="megaska-otp-title">Login or Signup</h2>
+            <p class="megaska-otp-subtitle">Use your mobile number for a secure, faster checkout</p>
+            <div class="megaska-otp-trust-strip" aria-label="Login benefits">
+              <span class="megaska-otp-chip">Secure login</span>
+              <span class="megaska-otp-chip">Faster checkout</span>
+              <span class="megaska-otp-chip">India only</span>
+            </div>
+          </div>
 
-          <div data-megaska-step-phone>
-            <p class="megaska-otp-kicker">Welcome to Megaska</p>
-            <h2 id="megaska-otp-title">Login or create your account</h2>
-            <p class="megaska-otp-subtitle">Enter your mobile number to continue.</p>
-
+          <div data-megaska-step-phone class="megaska-otp-step-phone">
             <label class="megaska-otp-label" for="megaska-phone-input">Mobile number</label>
             <div class="megaska-otp-phone-wrap" role="group" aria-label="Indian mobile number">
               <span class="megaska-otp-country" aria-hidden="true">🇮🇳 +91</span>
@@ -246,14 +253,16 @@
               />
             </div>
             <p class="megaska-otp-hint" data-megaska-phone-hint>We'll auto-send a 4-digit OTP when 10 digits are entered.</p>
+            <p class="megaska-otp-trouble">We never share your number</p>
           </div>
 
-          <div data-megaska-step-otp hidden>
-            <p class="megaska-otp-kicker">OTP Verification</p>
-            <h2>Enter your 4-digit code</h2>
-            <p class="megaska-otp-subtitle">
-              Sent to <span data-megaska-phone-display></span>
-              <button type="button" class="megaska-otp-link" data-megaska-edit-phone>Edit</button>
+          <div data-megaska-step-otp hidden class="megaska-otp-step-otp">
+            <h2 class="megaska-otp-step-title">OTP Verification</h2>
+            <p class="megaska-otp-step-subtitle">
+              We sent a verification code to <span data-megaska-phone-display></span>
+            </p>
+            <p class="megaska-otp-helper-link-row">
+              <button type="button" class="megaska-otp-link" data-megaska-edit-phone>Edit number</button>
             </p>
 
             <div class="megaska-otp-inputs" data-megaska-otp-inputs>
@@ -278,12 +287,14 @@
               <span data-megaska-resend-text>Resend available in 30s</span>
               <button type="button" class="megaska-otp-link" data-megaska-resend disabled>Resend OTP</button>
             </div>
+            <p class="megaska-otp-trouble">
+              <button type="button" class="megaska-otp-link" data-megaska-edit-phone>Entered wrong number?</button>
+            </p>
           </div>
 
-          <div data-megaska-step-profile hidden>
-            <p class="megaska-otp-kicker">Complete your profile</p>
-            <h2>Just one more step</h2>
-            <p class="megaska-otp-subtitle">Add a few details to finish setting up your Megaska account.</p>
+          <div data-megaska-step-profile hidden class="megaska-otp-step-profile">
+            <h2 class="megaska-otp-step-title">Complete your profile</h2>
+            <p class="megaska-otp-step-subtitle">Just a few details for smoother checkout next time</p>
             <div class="megaska-otp-profile-grid">
               <div class="megaska-otp-form-field">
                 <label class="megaska-otp-label" for="megaska-firstname-input">First Name</label>
@@ -433,9 +444,9 @@
     const phoneInput = modal.querySelector("[data-megaska-phone-input]");
     phoneInput.addEventListener("input", handlePhoneInput);
 
-    modal
-      .querySelector("[data-megaska-edit-phone]")
-      .addEventListener("click", handleEditPhone);
+    modal.querySelectorAll("[data-megaska-edit-phone]").forEach((editBtn) => {
+      editBtn.addEventListener("click", handleEditPhone);
+    });
     modal.querySelector("[data-megaska-resend]").addEventListener("click", handleResend);
 
     modal.querySelectorAll("[data-megaska-otp-digit]").forEach((input) => {
