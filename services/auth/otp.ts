@@ -1,6 +1,6 @@
 import { normalizeIndianPhone as normalizeIndianPhoneE164 } from "../phone";
 
-export type OtpProvider = "msg91" | "mock";
+export type OtpProvider = "twilio" | "msg91" | "mock";
 
 type Msg91SendResult = {
   status: string;
@@ -13,7 +13,28 @@ type Msg91VerifyResult = {
   message: string;
 };
 
+type TwilioSendResult = {
+  status: string;
+  sid: string | null;
+  message: string;
+};
+
+type TwilioVerifyResult = {
+  status: string;
+  valid: boolean;
+  sid: string | null;
+  message: string;
+};
+
+type OtpProviderConfigStatus = {
+  twilio: { configured: boolean; hasAccountSid: boolean; hasAuthToken: boolean; hasVerifyServiceSid: boolean };
+  msg91: { configured: boolean; hasAuthKey: boolean; hasTemplateId: boolean };
+  mock: { configured: true };
+};
+
 const MSG91_OTP_API_BASE = "https://control.msg91.com/api/v5/otp";
+const TWILIO_VERIFY_API_BASE = "https://verify.twilio.com/v2/Services";
+const OTP_PROVIDER_DEFAULT_ORDER: OtpProvider[] = ["twilio", "msg91", "mock"];
 
 function getMsg91Config() {
   const authKey = process.env.MSG91_AUTH_KEY?.trim() || "";
@@ -22,27 +43,118 @@ function getMsg91Config() {
   const hasTemplateId = Boolean(templateId);
   const configured = Boolean(authKey && templateId);
 
-  console.info("[OTP PROVIDER] MSG91 env presence", {
-    hasAuthKey,
-    hasTemplateId,
-    configured,
-  });
-
   return {
     authKey,
     templateId,
+    hasAuthKey,
+    hasTemplateId,
     configured,
   };
 }
 
-export function getOtpProvider(): OtpProvider {
-  const { configured } = getMsg91Config();
+function getTwilioConfig() {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim() || "";
+  const authToken = process.env.TWILIO_AUTH_TOKEN?.trim() || "";
+  const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID?.trim() || "";
+  const hasAccountSid = Boolean(accountSid);
+  const hasAuthToken = Boolean(authToken);
+  const hasVerifyServiceSid = Boolean(verifyServiceSid);
+  const configured = Boolean(accountSid && authToken && verifyServiceSid);
 
-  if (configured) {
-    return "msg91";
+  return {
+    accountSid,
+    authToken,
+    verifyServiceSid,
+    hasAccountSid,
+    hasAuthToken,
+    hasVerifyServiceSid,
+    configured,
+  };
+}
+
+function getProviderConfigStatus(): OtpProviderConfigStatus {
+  const twilio = getTwilioConfig();
+  const msg91 = getMsg91Config();
+
+  return {
+    twilio: {
+      configured: twilio.configured,
+      hasAccountSid: twilio.hasAccountSid,
+      hasAuthToken: twilio.hasAuthToken,
+      hasVerifyServiceSid: twilio.hasVerifyServiceSid,
+    },
+    msg91: {
+      configured: msg91.configured,
+      hasAuthKey: msg91.hasAuthKey,
+      hasTemplateId: msg91.hasTemplateId,
+    },
+    mock: {
+      configured: true,
+    },
+  };
+}
+
+function normalizeProviderEnv(input: string | undefined): OtpProvider | null {
+  if (!input) return null;
+  if (input === "twilio" || input === "msg91" || input === "mock") return input;
+  return null;
+}
+
+function isProviderConfigured(provider: OtpProvider, configStatus: OtpProviderConfigStatus): boolean {
+  return configStatus[provider].configured;
+}
+
+export function getOtpProviderFallbackOrder(): OtpProvider[] {
+  const otpProviderEnv = process.env.OTP_PROVIDER?.trim();
+  const explicitProvider = normalizeProviderEnv(otpProviderEnv);
+  const configStatus = getProviderConfigStatus();
+
+  console.info("[OTP PROVIDER] Config presence", {
+    otpProviderEnv: otpProviderEnv || null,
+    parsedExplicitProvider: explicitProvider,
+    providers: configStatus,
+  });
+
+  if (otpProviderEnv && !explicitProvider) {
+    console.warn("[OTP PROVIDER] OTP_PROVIDER has unsupported value, falling back to default order", {
+      otpProviderEnv,
+      fallbackOrder: OTP_PROVIDER_DEFAULT_ORDER,
+    });
   }
 
-  console.warn("[OTP PROVIDER] MSG91 env not fully configured, falling back to mock provider");
+  if (explicitProvider) {
+    if (isProviderConfigured(explicitProvider, configStatus)) {
+      console.info("[OTP PROVIDER] Explicit provider selected", {
+        provider: explicitProvider,
+      });
+      return [explicitProvider];
+    }
+
+    const fallbackOrder = OTP_PROVIDER_DEFAULT_ORDER.filter((provider) => provider !== explicitProvider);
+    console.warn("[OTP PROVIDER] Explicit provider not configured, using fallback order", {
+      provider: explicitProvider,
+      fallbackOrder,
+    });
+
+    return fallbackOrder;
+  }
+
+  console.info("[OTP PROVIDER] Using default provider fallback order", {
+    fallbackOrder: OTP_PROVIDER_DEFAULT_ORDER,
+  });
+
+  return [...OTP_PROVIDER_DEFAULT_ORDER];
+}
+
+export function getOtpProvider(): OtpProvider {
+  const configStatus = getProviderConfigStatus();
+
+  for (const provider of getOtpProviderFallbackOrder()) {
+    if (isProviderConfigured(provider, configStatus)) {
+      return provider;
+    }
+  }
+
   return "mock";
 }
 
@@ -70,6 +182,118 @@ async function parseMsg91Response(response: Response) {
   return { message, code, payload: payloadRecord };
 }
 
+async function parseTwilioResponse(response: Response) {
+  let payload: unknown = null;
+
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  const payloadRecord = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : null;
+  const message =
+    (typeof payloadRecord?.message === "string" && payloadRecord.message) ||
+    (typeof payloadRecord?.detail === "string" && payloadRecord.detail) ||
+    `Twilio Verify request failed (${response.status})`;
+
+  return { message, payload: payloadRecord };
+}
+
+function getTwilioAuthHeader(accountSid: string, authToken: string) {
+  const auth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+  return `Basic ${auth}`;
+}
+
+export async function sendOtpWithTwilio(phoneE164: string): Promise<TwilioSendResult> {
+  const twilioConfig = getTwilioConfig();
+
+  if (!twilioConfig.configured) {
+    throw new Error("Twilio OTP provider is not configured");
+  }
+
+  const response = await fetch(
+    `${TWILIO_VERIFY_API_BASE}/${twilioConfig.verifyServiceSid}/Verifications`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: getTwilioAuthHeader(twilioConfig.accountSid, twilioConfig.authToken),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        To: phoneE164,
+        Channel: "sms",
+      }),
+      cache: "no-store",
+    }
+  );
+
+  const twilioResponse = await parseTwilioResponse(response);
+
+  console.info("[OTP TWILIO SEND RESPONSE]", {
+    status: response.status,
+    ok: response.ok,
+    body: twilioResponse.payload,
+  });
+
+  if (!response.ok) {
+    throw new Error(twilioResponse.message);
+  }
+
+  return {
+    status: String((twilioResponse.payload as Record<string, unknown> | null)?.status ?? "pending"),
+    sid: typeof (twilioResponse.payload as Record<string, unknown> | null)?.sid === "string"
+      ? ((twilioResponse.payload as Record<string, unknown>).sid as string)
+      : null,
+    message: twilioResponse.message,
+  };
+}
+
+export async function verifyOtpWithTwilio(phoneE164: string, otpCode: string): Promise<TwilioVerifyResult> {
+  const twilioConfig = getTwilioConfig();
+
+  if (!twilioConfig.configured) {
+    throw new Error("Twilio OTP provider is not configured");
+  }
+
+  const response = await fetch(
+    `${TWILIO_VERIFY_API_BASE}/${twilioConfig.verifyServiceSid}/VerificationCheck`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: getTwilioAuthHeader(twilioConfig.accountSid, twilioConfig.authToken),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        To: phoneE164,
+        Code: otpCode,
+      }),
+      cache: "no-store",
+    }
+  );
+
+  const twilioResponse = await parseTwilioResponse(response);
+  const status = String((twilioResponse.payload as Record<string, unknown> | null)?.status ?? "failed");
+  const valid = response.ok && status === "approved";
+
+  console.info("[OTP TWILIO VERIFY RESPONSE]", {
+    statusCode: response.status,
+    ok: response.ok,
+    verifyStatus: status,
+    valid,
+    body: twilioResponse.payload,
+  });
+
+  return {
+    status,
+    valid,
+    sid: typeof (twilioResponse.payload as Record<string, unknown> | null)?.sid === "string"
+      ? ((twilioResponse.payload as Record<string, unknown>).sid as string)
+      : null,
+    message: twilioResponse.message,
+  };
+}
+
 export async function sendOtpWithMsg91(phoneE164: string): Promise<Msg91SendResult> {
   const { authKey, templateId, configured } = getMsg91Config();
 
@@ -91,13 +315,6 @@ export async function sendOtpWithMsg91(phoneE164: string): Promise<Msg91SendResu
     },
     body: "{}",
     cache: "no-store",
-  });
-
-  console.info("[OTP MSG91 SEND REQUEST ACCEPTED]", {
-    endpoint: MSG91_OTP_API_BASE,
-    method: "POST",
-    mobile,
-    templateId,
   });
 
   const msg91Response = await parseMsg91Response(response);

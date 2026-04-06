@@ -6,9 +6,9 @@ import {
 } from "../../../../services/auth/session";
 import { withCors, handleOptions } from "../../_lib/cors";
 import {
-  getOtpProvider,
   normalizeIndianPhone,
   verifyOtpWithMsg91,
+  verifyOtpWithTwilio,
 } from "../../../../services/auth/otp";
 
 export async function OPTIONS(req: NextRequest) {
@@ -76,11 +76,63 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const provider = getOtpProvider();
+    const provider = challenge.provider;
 
-    if (provider === "msg91") {
-      console.info("[OTP VERIFY PROVIDER]", { provider, challengeId: challenge.id, phoneE164 });
+    console.info("[OTP VERIFY PROVIDER SELECTED]", {
+      challengeId: challenge.id,
+      provider,
+      phoneE164,
+    });
 
+    if (provider === "twilio") {
+      try {
+        const check = await verifyOtpWithTwilio(phoneE164, otpRaw);
+
+        console.info("[OTP VERIFY TWILIO RESULT]", {
+          challengeId: challenge.id,
+          phoneE164,
+          provider,
+          status: check.status,
+          valid: check.valid,
+        });
+
+        if (!check.valid) {
+          await prisma.oTPChallenge.update({
+            where: { id: challenge.id },
+            data: {
+              attemptsCount: { increment: 1 },
+              metadata: {
+                mode: "twilio",
+                twilioStatus: check.status,
+              },
+            },
+          });
+
+          return withCors(
+            req,
+            NextResponse.json({ error: "Invalid or expired OTP" }, { status: 400 })
+          );
+        }
+      } catch (twilioError) {
+        console.error("[OTP VERIFY TWILIO FAILURE]", {
+          challengeId: challenge.id,
+          phoneE164,
+          provider,
+          message:
+            twilioError instanceof Error
+              ? twilioError.message
+              : "Twilio verification failed",
+        });
+
+        return withCors(
+          req,
+          NextResponse.json(
+            { error: "Unable to verify OTP right now. Please retry." },
+            { status: 503 }
+          )
+        );
+      }
+    } else if (provider === "msg91") {
       try {
         const check = await verifyOtpWithMsg91(phoneE164, otpRaw);
 
@@ -152,7 +204,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      console.log("[OTP VERIFY RESULT]", {
+      console.log("[OTP VERIFY MOCK RESULT]", {
         challengeId: challenge.id,
         phoneE164,
         provider: "mock",

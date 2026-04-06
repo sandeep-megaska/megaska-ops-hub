@@ -37,9 +37,22 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## OTP provider environment variables
 
-Set these server-side variables in Vercel/Next.js runtime to enable MSG91 OTP in production/testing:
+Set these server-side variables in Vercel/Next.js runtime:
 
+- `OTP_PROVIDER` (optional): `twilio`, `msg91`, or `mock`
+
+Twilio config (required when using Twilio):
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_VERIFY_SERVICE_SID`
+
+MSG91 config (required when using MSG91):
 - `MSG91_AUTH_KEY`
 - `MSG91_TEMPLATE_ID`
 
-If any required MSG91 variable is missing, the OTP API automatically falls back to mock mode for development/testing. Never expose these as `NEXT_PUBLIC_*`.
+Provider selection behavior:
+- If `OTP_PROVIDER` is explicitly set and configured, that provider is used.
+- If `OTP_PROVIDER` is explicitly set but missing required config, the API logs a warning and falls back.
+- If `OTP_PROVIDER` is not set, fallback order is: `twilio` -> `msg91` -> `mock`.
+
+Never expose OTP provider secrets as `NEXT_PUBLIC_*`.
