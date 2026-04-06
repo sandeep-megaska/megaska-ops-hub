@@ -22,18 +22,6 @@
   place-items: center;
   padding: 16px;
 }
-.megaska-otp-logo-wrap {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 14px;
-}
-
-.megaska-otp-logo {
-  max-width: 160px;
-  max-height: 42px;
-  object-fit: contain;
-  display: block;
-}
 
 .megaska-otp-backdrop {
   position: absolute;
@@ -49,7 +37,8 @@
   max-width: 460px;
   min-width: min(400px, 100%);
   max-height: 92dvh;
-  background: #fff;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #dbe3ee;
   border-radius: var(--megaska-otp-radius);
   overflow: hidden;
   box-shadow: 0 24px 80px rgba(15, 23, 42, 0.18);
@@ -58,7 +47,7 @@
 }
 
 .megaska-otp-flow {
-  background: var(--megaska-otp-bg);
+  background: transparent;
   padding: 22px 24px 24px;
   display: flex;
   flex-direction: column;
@@ -68,6 +57,7 @@
   max-height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .megaska-otp-close {
@@ -106,15 +96,43 @@
   min-height: 0;
   display: flex;
   justify-content: center;
-  margin: 0 auto 14px;
+  margin: 0 auto 12px;
 }
 
 .megaska-otp-logo {
-  max-height: 30px;
-  max-width: 140px;
+  max-height: 34px;
+  max-width: 160px;
   width: auto;
   height: auto;
   object-fit: contain;
+  display: block;
+}
+
+.megaska-otp-offer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 auto 14px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #0f172a, #1e293b);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  width: fit-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.megaska-otp-offer-badge {
+  background: #fff;
+  color: #0f172a;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .megaska-otp-title {
@@ -249,17 +267,15 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  gap: 6px;
+  gap: 8px;
   font-weight: 600;
-  width: auto;
   min-width: fit-content;
   margin-right: 4px;
   padding-right: 12px;
   border-right: 1px solid #e2e8f0;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1;
-  letter-spacing: 0;
   color: #334155;
 }
 
@@ -268,7 +284,7 @@
   align-items: center;
   justify-content: center;
   line-height: 1;
-  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 18px;
 }
 
 .megaska-otp-dial-code {
@@ -509,16 +525,20 @@
     gap: 12px;
   }
 
-  .megaska-otp-handle {
-    display: none;
-  }
-
   .megaska-otp-logo-wrap {
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }
 
   .megaska-otp-logo {
-    max-height: 24px;
+    max-height: 28px;
+    max-width: 145px;
+  }
+
+  .megaska-otp-offer {
+    margin-bottom: 12px;
+    font-size: 12px;
+    gap: 8px;
+    padding: 9px 12px;
   }
 
   .megaska-otp-title {
@@ -578,42 +598,4 @@
     transform: translateY(0);
     opacity: 1;
   }
-}
-.megaska-otp-modal {
-  max-height: 90vh;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-.megaska-otp-modal {
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid #e2e8f0;
-}
-.offer-banner {
-  background: #0f172a;
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 10px 12px;
-  border-radius: 10px;
-  text-align: center;
-  margin-bottom: 14px;
-}
-.megaska-otp-country {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding-right: 10px;
-  border-right: 1px solid #e2e8f0;
-}
-
-.megaska-otp-flag {
-  width: 18px;
-  height: 12px;
-  object-fit: cover;
-  border-radius: 2px;
-}
-
-.megaska-otp-dial-code {
-  font-weight: 500;
-  color: #0f172a;
 }
