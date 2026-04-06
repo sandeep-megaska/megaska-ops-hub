@@ -1,9 +1,9 @@
 :root {
-  --megaska-otp-accent: #111827;
-  --megaska-otp-bg: #f5f7fb;
-  --megaska-otp-text: #111827;
-  --megaska-otp-muted: #6b7280;
-  --megaska-otp-radius: 20px;
+  --megaska-otp-accent: #0f172a;
+  --megaska-otp-bg: #ffffff;
+  --megaska-otp-text: #0f172a;
+  --megaska-otp-muted: #64748b;
+  --megaska-otp-radius: 18px;
 }
 
 .megaska-otp-open {
@@ -20,64 +20,38 @@
   z-index: 9999;
   display: grid;
   place-items: end center;
+  padding: 0;
 }
 
 .megaska-otp-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(17, 24, 39, 0.6);
+  background: rgba(2, 6, 23, 0.52);
   backdrop-filter: blur(3px);
 }
 
 .megaska-otp-dialog {
   position: relative;
-  display: grid;
-  grid-template-columns: 1fr;
-  width: min(100%, 920px);
-  height: min(100dvh - 16px, 760px);
-  max-height: min(100dvh - 16px, 760px);
+  display: block;
+  width: 100%;
+  max-width: 460px;
+  min-width: min(400px, 100%);
+  max-height: 92dvh;
   background: #fff;
-  border-radius: 22px 22px 0 0;
+  border-radius: var(--megaska-otp-radius);
   overflow: hidden;
-  box-shadow: 0 40px 120px rgba(17, 24, 39, 0.3);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.18);
   color: var(--megaska-otp-text);
   font-family: inherit;
 }
 
-.megaska-otp-brand {
-  display: none;
-  background: radial-gradient(circle at 0 0, #374151, var(--megaska-otp-accent));
-  color: #fff;
-  padding: 36px;
-}
-
-.megaska-otp-brand-badge {
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  font-weight: 700;
-  margin-bottom: 18px;
-  opacity: 0.9;
-}
-
-.megaska-otp-brand h3 {
-  margin: 0 0 16px;
-  line-height: 1.3;
-  font-size: 24px;
-}
-
-.megaska-otp-brand ul {
-  margin: 20px 0 0;
-  padding-left: 18px;
-  color: rgba(255, 255, 255, 0.9);
-  line-height: 1.9;
-}
-
 .megaska-otp-flow {
   background: var(--megaska-otp-bg);
-  padding: 24px 18px 18px;
+  padding: 22px 24px 24px;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
+  gap: 14px;
   min-height: 0;
   max-height: 100%;
   overflow-y: auto;
@@ -89,31 +63,123 @@
   top: 12px;
   right: 12px;
   border: 0;
-  background: #fff;
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  font-size: 24px;
+  background: transparent;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  font-size: 22px;
   line-height: 1;
   cursor: pointer;
-  color: #111;
+  color: #64748b;
+  display: grid;
+  place-items: center;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-.megaska-otp-kicker {
+.megaska-otp-close:hover,
+.megaska-otp-close:focus-visible {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.megaska-otp-header {
+  padding-top: 4px;
+}
+
+.megaska-otp-handle {
+  display: none;
+}
+
+.megaska-otp-logo-wrap {
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  margin: 0 auto 14px;
+}
+
+.megaska-otp-logo {
+  max-height: 30px;
+  max-width: 140px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.megaska-otp-title {
   margin: 0 0 8px;
-  color: var(--megaska-otp-muted);
-  font-weight: 600;
-}
-
-.megaska-otp-flow h2 {
-  margin: 0;
-  font-size: 24px;
-  line-height: 1.2;
+  font-size: 28px;
+  line-height: 1.15;
+  font-weight: 700;
+  text-align: center;
+  color: #0f172a;
 }
 
 .megaska-otp-subtitle {
   color: var(--megaska-otp-muted);
-  margin: 8px 0 16px;
+  margin: 0 auto 18px;
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
+  max-width: 320px;
+}
+
+.megaska-otp-trust-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.megaska-otp-chip {
+  font-size: 12px;
+  line-height: 1;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 7px 10px;
+}
+
+.megaska-otp-step-title {
+  margin: 0 0 8px;
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #0f172a;
+  text-align: center;
+}
+
+.megaska-otp-step-subtitle {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #64748b;
+  text-align: center;
+}
+
+.megaska-otp-step-profile .megaska-otp-step-subtitle {
+  margin-bottom: 14px;
+}
+
+.megaska-otp-helper-link-row {
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.megaska-otp-trouble {
+  text-align: center;
+  margin-top: 14px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.megaska-otp-trouble .megaska-otp-link {
+  font-weight: 500;
+}
+
+.megaska-otp-kicker {
+  display: none;
 }
 
 .megaska-otp-label {
@@ -130,7 +196,7 @@
 .megaska-otp-profile-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px;
+  gap: 12px;
 }
 
 .megaska-otp-form-field {
@@ -151,91 +217,117 @@
   display: flex;
   align-items: center;
   background: #fff;
-  border: 1px solid #d1d5db;
-  border-radius: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
   padding: 0 14px;
+  height: 52px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.megaska-otp-phone-wrap:focus-within {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 
 .megaska-otp-country {
   font-weight: 600;
-  margin-right: 10px;
+  width: 66px;
+  margin-right: 12px;
+  padding-right: 12px;
+  border-right: 1px solid #e2e8f0;
   white-space: nowrap;
+  font-size: 14px;
+  color: #334155;
 }
 
 .megaska-otp-phone-input {
   border: 0;
-  outline: 0;
+  outline: 0 !important;
   background: transparent;
   width: 100%;
-  padding: 16px 0;
-  font-size: 18px;
+  padding: 0;
+  height: 100%;
+  font-size: 16px;
   letter-spacing: 0.04em;
 }
 
 .megaska-otp-text-input {
   width: 100%;
-  border: 1px solid #d1d5db;
-  border-radius: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
   background: #fff;
-  padding: 12px 14px;
-  font-size: 15px;
+  padding: 0 14px;
+  height: 50px;
+  font-size: 16px;
   color: #111827;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .megaska-otp-hint {
   margin: 10px 0 0;
   color: var(--megaska-otp-muted);
   font-size: 13px;
+  text-align: center;
 }
 
 .megaska-otp-inputs {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
+  justify-content: center;
   gap: 10px;
   margin-bottom: 16px;
 }
 
 .megaska-otp-digit {
+  width: 54px;
+  height: 58px;
   text-align: center;
-  font-size: 30px;
-  border: 1px solid #d1d5db;
-  border-radius: 14px;
+  font-size: 24px;
+  font-weight: 600;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
   background: #fff;
-  padding: 12px 0;
+  padding: 0;
+  color: #0f172a;
+  caret-color: #0f172a;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .megaska-otp-digit:focus,
-.megaska-otp-phone-input:focus,
 .megaska-otp-text-input:focus {
-  outline: 2px solid rgba(17, 24, 39, 0.2);
-  outline-offset: 1px;
+  outline: 0;
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 
 .megaska-otp-primary-btn {
   width: 100%;
-  margin-top: 14px;
+  margin-top: 4px;
   border: 0;
   border-radius: 12px;
-  padding: 14px 16px;
-  background: #111827;
+  height: 50px;
+  padding: 0 16px;
+  background: #0f172a;
   color: #fff;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .megaska-otp-primary-btn:disabled {
-  opacity: 0.65;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .megaska-otp-resend-row {
   display: flex;
-  justify-content: space-between;
-  gap: 14px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
   align-items: center;
-  font-size: 13px;
-  color: var(--megaska-otp-muted);
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #475569;
 }
 
 .megaska-otp-link {
@@ -245,11 +337,21 @@
   font-weight: 600;
   cursor: pointer;
   padding: 0;
+  text-decoration: none;
 }
 
 .megaska-otp-link[disabled] {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.megaska-otp-link:hover:not([disabled]),
+.megaska-otp-link:focus-visible:not([disabled]) {
+  text-decoration: underline;
+}
+
+.megaska-otp-primary-btn:hover:not(:disabled) {
+  opacity: 0.94;
 }
 
 .megaska-otp-success {
@@ -271,9 +373,10 @@
 
 .megaska-otp-error {
   min-height: 20px;
-  margin-top: 14px;
+  margin-top: 4px;
   color: #dc2626;
   font-size: 13px;
+  text-align: center;
 }
 
 .megaska-account-menu-popover {
@@ -327,18 +430,8 @@
 
   .megaska-otp-dialog {
     min-height: auto;
-    height: min(100dvh - 48px, 720px);
-    max-height: min(100dvh - 48px, 720px);
+    max-height: min(100dvh - 48px, 760px);
     border-radius: var(--megaska-otp-radius);
-    grid-template-columns: 1fr 1.1fr;
-  }
-
-  .megaska-otp-brand {
-    display: block;
-  }
-
-  .megaska-otp-flow {
-    padding: 30px 28px 24px;
   }
 
   .megaska-otp-profile-grid {
@@ -348,5 +441,95 @@
 
   .megaska-otp-col-span-2 {
     grid-column: span 2;
+  }
+}
+
+@media (max-width: 799px) {
+  .megaska-otp-dialog {
+    max-width: none;
+    min-width: 0;
+    border-radius: 20px 20px 0 0;
+    max-height: 78vh;
+    animation: megaskaOtpSlideUp 260ms ease-out;
+  }
+
+  .megaska-otp-flow {
+    padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+    gap: 12px;
+  }
+
+  .megaska-otp-handle {
+    display: block;
+    width: 42px;
+    height: 4px;
+    border-radius: 999px;
+    background: #cbd5e1;
+    margin: 0 auto 14px;
+  }
+
+  .megaska-otp-logo-wrap {
+    margin-bottom: 12px;
+  }
+
+  .megaska-otp-logo {
+    max-height: 24px;
+  }
+
+  .megaska-otp-title {
+    font-size: 22px;
+    line-height: 1.2;
+  }
+
+  .megaska-otp-subtitle {
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+
+  .megaska-otp-trust-strip {
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .megaska-otp-chip {
+    padding: 6px 9px;
+  }
+
+  .megaska-otp-step-title {
+    font-size: 22px;
+  }
+
+  .megaska-otp-inputs {
+    gap: 10px;
+  }
+
+  .megaska-otp-digit {
+    width: min(calc((100% - 30px) / 4), 56px);
+    height: 54px;
+  }
+
+  .megaska-otp-phone-wrap {
+    height: 50px;
+  }
+
+  .megaska-otp-primary-btn,
+  .megaska-otp-text-input {
+    min-height: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .megaska-otp-dialog {
+    animation: none;
+  }
+}
+
+@keyframes megaskaOtpSlideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
