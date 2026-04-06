@@ -231,25 +231,26 @@
     modal.className = "megaska-otp-modal";
     modal.hidden = true;
 
-    modal.innerHTML = `
-      <div class="megaska-otp-backdrop" data-megaska-otp-backdrop></div>
-      <div class="megaska-otp-dialog" role="dialog" aria-modal="true" aria-labelledby="megaska-otp-title">
-        <section class="megaska-otp-flow">
-          <button type="button" class="megaska-otp-close" data-megaska-otp-close aria-label="Close login modal">×</button>
-          <div class="megaska-otp-handle" aria-hidden="true"></div>
-          <div class="megaska-otp-header">
-            <div class="megaska-otp-logo-wrap">
-              const logoUrl = window.Shopify?.routes?.root
-  ? window.Shopify.routes.root + 'assets/megaska_logo.png'
-  : '/assets/megaska_logo.png';
-            </div>
-            <h2 id="megaska-otp-title" class="megaska-otp-title">Login or Signup</h2>
-            <p class="megaska-otp-subtitle">Use your mobile number for a secure, faster checkout</p>
-            <div class="megaska-otp-trust-strip" aria-label="Login benefits">
-              <span class="megaska-otp-chip">Secure login</span>
-              <span class="megaska-otp-chip">Faster checkout</span>
-              <span class="megaska-otp-chip">Free shipping</span>
-            </div>
+   const logoUrl = (window.Shopify && window.Shopify.routes && window.Shopify.routes.root
+  ? window.Shopify.routes.root
+  : "/") + "assets/megaska_logo.png";
+
+modal.innerHTML = `
+  <button class="megaska-otp-close" type="button" aria-label="Close">×</button>
+
+  <div class="megaska-otp-logo-wrap">
+    <img src="${logoUrl}" alt="Megaska" class="megaska-otp-logo" />
+  </div>
+
+  <h2 class="megaska-otp-title">Login or Signup</h2>
+  <p class="megaska-otp-subtitle">Use your mobile number for a secure, faster checkout</p>
+
+  <div class="megaska-otp-trust-row">
+    <span class="megaska-otp-chip">Secure login</span>
+    <span class="megaska-otp-chip">Faster checkout</span>
+    <span class="megaska-otp-chip">Free shipping</span>
+  </div>
+
           </div>
 
           <div data-megaska-step-phone class="megaska-otp-step-phone">
