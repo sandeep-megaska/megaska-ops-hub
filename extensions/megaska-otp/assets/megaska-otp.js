@@ -784,6 +784,48 @@
     focusProfileInput();
   }
 
+  function getOtpRequestPayload(response) {
+    if (!response || typeof response !== "object") return null;
+    if (response.data && typeof response.data === "object") {
+      return response.data;
+    }
+    return response;
+  }
+
+  function didOtpRequestSucceed(response) {
+    if (!response) {
+      // Legacy contract: treat empty successful HTTP responses as sent.
+      return true;
+    }
+
+    const payload = getOtpRequestPayload(response);
+    if (!payload) return false;
+
+    if (payload.success === true || payload.otpSent === true || payload.sent === true) {
+      return true;
+    }
+
+    if (typeof payload.status === "string") {
+      const normalizedStatus = payload.status.trim().toLowerCase();
+      if (normalizedStatus === "sent" || normalizedStatus === "pending" || normalizedStatus === "approved") {
+        return true;
+      }
+    }
+
+    return Boolean(payload.challengeId || payload.requestId);
+  }
+
+  function getOtpRequestErrorMessage(response) {
+    const payload = getOtpRequestPayload(response);
+    return (
+      payload?.error ||
+      payload?.message ||
+      payload?.data?.error ||
+      payload?.data?.message ||
+      "Unable to send OTP. Please try again."
+    );
+  }
+
   async function submitPhoneIfReady() {
     if (!isModalOpen()) return;
     if (state.requesting || state.verifying) return;
@@ -801,8 +843,11 @@
     renderStep();
 
     try {
-      await window.MegaskaAuth.requestOtp(normalizedPhone);
+      const otpRequestResponse = await window.MegaskaAuth.requestOtp(normalizedPhone);
       if (!isModalOpen()) return;
+      if (!didOtpRequestSucceed(otpRequestResponse)) {
+        throw new Error(getOtpRequestErrorMessage(otpRequestResponse));
+      }
       state.normalizedPhone = normalizedPhone;
       state.requesting = false;
       renderOtpStep();
@@ -1046,7 +1091,10 @@
     renderStep();
 
     try {
-      await window.MegaskaAuth.requestOtp(state.normalizedPhone);
+      const otpRequestResponse = await window.MegaskaAuth.requestOtp(state.normalizedPhone);
+      if (!didOtpRequestSucceed(otpRequestResponse)) {
+        throw new Error(getOtpRequestErrorMessage(otpRequestResponse));
+      }
       state.requesting = false;
       state.otpDigits = ["", "", "", ""];
       renderStep();
