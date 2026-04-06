@@ -1295,6 +1295,13 @@
     return rawUrl;
   }
 
+  function isCheckoutSubmitter(element) {
+    if (!element || typeof element.matches !== "function") return false;
+    return element.matches(
+      "button[name='checkout'], input[name='checkout'], button[data-action='checkout'], [data-checkout-button], .shopify-payment-button__button"
+    );
+  }
+
   function mergeCheckoutQueryParams(baseUrl, prefilledUrl) {
     const fallback = prefilledUrl || baseUrl || "";
     if (!baseUrl || !prefilledUrl || !prefilledUrl.includes("?")) return fallback;
@@ -1799,13 +1806,20 @@
     const checkoutForm =
       triggerEl && typeof triggerEl.closest === "function" ? triggerEl.closest("form") : null;
     if (checkoutForm) {
+      event.preventDefault();
       const customer = await getCurrentMegaskaCustomer();
       await applyCheckoutPrefillToForm(checkoutForm, customer);
+      const submittedAction = checkoutForm.getAttribute("action") || "/checkout";
+      const prefilledUrl = await buildPrefilledCheckoutUrl("/checkout", customer);
+      const handoff = await runBuyerIdentityHandoff(prefilledUrl, customer);
+      const finalTargetUrl = handoff?.checkoutUrl || prefilledUrl || submittedAction;
       console.log("[Megaska Checkout Prefill] checkout continuation", {
-        mode: "click-form-submit",
-        formAction: checkoutForm.getAttribute("action") || null,
+        mode: "click-form-redirect",
+        formAction: submittedAction,
+        finalCheckoutUrl: finalTargetUrl,
         prefillApplied: true,
       });
+      window.location.assign(finalTargetUrl);
     }
   }
 
@@ -1870,15 +1884,21 @@
       if (!form || !form.matches || !form.matches("form")) return;
 
       const action = form.getAttribute("action") || "";
-      if (!action.includes("/checkout")) return;
+      const submitter = event.submitter;
+      const checkoutIntent = action.includes("/checkout") || isCheckoutSubmitter(submitter);
+      if (!checkoutIntent) return;
 
       const allowed = await ensureMegaskaAuthenticatedBeforeCheckout({
         event,
         pendingAction: {
-          type: "callback",
-          callback: () => form.submit(),
+          type: "navigate",
+          url: "/checkout",
         },
-        triggerEl: form.querySelector("button[name='checkout'], input[name='checkout'], [data-checkout-button], .shopify-payment-button__button"),
+        triggerEl:
+          submitter ||
+          form.querySelector(
+            "button[name='checkout'], input[name='checkout'], [data-checkout-button], .shopify-payment-button__button"
+          ),
         form,
       });
 
@@ -1905,14 +1925,13 @@
         return;
       }
       const finalTargetUrl = handoff?.checkoutUrl || prefilledUrl || submittedAction;
-      form.setAttribute("action", finalTargetUrl);
       console.log("[Megaska Checkout Prefill] checkout continuation", {
-        mode: "form-submit",
+        mode: "form-redirect",
         finalCheckoutUrl: finalTargetUrl,
         mutationWaited: true,
         debugSurface: "window.__megaskaCheckoutDebug",
       });
-      form.submit();
+      window.location.assign(finalTargetUrl);
     });
   }
 
