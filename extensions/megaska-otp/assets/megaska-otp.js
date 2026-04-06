@@ -65,6 +65,7 @@
     profilePostalCode: "",
     profileCountryRegion: COUNTRY_REGION,
   };
+
   let globalClickBound = false;
   let checkoutSubmitBound = false;
   let pendingAction = null;
@@ -221,6 +222,24 @@
     state.profileCountryRegion = COUNTRY_REGION;
   }
 
+  function resolveExtensionAssetUrl(filename) {
+    const currentScript =
+      document.currentScript ||
+      Array.from(document.scripts || []).find((script) =>
+        String(script?.src || "").includes("megaska-otp.js")
+      );
+
+    try {
+      if (currentScript?.src) {
+        return new URL(filename, currentScript.src).toString();
+      }
+    } catch (error) {
+      console.warn("[Megaska OTP] asset URL fallback used", error);
+    }
+
+    return `/assets/${filename}`;
+  }
+
   function ensureModal() {
     let modal = document.querySelector("[data-megaska-otp-modal]");
     if (modal) return modal;
@@ -231,39 +250,54 @@
     modal.className = "megaska-otp-modal";
     modal.hidden = true;
 
-   const logoUrl = (window.Shopify && window.Shopify.routes && window.Shopify.routes.root
-  ? window.Shopify.routes.root
-  : "/") + "assets/megaska_logo.png";
+    const logoUrl = resolveExtensionAssetUrl("megaska_logo.png");
 
-modal.innerHTML = `
-  <button class="megaska-otp-close" type="button" aria-label="Close">×</button>
+    modal.innerHTML = `
+      <div class="megaska-otp-backdrop" data-megaska-otp-backdrop></div>
 
-  <div class="megaska-otp-logo-wrap">
-    <img src="${logoUrl}" alt="Megaska" class="megaska-otp-logo" />
-  </div>
+      <div class="megaska-otp-dialog" role="dialog" aria-modal="true" aria-labelledby="megaska-otp-title">
+        <section class="megaska-otp-flow">
+          <button
+            class="megaska-otp-close"
+            data-megaska-otp-close
+            type="button"
+            aria-label="Close"
+          >×</button>
 
-  <h2 class="megaska-otp-title">Login or Signup</h2>
-  <p class="megaska-otp-subtitle">Use your mobile number for a secure, faster checkout</p>
+          <div class="megaska-otp-header">
+            <div class="megaska-otp-handle" aria-hidden="true"></div>
 
-  <div class="megaska-otp-trust-row">
-    <span class="megaska-otp-chip">Secure login</span>
-    <span class="megaska-otp-chip">Faster checkout</span>
-    <span class="megaska-otp-chip">Free shipping</span>
-  </div>
+            <div class="megaska-otp-logo-wrap">
+              <img
+                src="${logoUrl}"
+                alt="Megaska"
+                class="megaska-otp-logo"
+                onerror="this.style.display='none';"
+              />
+            </div>
 
+            <div class="megaska-otp-offer">
+              <span class="megaska-otp-offer-badge">15% OFF</span>
+              <span>Use Code: <strong>MEGA15</strong></span>
+            </div>
+
+            <h2 id="megaska-otp-title" class="megaska-otp-title">Login or Signup</h2>
+            <p class="megaska-otp-subtitle">Unlock 15% OFF and continue to secure checkout</p>
+
+            <div class="megaska-otp-trust-strip">
+              <span class="megaska-otp-chip">Secure login</span>
+              <span class="megaska-otp-chip">Faster checkout</span>
+              <span class="megaska-otp-chip">Free shipping</span>
+            </div>
           </div>
 
           <div data-megaska-step-phone class="megaska-otp-step-phone">
             <label class="megaska-otp-label" for="megaska-phone-input">Mobile number</label>
             <div class="megaska-otp-phone-wrap" role="group" aria-label="Indian mobile number">
-             <span class="megaska-otp-country" aria-hidden="true">
-  <img 
-    src="https://flagcdn.com/w20/in.png" 
-    alt="India" 
-    class="megaska-otp-flag"
-  />
-  <span class="megaska-otp-dial-code">+91</span>
-</span>
+              <span class="megaska-otp-country" aria-hidden="true">
+                <span class="megaska-otp-flag">🇮🇳</span>
+                <span class="megaska-otp-dial-code">+91</span>
+              </span>
               <input
                 id="megaska-phone-input"
                 data-megaska-phone-input
@@ -281,9 +315,6 @@ modal.innerHTML = `
           </div>
 
           <div data-megaska-step-otp hidden class="megaska-otp-step-otp">
-          <div class="offer-banner">
-  🎉 15% OFF • Use Code: <strong>MEGA15</strong>
-</div>
             <h2 class="megaska-otp-step-title">OTP Verification</h2>
             <p class="megaska-otp-step-subtitle">
               We sent a verification code to <span data-megaska-phone-display></span>
@@ -518,6 +549,7 @@ modal.innerHTML = `
           renderStep();
         }
       });
+
     modal
       .querySelector("[data-megaska-profile-address1]")
       .addEventListener("input", (event) => {
@@ -833,7 +865,6 @@ modal.innerHTML = `
 
   function didOtpRequestSucceed(response) {
     if (!response) {
-      // Legacy contract: treat empty successful HTTP responses as sent.
       return true;
     }
 
