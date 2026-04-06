@@ -1793,6 +1793,19 @@
         debugSurface: "window.__megaskaCheckoutDebug",
       });
       window.location.assign(finalTargetUrl);
+      return;
+    }
+
+    const checkoutForm =
+      triggerEl && typeof triggerEl.closest === "function" ? triggerEl.closest("form") : null;
+    if (checkoutForm) {
+      const customer = await getCurrentMegaskaCustomer();
+      await applyCheckoutPrefillToForm(checkoutForm, customer);
+      console.log("[Megaska Checkout Prefill] checkout continuation", {
+        mode: "click-form-submit",
+        formAction: checkoutForm.getAttribute("action") || null,
+        prefillApplied: true,
+      });
     }
   }
 
