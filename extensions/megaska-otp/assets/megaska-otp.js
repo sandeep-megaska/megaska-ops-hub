@@ -239,7 +239,10 @@
           <div data-megaska-step-phone class="megaska-otp-step-phone">
             <label class="megaska-otp-label" for="megaska-phone-input">Mobile number</label>
             <div class="megaska-otp-phone-wrap" role="group" aria-label="Indian mobile number">
-              <span class="megaska-otp-country" aria-hidden="true">🇮🇳 +91</span>
+              <span class="megaska-otp-country" aria-hidden="true">
+                <span class="megaska-otp-flag">🇮🇳</span>
+                <span class="megaska-otp-dial-code">+91</span>
+              </span>
               <input
                 id="megaska-phone-input"
                 data-megaska-phone-input

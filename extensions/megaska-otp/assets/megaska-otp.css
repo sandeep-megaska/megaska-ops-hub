@@ -235,19 +235,35 @@
 .megaska-otp-country {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
+  gap: 6px;
   font-weight: 600;
   width: auto;
   min-width: fit-content;
-  margin-right: 2px;
+  margin-right: 4px;
   padding-right: 12px;
   border-right: 1px solid #e2e8f0;
   white-space: nowrap;
   font-size: 13px;
-  line-height: 1.1;
+  line-height: 1;
   letter-spacing: 0;
   color: #334155;
-  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", system-ui, -apple-system, sans-serif;
+}
+
+.megaska-otp-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+
+.megaska-otp-dial-code {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
 .megaska-otp-phone-input {
