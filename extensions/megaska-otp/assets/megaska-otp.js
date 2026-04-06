@@ -239,14 +239,9 @@
           <div class="megaska-otp-handle" aria-hidden="true"></div>
           <div class="megaska-otp-header">
             <div class="megaska-otp-logo-wrap">
-              <img
-                class="megaska-otp-logo"
-                src="/public/megaska_logo.png"
-                alt="Megaska"
-                loading="lazy"
-                decoding="async"
-                onerror="this.style.display='none';"
-              />
+              const logoUrl = window.Shopify?.routes?.root
+  ? window.Shopify.routes.root + 'assets/megaska_logo.png'
+  : '/assets/megaska_logo.png';
             </div>
             <h2 id="megaska-otp-title" class="megaska-otp-title">Login or Signup</h2>
             <p class="megaska-otp-subtitle">Use your mobile number for a secure, faster checkout</p>
