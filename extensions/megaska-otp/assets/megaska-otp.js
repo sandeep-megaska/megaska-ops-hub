@@ -1996,6 +1996,14 @@
     console.log("[Megaska OTP] binding account triggers", ACCOUNT_TRIGGER_SELECTORS);
 
     document.addEventListener("click", (event) => {
+      const clickedInteractiveElement =
+        event.target && typeof event.target.closest === "function"
+          ? event.target.closest("a,button,input,[role='button']")
+          : null;
+      if (clickedInteractiveElement) {
+        console.log("[CLICK]", clickedInteractiveElement);
+      }
+
       const logoutTrigger = findClosestMatchingElement(event, LOGOUT_TRIGGER_SELECTORS);
       if (logoutTrigger) {
         handleLogoutClick(event);
