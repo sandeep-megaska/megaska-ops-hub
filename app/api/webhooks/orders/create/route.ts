@@ -43,7 +43,7 @@ function safeEqual(a: string, b: string) {
 }
 
 function verifyWebhookHmac(rawBuffer: Buffer, hmacHeader: string) {
-  const secret = getShopifyApiSecret();
+  const secret = getShopifyWebhookSecret();
   if (!secret || !hmacHeader) return false;
 
   const digest = crypto
@@ -74,6 +74,13 @@ function toAttributeMap(noteAttributes: ShopifyOrderWebhookPayload["note_attribu
   return map;
 }
 
+function getShopifyWebhookSecret() {
+  return String(
+    process.env.SHOPIFY_WEBHOOK_SECRET ||
+    process.env.SHOPIFY_API_SECRET ||
+    ""
+  ).trim();
+}
 function resolveOrderContactPhone(payload: ShopifyOrderWebhookPayload) {
   return String(
     payload.phone ||
