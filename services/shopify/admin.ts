@@ -78,6 +78,22 @@ function resolveOrderGid(orderId: string) {
   return `gid://shopify/Order/${trimmed}`;
 }
 
+export function normalizeIndianPhoneToE164(input: string | null | undefined) {
+  const raw = String(input || "").trim();
+  if (!raw) return null;
+
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10) {
+    return `+91${digits}`;
+  }
+
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return `+${digits}`;
+  }
+
+  return null;
+}
+
 async function adminGraphql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
   const shopDomain = getShopDomain();
   const token = getAdminAccessToken();
@@ -257,6 +273,43 @@ export async function updateOrderPhone(input: { orderId: string; phone: string }
       input: {
         id: resolveOrderGid(input.orderId),
         phone: String(input.phone || "").trim(),
+      },
+    }
+  );
+
+  return data.orderUpdate;
+}
+
+export async function updateShopifyOrderEmail(orderGid: string, email: string) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!normalizedEmail) {
+    throw new Error("Missing order email");
+  }
+
+  const data = await adminGraphql<{
+    orderUpdate: {
+      order?: { id: string; email?: string | null } | null;
+      userErrors: Array<{ message: string; field?: string[] }>;
+    };
+  }>(
+    `
+      mutation UpdateOrderEmail($input: OrderInput!) {
+        orderUpdate(input: $input) {
+          order {
+            id
+            email
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+    {
+      input: {
+        id: resolveOrderGid(orderGid),
+        email: normalizedEmail,
       },
     }
   );

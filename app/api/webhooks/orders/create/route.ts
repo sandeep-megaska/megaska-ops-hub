@@ -1,9 +1,12 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { compareMegaskaPhoneIdentity, normalizeIndianPhone } from "../../../../../services/phone";
+import { prisma } from "../../../../../services/db/prisma";
 import {
   isShopifyAdminConfigured,
+  normalizeIndianPhoneToE164,
   setOrderMegaskaIdentityMetafields,
+  updateShopifyOrderEmail,
   updateOrderPhone,
 } from "../../../../../services/shopify/admin";
 
@@ -25,6 +28,8 @@ type ShopifyOrderWebhookPayload = {
   };
   note_attributes?: Array<{ name?: string; value?: string }>;
 };
+
+export const runtime = "nodejs";
 
 function getShopifyApiSecret() {
   return String(process.env.SHOPIFY_API_SECRET || "").trim();
@@ -72,6 +77,79 @@ function resolveCheckoutContactEmail(payload: ShopifyOrderWebhookPayload) {
   return String(payload.email || payload.contact_email || payload.customer?.email || "").trim();
 }
 
+async function backfillMissingOrderEmailFromCustomerProfile(order: ShopifyOrderWebhookPayload) {
+  const orderId = String(order.admin_graphql_api_id || order.id || "").trim();
+  const existingEmail = resolveCheckoutContactEmail(order);
+
+  if (existingEmail) {
+    console.log("[Megaska Order Email Backfill] skipped because email already present", {
+      orderId: orderId || null,
+      email: existingEmail,
+    });
+    return;
+  }
+
+  const orderPhone = String(order.phone || order.shipping_address?.phone || order.customer?.phone || "").trim();
+  if (!orderPhone) {
+    console.log("[Megaska Order Email Backfill] skipped because no phone", {
+      orderId: orderId || null,
+    });
+    return;
+  }
+
+  const normalizedPhone = normalizeIndianPhoneToE164(orderPhone);
+  if (!normalizedPhone) {
+    console.log("[Megaska Order Email Backfill] skipped because no phone", {
+      orderId: orderId || null,
+      phone: orderPhone,
+    });
+    return;
+  }
+
+  const customerProfile = await prisma.customerProfile.findUnique({
+    where: {
+      phoneE164: normalizedPhone,
+    },
+    select: {
+      email: true,
+    },
+  });
+
+  const profileEmail = String(customerProfile?.email || "").trim().toLowerCase();
+  if (!profileEmail) {
+    console.log("[Megaska Order Email Backfill] skipped because CustomerProfile email missing", {
+      orderId: orderId || null,
+      phoneE164: normalizedPhone,
+    });
+    return;
+  }
+
+  const orderGid = String(order.admin_graphql_api_id || `gid://shopify/Order/${order.id || ""}`).trim();
+  if (!orderGid || orderGid === "gid://shopify/Order/") {
+    throw new Error("Missing order gid");
+  }
+
+  console.log("[Megaska Order Email Backfill] attempting Shopify order email backfill", {
+    orderId: orderId || null,
+    orderGid,
+    phoneE164: normalizedPhone,
+    email: profileEmail,
+  });
+
+  const result = await updateShopifyOrderEmail(orderGid, profileEmail);
+  const updateError = result.userErrors[0]?.message;
+
+  if (updateError) {
+    throw new Error(updateError);
+  }
+
+  console.log("[Megaska Order Email Backfill] success", {
+    orderId: orderId || null,
+    orderGid,
+    email: result.order?.email || profileEmail,
+  });
+}
+
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
   const hmacHeader = String(req.headers.get("x-shopify-hmac-sha256") || "").trim();
@@ -116,6 +194,15 @@ export async function POST(req: NextRequest) {
     hasVerifiedPhone: Boolean(verifiedPhone),
     phoneVerified,
   });
+
+  try {
+    await backfillMissingOrderEmailFromCustomerProfile(payload);
+  } catch (error) {
+    console.error("[Megaska Order Email Backfill] failure", {
+      orderId: orderId || null,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
 
   console.log("[Megaska Verified Phone] trusted identity extracted", {
     orderId: orderId || null,
