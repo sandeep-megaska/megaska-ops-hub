@@ -154,22 +154,25 @@ async function backfillMissingOrderEmailFromCustomerProfile(order: ShopifyOrderW
 }
 
 export async function POST(req: NextRequest) {
- const rawBuffer = Buffer.from(await req.arrayBuffer());
-const rawBody = rawBuffer.toString("utf8");
-const hmacHeader = String(req.headers.get("x-shopify-hmac-sha256") || "").trim();
+  const rawBuffer = Buffer.from(await req.arrayBuffer());
+  const rawBody = rawBuffer.toString("utf8");
+  const hmacHeader = String(req.headers.get("x-shopify-hmac-sha256") || "").trim();
 
-if (!verifyWebhookHmac(rawBuffer, hmacHeader)) {
-console.log("[Megaska Order Identity] webhook hmac debug", {
-  hasShopifyApiSecret: Boolean(String(process.env.SHOPIFY_API_SECRET || "").trim()),
-  secretLength: String(process.env.SHOPIFY_API_SECRET || "").trim().length,
-  hasHmacHeader: Boolean(hmacHeader),
-  hmacHeaderLength: hmacHeader.length,
-  topic: String(req.headers.get("x-shopify-topic") || "").trim() || null,
-  shopDomain: String(req.headers.get("x-shopify-shop-domain") || "").trim() || null,
-});
+  console.log("[Megaska Order Identity] webhook hmac debug", {
+    hasShopifyApiSecret: Boolean(String(process.env.SHOPIFY_API_SECRET || "").trim()),
+    secretLength: String(process.env.SHOPIFY_API_SECRET || "").trim().length,
+    hasHmacHeader: Boolean(hmacHeader),
+    hmacHeaderLength: hmacHeader.length,
+    topic: String(req.headers.get("x-shopify-topic") || "").trim() || null,
+    shopDomain: String(req.headers.get("x-shopify-shop-domain") || "").trim() || null,
+  });
+
   if (!verifyWebhookHmac(rawBuffer, hmacHeader)) {
     console.warn("[Megaska Order Identity] webhook rejected - invalid hmac");
-    return NextResponse.json({ ok: false, error: "Invalid webhook signature" }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, error: "Invalid webhook signature" },
+      { status: 401 }
+    );
   }
 
   const topic = String(req.headers.get("x-shopify-topic") || "").trim();
