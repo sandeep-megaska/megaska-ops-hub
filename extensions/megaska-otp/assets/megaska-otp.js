@@ -90,10 +90,17 @@
     "a[href='/checkout']",
     "a[href*='/checkout']",
     "button[name='checkout']",
+    "button[name='goto_pp']",
     "input[name='checkout']",
+    "input[name='goto_pp']",
     "button[data-action='checkout']",
+    "button[data-action='proceed-to-checkout']",
     "[data-checkout-button]",
     ".shopify-payment-button__button",
+    ".checkout-button",
+    ".btn-checkout",
+    ".mini-cart__checkout",
+    ".cart__checkout",
   ];
 
   const CHECKOUT_PHONE_SELECTORS = [
@@ -1229,7 +1236,9 @@
 
     if (
       element.matches("a[href='/checkout'], a[href*='/checkout']") ||
-      element.matches("button[name='checkout'], input[name='checkout'], button[data-action='checkout'], [data-checkout-button]")
+      element.matches(
+        "button[name='checkout'], button[name='goto_pp'], input[name='checkout'], input[name='goto_pp'], button[data-action='checkout'], button[data-action='proceed-to-checkout'], [data-checkout-button], .checkout-button, .btn-checkout, .mini-cart__checkout, .cart__checkout"
+      )
     ) {
       return true;
     }
@@ -1239,6 +1248,43 @@
 
     const action = form.getAttribute("action") || "";
     return action.includes("/checkout");
+  }
+
+  function hasCheckoutIntentText(value) {
+    return /(checkout|check-out|goto_pp|buy[\s_-]?now|proceed)/i.test(String(value || ""));
+  }
+
+  function inferCheckoutTriggerFromEvent(event) {
+    const target = event?.target;
+    if (!target || typeof target.closest !== "function") return null;
+
+    const directMatch = findClosestMatchingElement(event, CHECKOUT_TRIGGER_SELECTORS);
+    if (directMatch) return directMatch;
+
+    const candidate = target.closest("a,button,input,[role='button']");
+    if (!candidate) return null;
+
+    const href = candidate.getAttribute("href");
+    const formAction = candidate.getAttribute("formaction");
+    const name = candidate.getAttribute("name");
+    const dataAction = candidate.getAttribute("data-action");
+    const className = candidate.className;
+    const id = candidate.id;
+    const text = candidate.textContent;
+
+    if (
+      String(href || "").includes("/checkout") ||
+      String(formAction || "").includes("/checkout") ||
+      hasCheckoutIntentText(name) ||
+      hasCheckoutIntentText(dataAction) ||
+      hasCheckoutIntentText(className) ||
+      hasCheckoutIntentText(id) ||
+      hasCheckoutIntentText(text)
+    ) {
+      return candidate;
+    }
+
+    return null;
   }
 
   function extractVerifiedPhoneFromSession(session) {
@@ -1367,8 +1413,20 @@
 
   function isCheckoutSubmitter(element) {
     if (!element || typeof element.matches !== "function") return false;
-    return element.matches(
-      "button[name='checkout'], input[name='checkout'], button[data-action='checkout'], [data-checkout-button], .shopify-payment-button__button"
+    if (
+      element.matches(
+        "button[name='checkout'], button[name='goto_pp'], input[name='checkout'], input[name='goto_pp'], button[data-action='checkout'], button[data-action='proceed-to-checkout'], [data-checkout-button], .shopify-payment-button__button, .checkout-button, .btn-checkout, .mini-cart__checkout, .cart__checkout"
+      )
+    ) {
+      return true;
+    }
+
+    return (
+      hasCheckoutIntentText(element.getAttribute("name")) ||
+      hasCheckoutIntentText(element.getAttribute("data-action")) ||
+      hasCheckoutIntentText(element.className) ||
+      hasCheckoutIntentText(element.id) ||
+      hasCheckoutIntentText(element.textContent)
     );
   }
 
@@ -1950,8 +2008,11 @@
         return;
       }
 
-      const checkoutTrigger = findClosestMatchingElement(event, CHECKOUT_TRIGGER_SELECTORS);
+      const checkoutTrigger = inferCheckoutTriggerFromEvent(event);
       if (checkoutTrigger && isCheckoutTarget(checkoutTrigger)) {
+        if (typeof event.stopImmediatePropagation === "function") {
+          event.stopImmediatePropagation();
+        }
         handleCheckoutTriggerClick(event, checkoutTrigger);
         return;
       }
@@ -1961,7 +2022,7 @@
       if (!clickedInsideMenu) {
         closeAccountMenu();
       }
-    });
+    }, true);
   }
 
   function bindAuthStateSync() {
@@ -1993,7 +2054,13 @@
 
       const action = form.getAttribute("action") || "";
       const submitter = event.submitter;
-      const checkoutIntent = action.includes("/checkout") || isCheckoutSubmitter(submitter);
+      const fallbackSubmitter =
+        form.querySelector("button[name='checkout'], button[name='goto_pp'], input[name='checkout'], input[name='goto_pp'], [data-checkout-button], .shopify-payment-button__button, .checkout-button, .btn-checkout, .mini-cart__checkout, .cart__checkout") ||
+        submitter;
+      const checkoutIntent =
+        action.includes("/checkout") ||
+        isCheckoutSubmitter(submitter) ||
+        isCheckoutSubmitter(fallbackSubmitter);
       if (!checkoutIntent) return;
 
       const allowed = await ensureMegaskaAuthenticatedBeforeCheckout({
@@ -2005,7 +2072,7 @@
         triggerEl:
           submitter ||
           form.querySelector(
-            "button[name='checkout'], input[name='checkout'], [data-checkout-button], .shopify-payment-button__button"
+            "button[name='checkout'], button[name='goto_pp'], input[name='checkout'], input[name='goto_pp'], [data-checkout-button], .shopify-payment-button__button, .checkout-button, .btn-checkout, .mini-cart__checkout, .cart__checkout"
           ),
         form,
       });
@@ -2040,7 +2107,7 @@
         debugSurface: "window.__megaskaCheckoutDebug",
       });
       window.location.assign(finalTargetUrl);
-    });
+    }, true);
   }
 
   function interceptCheckoutClicks(options) {
