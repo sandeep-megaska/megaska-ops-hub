@@ -68,12 +68,14 @@
 
   let globalClickBound = false;
   let checkoutSubmitBound = false;
+  let cartAddSubmitBound = false;
   let submitDebugBound = false;
   let paymentButtonsLogged = false;
   let pendingAction = null;
   let checkoutInterceptionEnabled = true;
   let accountMenuContainer = null;
   let accountMenuTrigger = null;
+  const resumingCartAddForms = new WeakSet();
 
   const ACCOUNT_TRIGGER_SELECTORS = [
     "[data-megaska-open-login]",
@@ -1576,6 +1578,21 @@
 
     if (action.type === "callback" && typeof action.callback === "function") {
       action.callback();
+      return;
+    }
+
+    if (action.type === "cart-add-submit") {
+      const form = action.form;
+      if (!form || typeof form.submit !== "function") return;
+
+      try {
+        resumingCartAddForms.add(form);
+        form.submit();
+      } finally {
+        setTimeout(() => {
+          resumingCartAddForms.delete(form);
+        }, 0);
+      }
     }
   }
 
@@ -2161,6 +2178,45 @@
     }, true);
   }
 
+  function hasKnownMegaskaSession() {
+    try {
+      return Boolean(
+        document?.documentElement?.classList?.contains("megaska-account-authenticated") &&
+          window?.localStorage?.getItem("megaska_session_token")
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  function bindCartAddSubmitInterceptor() {
+    if (cartAddSubmitBound) return;
+    cartAddSubmitBound = true;
+
+    document.addEventListener("submit", (event) => {
+      const form = event?.target;
+      if (!form || !form.matches || !form.matches("form")) return;
+      if (resumingCartAddForms.has(form)) return;
+
+      const action = String(form.getAttribute("action") || "");
+      if (!action.includes("/cart/add")) return;
+      if (hasKnownMegaskaSession()) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      if (typeof event.stopImmediatePropagation === "function") {
+        event.stopImmediatePropagation();
+      }
+
+      console.log("[Megaska OTP] cart/add submit intercepted", { form });
+      setPendingAction({
+        type: "cart-add-submit",
+        form,
+      });
+      openModal("buy-now-intercept");
+    }, true);
+  }
+
   function interceptCheckoutClicks(options) {
     const opts = options || {};
     checkoutInterceptionEnabled = opts.enabled !== false;
@@ -2172,6 +2228,7 @@
     bindGlobalClickInterceptor();
     bindSubmitDebugListener();
     interceptCheckoutClicks({ enabled: true });
+    bindCartAddSubmitInterceptor();
     bindAuthStateSync();
     ensureModal();
     syncAccountUiState();
