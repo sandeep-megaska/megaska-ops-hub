@@ -51,6 +51,14 @@ function verifyWebhookHmac(rawBuffer: Buffer, hmacHeader: string) {
     .update(rawBuffer)
     .digest("base64");
 
+  console.log("[Megaska Order Identity] webhook hmac compare", {
+    computedPrefix: digest.slice(0, 8),
+    headerPrefix: hmacHeader.slice(0, 8),
+    computedLength: digest.length,
+    headerLength: hmacHeader.length,
+    rawBodyLength: rawBuffer.length,
+  });
+
   return safeEqual(digest, hmacHeader);
 }
 function toAttributeMap(noteAttributes: ShopifyOrderWebhookPayload["note_attributes"]) {
