@@ -68,6 +68,8 @@
 
   let globalClickBound = false;
   let checkoutSubmitBound = false;
+  let submitDebugBound = false;
+  let paymentButtonsLogged = false;
   let pendingAction = null;
   let checkoutInterceptionEnabled = true;
   let accountMenuContainer = null;
@@ -1998,7 +2000,7 @@
     document.addEventListener("click", (event) => {
       const clickedInteractiveElement =
         event.target && typeof event.target.closest === "function"
-          ? event.target.closest("a,button,input,[role='button']")
+          ? event.target.closest("a,button,input,[role='button'],form")
           : null;
       if (clickedInteractiveElement) {
         console.log("[CLICK]", clickedInteractiveElement);
@@ -2031,6 +2033,47 @@
         closeAccountMenu();
       }
     }, true);
+  }
+
+  function bindSubmitDebugListener() {
+    if (submitDebugBound) return;
+    submitDebugBound = true;
+
+    document.addEventListener("submit", (event) => {
+      const form =
+        event && event.target && typeof event.target.matches === "function" && event.target.matches("form")
+          ? event.target
+          : null;
+      if (!form) return;
+
+      console.log("[SUBMIT]", form, {
+        action: form.getAttribute("action") || "",
+        method: form.getAttribute("method") || "",
+        id: form.id || "",
+        className: form.className || "",
+      });
+    }, true);
+  }
+
+  function logPaymentButtonsPresence() {
+    if (paymentButtonsLogged) return;
+    paymentButtonsLogged = true;
+
+    const selectors = [
+      ".shopify-payment-button",
+      ".shopify-payment-button__button",
+      ".shopify-payment-button__more-options",
+      "[data-shopify='payment-button']",
+    ];
+    const found = {};
+
+    selectors.forEach((selector) => {
+      found[selector] = Boolean(
+        document && typeof document.querySelector === "function" && document.querySelector(selector)
+      );
+    });
+
+    console.log("[PAYMENT BUTTONS FOUND]", found);
   }
 
   function bindAuthStateSync() {
@@ -2127,10 +2170,16 @@
 
   function init() {
     bindGlobalClickInterceptor();
+    bindSubmitDebugListener();
     interceptCheckoutClicks({ enabled: true });
     bindAuthStateSync();
     ensureModal();
     syncAccountUiState();
+    if (document && document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", logPaymentButtonsPresence, { once: true });
+    } else {
+      logPaymentButtonsPresence();
+    }
   }
 
   window.MegaskaOtp = {
