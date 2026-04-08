@@ -182,6 +182,20 @@
     return state.isOpen;
   }
 
+  function hardBlockEvent(event) {
+    if (!event) return false;
+    if (typeof event.preventDefault === "function") {
+      event.preventDefault();
+    }
+    if (typeof event.stopPropagation === "function") {
+      event.stopPropagation();
+    }
+    if (typeof event.stopImmediatePropagation === "function") {
+      event.stopImmediatePropagation();
+    }
+    return false;
+  }
+
   function clearResendTimer() {
     if (state.resendTimerId) {
       clearInterval(state.resendTimerId);
@@ -1730,9 +1744,7 @@
       return true;
     }
 
-    if (opts.event && typeof opts.event.preventDefault === "function") {
-      opts.event.preventDefault();
-    }
+    hardBlockEvent(opts.event);
 
     renderCheckoutGuardError({
       anchor: opts.triggerEl,
@@ -1896,12 +1908,7 @@
   }
 
   async function handleAccountTriggerClick(event, triggerEl) {
-    if (event && typeof event.preventDefault === "function") {
-      event.preventDefault();
-    }
-    if (event && typeof event.stopPropagation === "function") {
-      event.stopPropagation();
-    }
+    hardBlockEvent(event);
 
     const gateState = await getMegaskaCheckoutGateState();
     const authenticated = gateState.authenticated;
@@ -2037,9 +2044,7 @@
 
       const checkoutTrigger = inferCheckoutTriggerFromEvent(event);
       if (checkoutTrigger && isCheckoutTarget(checkoutTrigger)) {
-        if (typeof event.stopImmediatePropagation === "function") {
-          event.stopImmediatePropagation();
-        }
+        hardBlockEvent(event);
         handleCheckoutTriggerClick(event, checkoutTrigger);
         return;
       }
@@ -2202,11 +2207,7 @@
       if (!action.includes("/cart/add")) return;
       if (hasKnownMegaskaSession()) return;
 
-      event.preventDefault();
-      event.stopPropagation();
-      if (typeof event.stopImmediatePropagation === "function") {
-        event.stopImmediatePropagation();
-      }
+      hardBlockEvent(event);
 
       console.log("[Megaska OTP] cart/add submit intercepted", { form });
       setPendingAction({
