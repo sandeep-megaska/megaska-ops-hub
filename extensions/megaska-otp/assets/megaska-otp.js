@@ -140,8 +140,11 @@
     "nav[aria-label*='mobile' i] ul",
     "aside .menu",
   ];
- "header .my-account",
-"header .my-account a.push_side[href='/account/login']",
+  const NATIVE_DESKTOP_ACCOUNT_SELECTORS = [
+    ...ACCOUNT_TRIGGER_SELECTORS,
+    "header .my-account",
+    "header .my-account a.push_side[href='/account/login']",
+  ];
 
   const CHECKOUT_TRIGGER_SELECTORS = [
     "a[href='/checkout']",
@@ -2045,16 +2048,34 @@
     const pathname = String(parsedUrl.pathname || "").trim();
     const normalizedPath = pathname.replace(/\/+$/, "") || "/";
 
-    const isNativeShopifyAccountPath =
-      normalizedPath === "/account" ||
-      normalizedPath === "/account/login" ||
-      normalizedPath === "/account/register";
+    const isNativeShopifyAccountPath = isShopifyNativeAccountPath(normalizedPath);
 
     if (isNativeShopifyAccountPath) {
       return fallbackDestination;
     }
 
     return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
+  }
+
+  function isShopifyNativeAccountPath(pathname) {
+    const normalizedPath = String(pathname || "").trim().replace(/\/+$/, "") || "/";
+    return (
+      normalizedPath === "/account" ||
+      normalizedPath === "/account/login" ||
+      normalizedPath === "/account/register"
+    );
+  }
+
+  function isNativeAccountIntentElement(element) {
+    if (!element || typeof element.getAttribute !== "function") return false;
+    const href = String(element.getAttribute("href") || "").trim();
+    if (!href) return false;
+    try {
+      const url = new URL(href, window.location.origin);
+      return isShopifyNativeAccountPath(url.pathname);
+    } catch {
+      return false;
+    }
   }
 
   function resolveAccountDestinationUrl(source) {
@@ -2207,7 +2228,9 @@
         return;
       }
 
-      const accountTrigger = findClosestMatchingElement(event, ACCOUNT_TRIGGER_SELECTORS);
+      const accountTrigger =
+        findClosestMatchingElement(event, ACCOUNT_TRIGGER_SELECTORS) ||
+        (isNativeAccountIntentElement(clickedInteractiveElement) ? clickedInteractiveElement : null);
       if (accountTrigger) {
         handleAccountTriggerClick(event, accountTrigger);
         return;
