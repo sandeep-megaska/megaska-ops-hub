@@ -497,6 +497,29 @@
   cursor: pointer;
 }
 
+.megaska-account-fallback {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.megaska-account-fallback__icon {
+  line-height: 1;
+}
+
+.megaska-account-fallback--desktop {
+  font-size: 14px;
+}
+
+.megaska-account-fallback--mobile {
+  display: flex;
+  width: 100%;
+  padding: 10px 0;
+  font-size: 14px;
+}
+
 @media (min-width: 800px) {
   .megaska-otp-modal {
     place-items: center;
