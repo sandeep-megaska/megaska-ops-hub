@@ -2050,6 +2050,38 @@
         return;
       }
 
+      const buyNowTrigger = clickedInteractiveElement
+        ? clickedInteractiveElement.closest(
+            ".pbar-buy, #mpb-continue, .mpb-continue, .shopify-payment-button__button, a,button,input,[role='button']"
+          )
+        : null;
+      if (isBuyNowElement(buyNowTrigger) && !hasKnownMegaskaSession()) {
+        hardBlockEvent(event);
+        console.log("[Megaska OTP] buy-now click intercepted", { trigger: buyNowTrigger });
+
+        const relatedForm =
+          buyNowTrigger && typeof buyNowTrigger.closest === "function"
+            ? buyNowTrigger.closest("form")
+            : null;
+        if (relatedForm && typeof relatedForm.submit === "function") {
+          setPendingAction({
+            type: "cart-add-submit",
+            form: relatedForm,
+            submitter: buyNowTrigger,
+          });
+        } else if (buyNowTrigger && typeof buyNowTrigger.click === "function") {
+          setPendingAction({
+            type: "callback",
+            callback: () => {
+              buyNowTrigger.click();
+            },
+          });
+        }
+
+        openModal("buy-now-intercept");
+        return;
+      }
+
       const checkoutTrigger = inferCheckoutTriggerFromEvent(event);
       if (checkoutTrigger && isCheckoutTarget(checkoutTrigger)) {
         hardBlockEvent(event);
@@ -2206,6 +2238,23 @@
     return /\bbuy[\s_-]*now\b|\bdynamic[\s_-]*checkout\b|\bcheckout[\s_-]*now\b/i.test(
       String(value || "")
     );
+  }
+
+  function isBuyNowElement(element) {
+    if (!element || typeof element.matches !== "function") return false;
+
+    if (
+      element.matches(
+        ".pbar-buy, #mpb-continue, .mpb-continue, .shopify-payment-button__button"
+      )
+    ) {
+      return true;
+    }
+
+    const text = String(element.textContent || "").trim();
+    const ariaLabel = String(element.getAttribute("aria-label") || "").trim();
+
+    return /\bbuy[\s_-]*now\b/i.test(text) || /\bbuy[\s_-]*now\b/i.test(ariaLabel);
   }
 
   function getSubmitterForForm(event, form) {
