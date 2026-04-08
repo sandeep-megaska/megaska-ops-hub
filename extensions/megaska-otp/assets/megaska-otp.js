@@ -1598,6 +1598,7 @@
     if (action.type === "cart-add-submit") {
       const form = action.form;
       if (!form || typeof form.submit !== "function") return;
+      console.log("[Megaska OTP] pending cart/add resume", { form });
 
       try {
         resumingCartAddForms.add(form);
@@ -2059,22 +2060,23 @@
         hardBlockEvent(event);
         console.log("[Megaska OTP] buy-now click intercepted", { trigger: buyNowTrigger });
 
-        const relatedForm =
+        let buyNowForm =
           buyNowTrigger && typeof buyNowTrigger.closest === "function"
             ? buyNowTrigger.closest("form")
             : null;
-        if (relatedForm && typeof relatedForm.submit === "function") {
+        if (!buyNowForm || typeof buyNowForm.submit !== "function") {
+          buyNowForm = document.querySelector("#cart-form_ppr, form[action*='/cart/add']");
+        }
+
+        if (buyNowForm && typeof buyNowForm.submit === "function") {
           setPendingAction({
             type: "cart-add-submit",
-            form: relatedForm,
-            submitter: buyNowTrigger,
+            form: buyNowForm,
           });
-        } else if (buyNowTrigger && typeof buyNowTrigger.click === "function") {
-          setPendingAction({
-            type: "callback",
-            callback: () => {
-              buyNowTrigger.click();
-            },
+          console.log("[Megaska OTP] buy-now pending action stored", { form: buyNowForm });
+        } else {
+          console.warn("[Megaska OTP] buy-now interception could not locate form", {
+            trigger: buyNowTrigger,
           });
         }
 
