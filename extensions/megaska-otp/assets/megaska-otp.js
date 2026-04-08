@@ -95,9 +95,14 @@
     ".header__account",
     ".site-nav__link--account",
     ".js__tc",
+    ".js_link_acc",
     ".kalles-account-icon",
+    ".iccl-user",
+    ".icon-user",
     ".site-header__account",
     ".customer-account-link",
+    "[aria-label*='account' i]",
+    "[title*='account' i]",
   ];
   const MOBILE_CONTEXT_SELECTORS = [
     ".mobile-nav",
@@ -2274,6 +2279,29 @@
     return triggers.some((el) => isMobile ? isInMobileContext(el) : !isInMobileContext(el));
   }
 
+  function normalizeNativeAccountTriggers() {
+    const selectors = [
+      ".js_link_acc",
+      ".kalles-account-icon",
+      ".header__icon--account",
+      ".customer-account-link",
+      ".iccl-user",
+      ".icon-user",
+      "header [aria-label*='account' i]",
+      "header [title*='account' i]",
+    ];
+
+    const candidates = document.querySelectorAll(
+      selectors.map((selector) => `${selector}:not([data-megaska-fallback-account])`).join(",")
+    );
+
+    candidates.forEach((el) => {
+      if (!el || typeof el.setAttribute !== "function") return;
+      el.setAttribute("data-megaska-open-login", "1");
+      el.setAttribute("data-megaska-native-account", "1");
+    });
+  }
+
   function getDesktopAccountContainer() {
     for (const selector of DESKTOP_ACCOUNT_CONTAINER_SELECTORS) {
       const container = document.querySelector(selector);
@@ -2314,6 +2342,8 @@
   }
 
   function ensureAccountEntryFallbacks() {
+    normalizeNativeAccountTriggers();
+
     if (!hasNativeAccountEntry({ mobile: false })) {
       const desktopContainer = getDesktopAccountContainer();
       if (desktopContainer && !document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID)) {
