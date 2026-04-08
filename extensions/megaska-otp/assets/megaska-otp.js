@@ -2295,6 +2295,26 @@
     return triggers.some((el) => isMobile ? isInMobileContext(el) : !isInMobileContext(el));
   }
 
+  function isElementActuallyVisible(element) {
+    if (!element) return false;
+    if ("hidden" in element && element.hidden) return false;
+    if (element.getAttribute("aria-hidden") === "true") return false;
+
+    const style = window.getComputedStyle(element);
+    if (!style) return true;
+    return style.display !== "none" && style.visibility !== "hidden";
+  }
+
+  function hasVisibleNativeMobileAccountEntry() {
+    const triggers = Array.from(
+      document.querySelectorAll(
+        ACCOUNT_TRIGGER_SELECTORS.map((selector) => `${selector}:not([data-megaska-fallback-account])`).join(",")
+      )
+    );
+
+    return triggers.some((el) => isInMobileContext(el) && isElementActuallyVisible(el));
+  }
+
   function normalizeNativeAccountTriggers() {
     const candidates = document.querySelectorAll(
       NATIVE_DESKTOP_ACCOUNT_SELECTORS
@@ -2400,11 +2420,16 @@
       }
     }
 
-    if (!hasNativeAccountEntry({ mobile: true })) {
+    if (!hasVisibleNativeMobileAccountEntry()) {
       const mobileContainer = getMobileAccountContainer();
       if (mobileContainer && !document.getElementById(ACCOUNT_FALLBACK_MOBILE_ID)) {
         mobileContainer.appendChild(createMobileAccountFallback());
         console.log("[Megaska OTP] mobile account fallback inserted");
+      }
+    } else {
+      const existingMobileFallback = document.getElementById(ACCOUNT_FALLBACK_MOBILE_ID);
+      if (existingMobileFallback) {
+        existingMobileFallback.remove();
       }
     }
   }
