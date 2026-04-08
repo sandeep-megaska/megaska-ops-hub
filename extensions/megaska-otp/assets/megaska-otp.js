@@ -2484,36 +2484,22 @@
     container.appendChild(fallback);
   }
 
-  function ensureAccountEntryFallbacks() {
-  normalizeNativeAccountTriggers();
+function ensureAccountEntryFallbacks() {
+  const desktopContainer = getDesktopAccountContainer();
+  if (desktopContainer && !document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID)) {
+    const fallback = createDesktopAccountFallback();
+    const containerTag = String(desktopContainer.tagName || "").toUpperCase();
 
-  const hasNativeDesktopAccount = hasVisibleNativeDesktopAccountEntry();
-  if (!hasNativeDesktopAccount) {
-    const desktopContainer = getDesktopAccountContainer();
-    if (desktopContainer && !document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID)) {
-      const fallback = createDesktopAccountFallback();
-      const containerTag = String(desktopContainer.tagName || "").toUpperCase();
-      if (containerTag === "UL" || containerTag === "OL") {
-        const li = document.createElement("li");
-        li.className = "megaska-account-fallback-item";
-        li.appendChild(fallback);
-        desktopContainer.appendChild(li);
-      } else {
-        desktopContainer.appendChild(fallback);
-      }
-        console.log("[Megaska OTP] desktop account fallback inserted");
+    if (containerTag === "UL" || containerTag === "OL") {
+      const li = document.createElement("li");
+      li.className = "megaska-account-fallback-item";
+      li.appendChild(fallback);
+      desktopContainer.appendChild(li);
+    } else {
+      desktopContainer.appendChild(fallback);
     }
-  } else {
-    const existingDesktopFallback = document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID);
-    if (existingDesktopFallback) {
-      const fallbackWrapper = existingDesktopFallback.closest(".megaska-account-fallback-item");
-      if (fallbackWrapper && fallbackWrapper.childElementCount === 1) {
-        fallbackWrapper.remove();
-      } else {
-        existingDesktopFallback.remove();
-      }
-      console.log("[Megaska OTP] desktop account fallback removed (visible native detected)");
-    }
+
+    console.log("[Megaska OTP] desktop account fallback inserted");
   }
 
   if (!hasVisibleNativeMobileMenuAccountEntry()) {
@@ -2529,24 +2515,17 @@
     }
   }
 }
- function ensureDesktopAccountFallback() {
-  normalizeNativeAccountTriggers();
-
-  if (hasVisibleNativeDesktopAccountEntry()) {
-    return;
-  }
+function ensureDesktopAccountFallback() {
+  const desktopContainer = getDesktopAccountContainer();
+  if (!desktopContainer) return;
 
   if (document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID)) {
     return;
   }
 
-  const desktopContainer = getDesktopAccountContainer();
-  if (!desktopContainer) {
-    return;
-  }
-
   const fallback = createDesktopAccountFallback();
   const containerTag = String(desktopContainer.tagName || "").toUpperCase();
+
   if (containerTag === "UL" || containerTag === "OL") {
     const li = document.createElement("li");
     li.className = "megaska-account-fallback-item";
@@ -2555,29 +2534,29 @@
   } else {
     desktopContainer.appendChild(fallback);
   }
+
   console.log("[Megaska OTP] desktop account fallback re-inserted");
-}
-  function observeDesktopAccountContainer() {
+}  function observeDesktopAccountContainer() {
     const container = getDesktopAccountContainer();
-    if (!container) return;
+/*   if (!container) return;
 
     if (observedDesktopAccountContainer === container && desktopAccountContainerObserver) {
       return;
     }
 
     if (desktopAccountContainerObserver) {
-      desktopAccountContainerObserver.disconnect();
+      desktopAccountContainerObserver.disconnect();*/
     }
 
     observedDesktopAccountContainer = container;
     desktopAccountContainerObserver = new MutationObserver(() => {
       ensureDesktopAccountFallback();
     });
-    desktopAccountContainerObserver.observe(container, { childList: true, subtree: true });
+    desktopAccountContainerObserver.observe(container, { childList: true, subtree: true });*/
+ return;
   }
-
   function bindAccountFallbackObserver() {
-    if (accountFallbackObserverBound) return;
+/*    if (accountFallbackObserverBound) return;
     accountFallbackObserverBound = true;
 
     const observer = new MutationObserver(() => {
@@ -2586,7 +2565,9 @@
       observeDesktopAccountContainer();
     });
 
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, { childList: true, subtree: true });*/
+     if (accountFallbackObserverBound) return;
+  accountFallbackObserverBound = true;
   }
 
   function bindAuthStateSync() {
