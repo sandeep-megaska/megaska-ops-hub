@@ -1548,6 +1548,40 @@
     return false;
   }
 
+  async function continueToCheckoutFromPendingAction(preferredCustomer, source) {
+    const customer = await resolveMegaskaCustomer(preferredCustomer);
+    const prefilledUrl = await buildPrefilledCheckoutUrl("/checkout", customer);
+    console.log("[Megaska Checkout Prefill] checkout handoff start", {
+      source,
+      detectedCheckoutUrl: prefilledUrl,
+    });
+    const handoff = await runBuyerIdentityHandoff(prefilledUrl, customer);
+    if (isCheckoutContinuationBlocked(handoff)) {
+      console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
+        reason: handoff.reason || "blocked",
+      });
+      openModal("checkout-gate-blocked");
+      return;
+    }
+    const targetUrl = handoff?.checkoutUrl || prefilledUrl;
+    window.__megaskaCheckoutDebug = {
+      cartId: handoff?.cartId || null,
+      buyerIdentityPayload: {
+        email: String(handoff?.buyerIdentity?.email || "").trim() || null,
+        phone: String(handoff?.buyerIdentity?.phone || "").trim() || null,
+      },
+      mutationResult: handoff || null,
+      checkoutUrl: targetUrl || null,
+    };
+    console.log("[Megaska Checkout Prefill] checkout continuation", {
+      mode: "navigate",
+      finalCheckoutUrl: targetUrl,
+      mutationWaited: true,
+      debugSurface: "window.__megaskaCheckoutDebug",
+    });
+    window.location.assign(targetUrl);
+  }
+
   async function resumePendingAction(preferredCustomer) {
     if (!pendingAction) return;
 
@@ -1556,37 +1590,10 @@
     console.log("[Megaska OTP] pending intent resumed", { type: action.type });
 
     if (action.type === "navigate" && action.url) {
-      const customer = await resolveMegaskaCustomer(preferredCustomer);
-      const prefilledUrl = await buildPrefilledCheckoutUrl(action.url, customer);
-      console.log("[Megaska Checkout Prefill] checkout handoff start", {
-        source: "pendingAction.navigate.url",
-        detectedCheckoutUrl: prefilledUrl,
-      });
-      const handoff = await runBuyerIdentityHandoff(prefilledUrl, customer);
-      if (isCheckoutContinuationBlocked(handoff)) {
-        console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
-          reason: handoff.reason || "blocked",
-        });
-        openModal("checkout-gate-blocked");
-        return;
-      }
-      const targetUrl = handoff?.checkoutUrl || prefilledUrl;
-      window.__megaskaCheckoutDebug = {
-        cartId: handoff?.cartId || null,
-        buyerIdentityPayload: {
-          email: String(handoff?.buyerIdentity?.email || "").trim() || null,
-          phone: String(handoff?.buyerIdentity?.phone || "").trim() || null,
-        },
-        mutationResult: handoff || null,
-        checkoutUrl: targetUrl || null,
-      };
-      console.log("[Megaska Checkout Prefill] checkout continuation", {
-        mode: "navigate",
-        finalCheckoutUrl: targetUrl,
-        mutationWaited: true,
-        debugSurface: "window.__megaskaCheckoutDebug",
-      });
-      window.location.assign(targetUrl);
+      await continueToCheckoutFromPendingAction(
+        preferredCustomer,
+        "pendingAction.navigate.url"
+      );
       return;
     }
 
@@ -1616,6 +1623,53 @@
           resumingCartAddForms.delete(form);
         }, 0);
       }
+    }
+
+    if (action.type === "buy-now-submit") {
+      const form = action.form;
+      if (!form) return;
+
+      console.log("[Megaska OTP] resuming buy-now action", { form });
+
+      const formData = new FormData(form);
+      const submitterName = String(action.submitter?.name || "").trim();
+      if (submitterName) {
+        formData.append(submitterName, String(action.submitter?.value || ""));
+      }
+
+      const cartAddPath = `${
+        window?.Shopify?.routes?.root || "/"
+      }cart/add.js`.replace(/([^:]\/)\/+/g, "$1");
+
+      try {
+        const addResponse = await fetch(cartAddPath, {
+          method: "POST",
+          body: formData,
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+          },
+        });
+
+        if (!addResponse.ok) {
+          throw new Error(`cart add failed with status ${addResponse.status}`);
+        }
+
+        console.log("[Megaska OTP] buy-now add-to-cart complete");
+      } catch (error) {
+        console.error("[Megaska OTP] buy-now add-to-cart failed, falling back to form submit", error);
+        if (typeof form.submit === "function") {
+          form.submit();
+        }
+        return;
+      }
+
+      console.log("[Megaska OTP] buy-now continuing to checkout");
+      await continueToCheckoutFromPendingAction(
+        preferredCustomer,
+        "pendingAction.buy-now-submit"
+      );
     }
   }
 
@@ -2070,8 +2124,9 @@
 
         if (buyNowForm && typeof buyNowForm.submit === "function") {
           setPendingAction({
-            type: "cart-add-submit",
+            type: "buy-now-submit",
             form: buyNowForm,
+            submitter: buyNowTrigger || null,
           });
           console.log("[Megaska OTP] buy-now pending action stored", { form: buyNowForm });
         } else {
@@ -2342,7 +2397,7 @@
 
       console.log("[Megaska OTP] buy-now submit intercepted", { form });
       setPendingAction({
-        type: "cart-add-submit",
+        type: "buy-now-submit",
         form,
         submitter: buyNowIntent.submitter || null,
       });
