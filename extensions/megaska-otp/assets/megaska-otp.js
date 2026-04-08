@@ -140,22 +140,8 @@
     "nav[aria-label*='mobile' i] ul",
     "aside .menu",
   ];
-  const NATIVE_DESKTOP_ACCOUNT_SELECTORS = [
-    "header .js_link_acc",
-    "header .kalles-account-icon",
-    "header .header__icon--account",
-    "header .customer-account-link",
-    "header .iccl-user",
-    "header .icon-user",
-    "header a[href='/account']",
-    "header a[href^='/account?']",
-    "header a[href$='/account']",
-    "header a[href='/account/login']",
-    "header a[href^='/account/login?']",
-    "header a[href*='/account/login']",
-    "header [aria-label*='account' i]",
-    "header [title*='account' i]",
-  ];
+ "header .my-account",
+"header .my-account a.push_side[href='/account/login']",
 
   const CHECKOUT_TRIGGER_SELECTORS = [
     "a[href='/checkout']",
@@ -2378,18 +2364,18 @@
     return null;
   }
 
-  function createDesktopAccountFallback() {
-    const link = document.createElement("a");
-    link.id = ACCOUNT_FALLBACK_DESKTOP_ID;
-    link.href = "/account";
-    link.className = "megaska-account-fallback megaska-account-fallback--desktop kalles-account-icon customer-account-link";
-    link.setAttribute("data-megaska-open-login", "1");
-    link.setAttribute("data-megaska-fallback-account", "desktop");
-    link.setAttribute("aria-label", "Account");
-    link.innerHTML =
-      '<span class="megaska-account-fallback__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M12 12.5a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.5c-4.3 0-8.5 2.2-8.5 5v1.5c0 .6.4 1 1 1h15c.6 0 1-.4 1-1V20c0-2.8-4.2-5-8.5-5Z"/></svg></span><span class="megaska-visually-hidden">Account</span>';
-    return link;
-  }
+ function createDesktopAccountFallback() {
+  const link = document.createElement("a");
+  link.id = ACCOUNT_FALLBACK_DESKTOP_ID;
+  link.href = "/account";
+  link.className = "megaska-account-fallback megaska-account-fallback--desktop kalles-account-icon customer-account-link";
+  link.setAttribute("data-megaska-open-login", "1");
+  link.setAttribute("data-megaska-fallback-account", "desktop");
+  link.setAttribute("aria-label", "Account");
+  link.innerHTML =
+    '<span class="megaska-account-fallback__icon" aria-hidden="true"><i class="las la-user" aria-hidden="true"></i></span><span class="megaska-visually-hidden">Account</span>';
+  return link;
+}
 
   function createMobileAccountFallback() {
     const item = document.createElement("li");
