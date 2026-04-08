@@ -2397,8 +2397,26 @@
     item.className = "megaska-account-fallback-item";
     item.setAttribute("data-megaska-fallback-account", "mobile");
     item.innerHTML =
-      '<a href="/account" class="megaska-account-fallback megaska-account-fallback--mobile" data-megaska-open-login="1"><span class="megaska-account-fallback__label">Account</span></a>';
+      '<a href="/account" class="megaska-account-fallback megaska-account-fallback--mobile megaska-mobile-account-link" data-megaska-open-login="1"><span class="megaska-account-fallback__label">Login</span></a>';
     return item;
+  }
+
+  function insertMobileFallbackInMenu(container, fallback) {
+    if (!container || !fallback) return;
+    const firstVisibleItem = Array.from(container.children || []).find(
+      (child) =>
+        child &&
+        child.nodeType === 1 &&
+        !child.hasAttribute("hidden") &&
+        !child.classList.contains("dn")
+    );
+
+    if (firstVisibleItem) {
+      container.insertBefore(fallback, firstVisibleItem);
+      return;
+    }
+
+    container.appendChild(fallback);
   }
 
   function ensureAccountEntryFallbacks() {
@@ -2436,7 +2454,7 @@
     if (!hasVisibleNativeMobileMenuAccountEntry()) {
       const mobileContainer = getMobileAccountContainer();
       if (mobileContainer && !document.getElementById(ACCOUNT_FALLBACK_MOBILE_ID)) {
-        mobileContainer.appendChild(createMobileAccountFallback());
+        insertMobileFallbackInMenu(mobileContainer, createMobileAccountFallback());
         console.log("[Megaska OTP] mobile account fallback inserted");
       }
     } else {
