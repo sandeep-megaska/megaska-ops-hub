@@ -537,8 +537,14 @@
   font-size: 14px;
 }
 
-@media (max-width: 799px) {
+@media (max-width: 1024px) {
   .megaska-account-fallback--desktop {
+    display: none !important;
+  }
+
+  header .my-account.db_md,
+  header .my-account[class*="db_md"],
+  header .my-account .push_side[href="/account/login"][data-id="#nt_login_canvas"] {
     display: none !important;
   }
 }
