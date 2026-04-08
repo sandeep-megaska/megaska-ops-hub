@@ -15,9 +15,14 @@
     ".header__icon--account",
     ".header__account",
     ".site-nav__link--account",
+    ".js_link_acc",
     ".kalles-account-icon",
+    ".iccl-user",
+    ".icon-user",
     ".site-header__account",
     ".customer-account-link",
+    "[aria-label*='account' i]",
+    "[title*='account' i]",
   ];
 
   function getSessionToken() {
