@@ -1656,10 +1656,7 @@
     }
 
     if (action.type === "account-redirect") {
-      const fallbackReturnUrl = window.location.href || "/";
-      const returnUrl = String(action.returnUrl || fallbackReturnUrl).trim() || fallbackReturnUrl;
-      const profileComplete = !needsProfileCompletion(preferredCustomer);
-      const redirectTarget = profileComplete ? "/account" : returnUrl;
+      const redirectTarget = resolveAccountDestinationUrl(action.accountDestination);
       window.location.assign(redirectTarget);
       return;
     }
@@ -2033,16 +2030,58 @@
     return authenticated;
   }
 
+  function normalizeAccountDestination(rawDestination) {
+    const fallbackDestination = "/";
+    const destination = String(rawDestination || "").trim();
+    if (!destination) return fallbackDestination;
+
+    let parsedUrl = null;
+    try {
+      parsedUrl = new URL(destination, window.location.origin);
+    } catch {
+      return fallbackDestination;
+    }
+
+    const pathname = String(parsedUrl.pathname || "").trim();
+    const normalizedPath = pathname.replace(/\/+$/, "") || "/";
+
+    const isNativeShopifyAccountPath =
+      normalizedPath === "/account" ||
+      normalizedPath === "/account/login" ||
+      normalizedPath === "/account/register";
+
+    if (isNativeShopifyAccountPath) {
+      return fallbackDestination;
+    }
+
+    return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
+  }
+
+  function resolveAccountDestinationUrl(source) {
+    if (typeof source === "string") {
+      return normalizeAccountDestination(source);
+    }
+
+    const preferredDestination =
+      source?.getAttribute?.("data-megaska-account-destination") ||
+      source?.getAttribute?.("data-account-destination") ||
+      source?.getAttribute?.("href") ||
+      "";
+
+    return normalizeAccountDestination(preferredDestination);
+  }
+
   async function handleAccountTriggerClick(event, triggerEl) {
     hardBlockEvent(event);
 
     const gateState = await getMegaskaCheckoutGateState();
     const authenticated = gateState.authenticated;
+    const accountDestination = resolveAccountDestinationUrl(triggerEl);
 
     if (!authenticated) {
       setPendingAction({
         type: "account-redirect",
-        returnUrl: window.location.href,
+        accountDestination,
         createdAt: Date.now(),
       });
       try {
@@ -2055,7 +2094,7 @@
     }
 
     hideAccountMenu();
-    window.location.assign("/account");
+    window.location.assign(accountDestination);
     console.log("[Megaska OTP] account trigger intercepted", { authenticated: true });
   }
 
