@@ -1,6 +1,24 @@
 (function () {
   const API_BASE = "https://megaska-ops-hub-exs1.vercel.app/api";
   const SESSION_KEY = "megaska_session_token";
+  const ACCOUNT_ENTRY_SELECTORS = [
+    "[data-megaska-open-login]",
+    "a[href='/account']",
+    "a[href^='/account?']",
+    "a[href$='/account']",
+    "a[href='/account/login']",
+    "a[href^='/account/login?']",
+    "a[href*='/account/login']",
+    "a[href*='/account/register']",
+    "[data-account-link]",
+    "[data-customer-login]",
+    ".header__icon--account",
+    ".header__account",
+    ".site-nav__link--account",
+    ".kalles-account-icon",
+    ".site-header__account",
+    ".customer-account-link",
+  ];
 
   function getSessionToken() {
     return localStorage.getItem(SESSION_KEY) || "";
@@ -453,7 +471,12 @@
     });
 
     document.querySelectorAll("[data-megaska-auth-user]").forEach((el) => {
-      el.hidden = true;
+      const hasAccountEntry = Boolean(
+        (typeof el.matches === "function" && el.matches(ACCOUNT_ENTRY_SELECTORS.join(","))) ||
+          (typeof el.querySelector === "function" &&
+            el.querySelector(ACCOUNT_ENTRY_SELECTORS.join(",")))
+      );
+      el.hidden = !hasAccountEntry;
     });
   }
 
