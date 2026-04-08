@@ -690,3 +690,16 @@
     opacity: 1;
   }
 }
+.megaska-account-fallback__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.megaska-account-fallback__icon i {
+  display: inline-block;
+  font-size: 24px;
+  line-height: 1;
+  color: currentColor;
+}
