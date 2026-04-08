@@ -79,6 +79,7 @@
   const resumingCartAddForms = new WeakSet();
   const ACCOUNT_FALLBACK_DESKTOP_ID = "megaska-account-fallback-desktop";
   const ACCOUNT_FALLBACK_MOBILE_ID = "megaska-account-fallback-mobile";
+  const DEFAULT_MEGASKA_DASHBOARD_URL = "/";
 
   const ACCOUNT_TRIGGER_SELECTORS = [
     "[data-megaska-open-login]",
@@ -1956,13 +1957,14 @@
   }
 
   function buildAccountMenu() {
+    const dashboardUrl = resolveAccountDestinationUrl();
     const menu = document.createElement("div");
     menu.className = "megaska-account-menu-popover";
     menu.setAttribute("data-megaska-account-menu", "1");
     menu.innerHTML = `
       <div class="megaska-account-menu-card">
         <p class="megaska-account-menu-title">You are signed in</p>
-        <a href="/account" class="megaska-account-menu-link" data-megaska-menu-account>My Account</a>
+        <a href="${dashboardUrl}" class="megaska-account-menu-link" data-megaska-menu-account>My Account</a>
         <button type="button" class="megaska-account-menu-logout" data-megaska-menu-logout>Logout</button>
       </div>
     `;
@@ -2034,7 +2036,7 @@
   }
 
   function normalizeAccountDestination(rawDestination) {
-    const fallbackDestination = "/";
+    const fallbackDestination = DEFAULT_MEGASKA_DASHBOARD_URL;
     const destination = String(rawDestination || "").trim();
     if (!destination) return fallbackDestination;
 
@@ -2079,17 +2081,28 @@
   }
 
   function resolveAccountDestinationUrl(source) {
-    if (typeof source === "string") {
-      return normalizeAccountDestination(source);
-    }
-
     const preferredDestination =
-      source?.getAttribute?.("data-megaska-account-destination") ||
-      source?.getAttribute?.("data-account-destination") ||
-      source?.getAttribute?.("href") ||
-      "";
+      typeof source === "string"
+        ? source
+        : source?.getAttribute?.("data-megaska-account-destination") ||
+          source?.getAttribute?.("data-account-destination") ||
+          "";
 
-    return normalizeAccountDestination(preferredDestination);
+    const windowDestination = String(window?.MEGASKA_ACCOUNT_DASHBOARD_URL || "").trim();
+    const htmlDestination = String(
+      document?.documentElement?.getAttribute?.("data-megaska-account-destination") || ""
+    ).trim();
+    const bodyDestination = String(
+      document?.body?.getAttribute?.("data-megaska-account-destination") || ""
+    ).trim();
+
+    return (
+      normalizeAccountDestination(preferredDestination) ||
+      normalizeAccountDestination(windowDestination) ||
+      normalizeAccountDestination(htmlDestination) ||
+      normalizeAccountDestination(bodyDestination) ||
+      DEFAULT_MEGASKA_DASHBOARD_URL
+    );
   }
 
   async function handleAccountTriggerClick(event, triggerEl) {
@@ -2427,9 +2440,10 @@
   }
 
  function createDesktopAccountFallback() {
+  const dashboardUrl = resolveAccountDestinationUrl();
   const link = document.createElement("a");
   link.id = ACCOUNT_FALLBACK_DESKTOP_ID;
-  link.href = "/account";
+  link.href = dashboardUrl;
   link.className = "megaska-account-fallback megaska-account-fallback--desktop kalles-account-icon customer-account-link";
   link.setAttribute("data-megaska-open-login", "1");
   link.setAttribute("data-megaska-fallback-account", "desktop");
@@ -2440,12 +2454,13 @@
 }
 
   function createMobileAccountFallback() {
+    const dashboardUrl = resolveAccountDestinationUrl();
     const item = document.createElement("li");
     item.id = ACCOUNT_FALLBACK_MOBILE_ID;
     item.className = "megaska-account-fallback-item";
     item.setAttribute("data-megaska-fallback-account", "mobile");
     item.innerHTML =
-      '<a href="/account" class="megaska-account-fallback megaska-account-fallback--mobile megaska-mobile-account-link" data-megaska-open-login="1"><span class="megaska-account-fallback__label">Login</span></a>';
+      `<a href="${dashboardUrl}" class="megaska-account-fallback megaska-account-fallback--mobile megaska-mobile-account-link" data-megaska-open-login="1"><span class="megaska-account-fallback__label">Login</span></a>`;
     return item;
   }
 
