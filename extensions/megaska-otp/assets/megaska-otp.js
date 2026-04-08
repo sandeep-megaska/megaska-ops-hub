@@ -75,7 +75,10 @@
   let checkoutInterceptionEnabled = true;
   let accountMenuContainer = null;
   let accountMenuTrigger = null;
+  let accountFallbackObserverBound = false;
   const resumingCartAddForms = new WeakSet();
+  const ACCOUNT_FALLBACK_DESKTOP_ID = "megaska-account-fallback-desktop";
+  const ACCOUNT_FALLBACK_MOBILE_ID = "megaska-account-fallback-mobile";
 
   const ACCOUNT_TRIGGER_SELECTORS = [
     "[data-megaska-open-login]",
@@ -95,6 +98,42 @@
     ".kalles-account-icon",
     ".site-header__account",
     ".customer-account-link",
+  ];
+  const MOBILE_CONTEXT_SELECTORS = [
+    ".mobile-nav",
+    ".mobile-menu",
+    ".menu_mobile",
+    ".menu-sidebar",
+    ".sidebar-menu",
+    ".drawer",
+    "[data-drawer]",
+    "[id*='menu_canvas']",
+    "[id*='drawer']",
+    ".mfp-content",
+  ];
+  const DESKTOP_ACCOUNT_CONTAINER_SELECTORS = [
+    "header .nt_action",
+    "header .header__icons",
+    "header .site-header__icons",
+    "header .header-icons",
+    "header .header__actions",
+    "header .header-actions",
+    "header .h_icon_iccl",
+    "header .icon-action",
+    "header .list-inline",
+    "header .h_right",
+    "header .right",
+  ];
+  const MOBILE_ACCOUNT_CONTAINER_SELECTORS = [
+    "#nt_menu_canvas .menu",
+    "#nt_menu_canvas ul",
+    ".menu_sidebar .menu",
+    ".mobile-nav ul",
+    ".mobile-menu ul",
+    ".drawer__content ul",
+    ".drawer ul",
+    "nav[aria-label*='mobile' i] ul",
+    "aside .menu",
   ];
 
   const CHECKOUT_TRIGGER_SELECTORS = [
@@ -2218,6 +2257,100 @@
     console.log("[PAYMENT BUTTONS FOUND]", found);
   }
 
+  function isInMobileContext(element) {
+    if (!element || typeof element.closest !== "function") return false;
+    return Boolean(element.closest(MOBILE_CONTEXT_SELECTORS.join(",")));
+  }
+
+  function hasNativeAccountEntry(options) {
+    const opts = options || {};
+    const isMobile = Boolean(opts.mobile);
+    const triggers = Array.from(
+      document.querySelectorAll(
+        ACCOUNT_TRIGGER_SELECTORS.map((selector) => `${selector}:not([data-megaska-fallback-account])`).join(",")
+      )
+    );
+
+    return triggers.some((el) => isMobile ? isInMobileContext(el) : !isInMobileContext(el));
+  }
+
+  function getDesktopAccountContainer() {
+    for (const selector of DESKTOP_ACCOUNT_CONTAINER_SELECTORS) {
+      const container = document.querySelector(selector);
+      if (container) return container;
+    }
+    return null;
+  }
+
+  function getMobileAccountContainer() {
+    for (const selector of MOBILE_ACCOUNT_CONTAINER_SELECTORS) {
+      const container = document.querySelector(selector);
+      if (container) return container;
+    }
+    return null;
+  }
+
+  function createDesktopAccountFallback() {
+    const link = document.createElement("a");
+    link.id = ACCOUNT_FALLBACK_DESKTOP_ID;
+    link.href = "/account";
+    link.className = "megaska-account-fallback megaska-account-fallback--desktop kalles-account-icon customer-account-link";
+    link.setAttribute("data-megaska-open-login", "1");
+    link.setAttribute("data-megaska-fallback-account", "desktop");
+    link.setAttribute("aria-label", "Account");
+    link.innerHTML =
+      '<span class="megaska-account-fallback__icon" aria-hidden="true">👤</span><span class="megaska-account-fallback__label">Account</span>';
+    return link;
+  }
+
+  function createMobileAccountFallback() {
+    const item = document.createElement("li");
+    item.id = ACCOUNT_FALLBACK_MOBILE_ID;
+    item.className = "megaska-account-fallback-item";
+    item.setAttribute("data-megaska-fallback-account", "mobile");
+    item.innerHTML =
+      '<a href="/account" class="megaska-account-fallback megaska-account-fallback--mobile" data-megaska-open-login="1"><span class="megaska-account-fallback__label">Account</span></a>';
+    return item;
+  }
+
+  function ensureAccountEntryFallbacks() {
+    if (!hasNativeAccountEntry({ mobile: false })) {
+      const desktopContainer = getDesktopAccountContainer();
+      if (desktopContainer && !document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID)) {
+        const fallback = createDesktopAccountFallback();
+        const containerTag = String(desktopContainer.tagName || "").toUpperCase();
+        if (containerTag === "UL" || containerTag === "OL") {
+          const li = document.createElement("li");
+          li.className = "megaska-account-fallback-item";
+          li.appendChild(fallback);
+          desktopContainer.appendChild(li);
+        } else {
+          desktopContainer.appendChild(fallback);
+        }
+        console.log("[Megaska OTP] desktop account fallback inserted");
+      }
+    }
+
+    if (!hasNativeAccountEntry({ mobile: true })) {
+      const mobileContainer = getMobileAccountContainer();
+      if (mobileContainer && !document.getElementById(ACCOUNT_FALLBACK_MOBILE_ID)) {
+        mobileContainer.appendChild(createMobileAccountFallback());
+        console.log("[Megaska OTP] mobile account fallback inserted");
+      }
+    }
+  }
+
+  function bindAccountFallbackObserver() {
+    if (accountFallbackObserverBound) return;
+    accountFallbackObserverBound = true;
+
+    const observer = new MutationObserver(() => {
+      ensureAccountEntryFallbacks();
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
   function bindAuthStateSync() {
     document.addEventListener("megaska:auth-state-changed", () => {
       syncAccountUiState();
@@ -2442,6 +2575,8 @@
     bindCartAddSubmitInterceptor();
     bindAuthStateSync();
     ensureModal();
+    ensureAccountEntryFallbacks();
+    bindAccountFallbackObserver();
     syncAccountUiState();
     if (document && document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", logPaymentButtonsPresence, { once: true });
