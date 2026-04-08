@@ -76,6 +76,8 @@
   let accountMenuContainer = null;
   let accountMenuTrigger = null;
   let accountFallbackObserverBound = false;
+  let desktopAccountContainerObserver = null;
+  let observedDesktopAccountContainer = null;
   const resumingCartAddForms = new WeakSet();
   const ACCOUNT_FALLBACK_DESKTOP_ID = "megaska-account-fallback-desktop";
   const ACCOUNT_FALLBACK_MOBILE_ID = "megaska-account-fallback-mobile";
@@ -2444,7 +2446,7 @@
   const link = document.createElement("a");
   link.id = ACCOUNT_FALLBACK_DESKTOP_ID;
   link.href = dashboardUrl;
-  link.className = "megaska-account-fallback megaska-account-fallback--desktop kalles-account-icon customer-account-link";
+  link.className = "megaska-account-fallback megaska-account-fallback--desktop";
   link.setAttribute("data-megaska-open-login", "1");
   link.setAttribute("data-megaska-fallback-account", "desktop");
   link.setAttribute("aria-label", "Account");
@@ -2528,12 +2530,62 @@
     }
   }
 
+  function ensureDesktopAccountFallback() {
+    normalizeNativeAccountTriggers();
+
+    if (hasNativeDesktopAccountEntry()) {
+      return;
+    }
+
+    if (document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID)) {
+      return;
+    }
+
+    const desktopContainer = getDesktopAccountContainer();
+    if (!desktopContainer) {
+      return;
+    }
+
+    const fallback = createDesktopAccountFallback();
+    const containerTag = String(desktopContainer.tagName || "").toUpperCase();
+    if (containerTag === "UL" || containerTag === "OL") {
+      const li = document.createElement("li");
+      li.className = "megaska-account-fallback-item";
+      li.appendChild(fallback);
+      desktopContainer.appendChild(li);
+    } else {
+      desktopContainer.appendChild(fallback);
+    }
+    console.log("[Megaska OTP] desktop account fallback re-inserted");
+  }
+
+  function observeDesktopAccountContainer() {
+    const container = getDesktopAccountContainer();
+    if (!container) return;
+
+    if (observedDesktopAccountContainer === container && desktopAccountContainerObserver) {
+      return;
+    }
+
+    if (desktopAccountContainerObserver) {
+      desktopAccountContainerObserver.disconnect();
+    }
+
+    observedDesktopAccountContainer = container;
+    desktopAccountContainerObserver = new MutationObserver(() => {
+      ensureDesktopAccountFallback();
+    });
+    desktopAccountContainerObserver.observe(container, { childList: true, subtree: true });
+  }
+
   function bindAccountFallbackObserver() {
     if (accountFallbackObserverBound) return;
     accountFallbackObserverBound = true;
 
     const observer = new MutationObserver(() => {
       ensureAccountEntryFallbacks();
+      ensureDesktopAccountFallback();
+      observeDesktopAccountContainer();
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
@@ -2764,6 +2816,8 @@
     bindAuthStateSync();
     ensureModal();
     ensureAccountEntryFallbacks();
+    ensureDesktopAccountFallback();
+    observeDesktopAccountContainer();
     bindAccountFallbackObserver();
     syncAccountUiState();
     if (document && document.readyState === "loading") {
