@@ -2451,7 +2451,7 @@
   link.setAttribute("data-megaska-fallback-account", "desktop");
   link.setAttribute("aria-label", "Account");
   link.innerHTML =
-    '<span class="megaska-account-fallback__icon" aria-hidden="true"><i class="las la-user" aria-hidden="true"></i></span><span class="megaska-visually-hidden">Account</span>';
+    '<span class="megaska-account-fallback__icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" aria-hidden="true"><path d="M12 12.5a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.5c-4.3 0-8.5 2.2-8.5 5v1.5c0 .6.4 1 1 1h15c.6 0 1-.4 1-1V20c0-2.8-4.2-5-8.5-5Z"/></svg></span><span class="megaska-visually-hidden">Account</span>';
   return link;
 }
 
