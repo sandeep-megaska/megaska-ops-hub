@@ -140,6 +140,22 @@
     "nav[aria-label*='mobile' i] ul",
     "aside .menu",
   ];
+  const NATIVE_DESKTOP_ACCOUNT_SELECTORS = [
+    "header .js_link_acc",
+    "header .kalles-account-icon",
+    "header .header__icon--account",
+    "header .customer-account-link",
+    "header .iccl-user",
+    "header .icon-user",
+    "header a[href='/account']",
+    "header a[href^='/account?']",
+    "header a[href$='/account']",
+    "header a[href='/account/login']",
+    "header a[href^='/account/login?']",
+    "header a[href*='/account/login']",
+    "header [aria-label*='account' i]",
+    "header [title*='account' i]",
+  ];
 
   const CHECKOUT_TRIGGER_SELECTORS = [
     "a[href='/checkout']",
@@ -2280,26 +2296,37 @@
   }
 
   function normalizeNativeAccountTriggers() {
-    const selectors = [
-      ".js_link_acc",
-      ".kalles-account-icon",
-      ".header__icon--account",
-      ".customer-account-link",
-      ".iccl-user",
-      ".icon-user",
-      "header [aria-label*='account' i]",
-      "header [title*='account' i]",
-    ];
-
     const candidates = document.querySelectorAll(
-      selectors.map((selector) => `${selector}:not([data-megaska-fallback-account])`).join(",")
+      NATIVE_DESKTOP_ACCOUNT_SELECTORS
+        .map((selector) => `${selector}:not([data-megaska-fallback-account])`)
+        .join(",")
     );
 
     candidates.forEach((el) => {
       if (!el || typeof el.setAttribute !== "function") return;
       el.setAttribute("data-megaska-open-login", "1");
       el.setAttribute("data-megaska-native-account", "1");
+      if ("hidden" in el && el.hidden) {
+        el.hidden = false;
+      }
+      const authWrapper =
+        typeof el.closest === "function" ? el.closest("[data-megaska-auth-user]") : null;
+      if (authWrapper && "hidden" in authWrapper && authWrapper.hidden) {
+        authWrapper.hidden = false;
+      }
     });
+  }
+
+  function hasNativeDesktopAccountEntry() {
+    const desktopCandidates = Array.from(
+      document.querySelectorAll(
+        NATIVE_DESKTOP_ACCOUNT_SELECTORS
+          .map((selector) => `${selector}:not([data-megaska-fallback-account])`)
+          .join(",")
+      )
+    );
+
+    return desktopCandidates.some((el) => !isInMobileContext(el));
   }
 
   function getDesktopAccountContainer() {
@@ -2344,7 +2371,8 @@
   function ensureAccountEntryFallbacks() {
     normalizeNativeAccountTriggers();
 
-    if (!hasNativeAccountEntry({ mobile: false })) {
+    const hasNativeDesktopAccount = hasNativeDesktopAccountEntry();
+    if (!hasNativeDesktopAccount) {
       const desktopContainer = getDesktopAccountContainer();
       if (desktopContainer && !document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID)) {
         const fallback = createDesktopAccountFallback();
@@ -2358,6 +2386,17 @@
           desktopContainer.appendChild(fallback);
         }
         console.log("[Megaska OTP] desktop account fallback inserted");
+      }
+    } else {
+      const existingDesktopFallback = document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID);
+      if (existingDesktopFallback) {
+        const fallbackWrapper = existingDesktopFallback.closest(".megaska-account-fallback-item");
+        if (fallbackWrapper && fallbackWrapper.childElementCount === 1) {
+          fallbackWrapper.remove();
+        } else {
+          existingDesktopFallback.remove();
+        }
+        console.log("[Megaska OTP] desktop account fallback removed (native detected)");
       }
     }
 
