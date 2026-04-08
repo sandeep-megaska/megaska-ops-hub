@@ -21,6 +21,8 @@
   display: grid;
   place-items: center;
   padding: 16px;
+  overflow: hidden;
+  overscroll-behavior: contain;
 }
 
 .megaska-otp-backdrop {
@@ -32,11 +34,12 @@
 
 .megaska-otp-dialog {
   position: relative;
-  display: block;
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: 460px;
   min-width: min(400px, 100%);
-  max-height: 92dvh;
+  max-height: min(92dvh, 92vh);
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   border: 1px solid #dbe3ee;
   border-radius: var(--megaska-otp-radius);
@@ -48,16 +51,18 @@
 
 .megaska-otp-flow {
   background: transparent;
-  padding: 22px 24px 24px;
+  padding: 18px 22px 24px;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   justify-content: flex-start;
-  gap: 14px;
+  gap: 10px;
   min-height: 0;
   max-height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable both-edges;
 }
 
 .megaska-otp-close {
@@ -85,7 +90,7 @@
 }
 
 .megaska-otp-header {
-  padding-top: 4px;
+  padding-top: 2px;
 }
 
 .megaska-otp-handle {
@@ -96,7 +101,7 @@
   min-height: 0;
   display: flex;
   justify-content: center;
-  margin: 0 auto 12px;
+  margin: 0 auto 8px;
 }
 
 .megaska-otp-logo {
@@ -113,8 +118,8 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  margin: 0 auto 14px;
-  padding: 10px 14px;
+  margin: 0 auto 10px;
+  padding: 8px 12px;
   border-radius: 999px;
   background: linear-gradient(90deg, #0f172a, #1e293b);
   color: #fff;
@@ -136,8 +141,8 @@
 }
 
 .megaska-otp-title {
-  margin: 0 0 8px;
-  font-size: 28px;
+  margin: 0 0 4px;
+  font-size: 26px;
   line-height: 1.15;
   font-weight: 700;
   text-align: center;
@@ -146,7 +151,7 @@
 
 .megaska-otp-subtitle {
   color: var(--megaska-otp-muted);
-  margin: 0 auto 18px;
+  margin: 0 auto 12px;
   font-size: 14px;
   line-height: 1.45;
   text-align: center;
@@ -158,7 +163,7 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
 .megaska-otp-chip {
@@ -172,8 +177,8 @@
 }
 
 .megaska-otp-step-title {
-  margin: 0 0 8px;
-  font-size: 24px;
+  margin: 0 0 4px;
+  font-size: 22px;
   line-height: 1.2;
   font-weight: 700;
   color: #0f172a;
@@ -181,7 +186,7 @@
 }
 
 .megaska-otp-step-subtitle {
-  margin: 0 0 8px;
+  margin: 0 0 4px;
   font-size: 14px;
   line-height: 1.45;
   color: #64748b;
@@ -189,17 +194,21 @@
 }
 
 .megaska-otp-step-profile .megaska-otp-step-subtitle {
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+}
+
+.megaska-otp-step-profile {
+  padding-bottom: 10px;
 }
 
 .megaska-otp-helper-link-row {
   text-align: center;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .megaska-otp-trouble {
   text-align: center;
-  margin-top: 14px;
+  margin-top: 10px;
   font-size: 13px;
   color: #64748b;
 }
@@ -216,17 +225,17 @@
   display: block;
   font-size: 13px;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .megaska-otp-label-top-gap {
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .megaska-otp-profile-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: 10px;
 }
 
 .megaska-otp-form-field {
@@ -323,14 +332,14 @@
   border-radius: 12px;
   background: #fff;
   padding: 0 14px;
-  height: 50px;
+  height: 48px;
   font-size: 16px;
   color: #111827;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .megaska-otp-hint {
-  margin: 10px 0 0;
+  margin: 6px 0 0;
   color: var(--megaska-otp-muted);
   font-size: 13px;
   text-align: center;
@@ -339,15 +348,15 @@
 .megaska-otp-inputs {
   display: flex;
   justify-content: center;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .megaska-otp-digit {
-  width: 54px;
-  height: 58px;
+  width: 50px;
+  height: 54px;
   text-align: center;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
   border: 1px solid #cbd5e1;
   border-radius: 12px;
@@ -367,10 +376,10 @@
 
 .megaska-otp-primary-btn {
   width: 100%;
-  margin-top: 4px;
+  margin-top: 2px;
   border: 0;
   border-radius: 12px;
-  height: 50px;
+  height: 48px;
   padding: 0 16px;
   background: #0f172a;
   color: #fff;
@@ -389,9 +398,9 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   font-size: 14px;
   color: #475569;
 }
@@ -496,13 +505,13 @@
 
   .megaska-otp-dialog {
     min-height: auto;
-    max-height: min(100dvh - 48px, 760px);
+    max-height: min(92dvh, 760px);
     border-radius: var(--megaska-otp-radius);
   }
 
   .megaska-otp-profile-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    gap: 10px 12px;
   }
 
   .megaska-otp-col-span-2 {
@@ -511,22 +520,26 @@
 }
 
 @media (max-width: 799px) {
+  .megaska-otp-modal {
+    padding: 12px;
+  }
+
   .megaska-otp-dialog {
-    width: min(92vw, 360px);
-    max-width: 360px;
+    width: min(94vw, 372px);
+    max-width: 372px;
     min-width: 0;
     border-radius: 19px;
-    max-height: 85vh;
+    max-height: min(92dvh, 92vh);
     animation: megaskaOtpSlideUp 220ms ease-out;
   }
 
   .megaska-otp-flow {
-    padding: 18px;
-    gap: 12px;
+    padding: 14px 14px 20px;
+    gap: 8px;
   }
 
   .megaska-otp-logo-wrap {
-    margin-bottom: 10px;
+    margin-bottom: 6px;
   }
 
   .megaska-otp-logo {
@@ -535,25 +548,25 @@
   }
 
   .megaska-otp-offer {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     font-size: 12px;
-    gap: 8px;
-    padding: 9px 12px;
+    gap: 6px;
+    padding: 7px 10px;
   }
 
   .megaska-otp-title {
-    font-size: 22px;
+    font-size: 20px;
     line-height: 1.2;
   }
 
   .megaska-otp-subtitle {
-    font-size: 13px;
-    margin-bottom: 14px;
+    font-size: 12px;
+    margin-bottom: 10px;
   }
 
   .megaska-otp-trust-strip {
     gap: 6px;
-    margin-bottom: 16px;
+    margin-bottom: 10px;
   }
 
   .megaska-otp-chip {
@@ -561,25 +574,39 @@
   }
 
   .megaska-otp-step-title {
-    font-size: 22px;
+    font-size: 20px;
+  }
+
+  .megaska-otp-step-subtitle {
+    font-size: 13px;
   }
 
   .megaska-otp-inputs {
-    gap: 10px;
+    gap: 6px;
   }
 
   .megaska-otp-digit {
-    width: min(calc((100% - 30px) / 4), 56px);
-    height: 54px;
+    width: min(calc((100% - 18px) / 4), 52px);
+    height: 50px;
+    font-size: 20px;
   }
 
   .megaska-otp-phone-wrap {
-    height: 52px;
+    height: 50px;
   }
 
   .megaska-otp-primary-btn,
   .megaska-otp-text-input {
-    min-height: 48px;
+    min-height: 46px;
+  }
+
+  .megaska-otp-profile-grid {
+    gap: 9px;
+  }
+
+  .megaska-otp-resend-row {
+    font-size: 13px;
+    margin-bottom: 8px;
   }
 }
 
