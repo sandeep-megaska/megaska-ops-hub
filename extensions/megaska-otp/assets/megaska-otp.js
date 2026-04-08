@@ -1665,11 +1665,12 @@
         return;
       }
 
-      console.log("[Megaska OTP] buy-now continuing to checkout");
+      console.log("[Megaska OTP] buy-now checkout handoff start");
       await continueToCheckoutFromPendingAction(
         preferredCustomer,
         "pendingAction.buy-now-submit"
       );
+      console.log("[Megaska OTP] buy-now checkout continuation");
     }
   }
 
