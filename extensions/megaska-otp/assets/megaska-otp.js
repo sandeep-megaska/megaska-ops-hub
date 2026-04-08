@@ -80,12 +80,19 @@
   const ACCOUNT_TRIGGER_SELECTORS = [
     "[data-megaska-open-login]",
     "a[href='/account']",
+    "a[href^='/account?']",
     "a[href$='/account']",
+    "a[href='/account/login']",
+    "a[href^='/account/login?']",
     "a[href*='/account/login']",
     "a[href*='/account/register']",
     "[data-account-link]",
     "[data-customer-login]",
     ".header__icon--account",
+    ".header__account",
+    ".site-nav__link--account",
+    ".js__tc",
+    ".kalles-account-icon",
     ".site-header__account",
     ".customer-account-link",
   ];
@@ -1602,6 +1609,15 @@
       return;
     }
 
+    if (action.type === "account-redirect") {
+      const fallbackReturnUrl = window.location.href || "/";
+      const returnUrl = String(action.returnUrl || fallbackReturnUrl).trim() || fallbackReturnUrl;
+      const profileComplete = !needsProfileCompletion(preferredCustomer);
+      const redirectTarget = profileComplete ? "/account" : returnUrl;
+      window.location.assign(redirectTarget);
+      return;
+    }
+
     if (action.type === "cart-add-submit") {
       const form = action.form;
       if (!form || typeof form.submit !== "function") return;
@@ -1978,6 +1994,11 @@
     const authenticated = gateState.authenticated;
 
     if (!authenticated) {
+      setPendingAction({
+        type: "account-redirect",
+        returnUrl: window.location.href,
+        createdAt: Date.now(),
+      });
       try {
         openModal("account-intercept");
       } catch {
@@ -1987,7 +2008,8 @@
       return;
     }
 
-    toggleAccountMenu(triggerEl);
+    hideAccountMenu();
+    window.location.assign("/account");
     console.log("[Megaska OTP] account trigger intercepted", { authenticated: true });
   }
 
