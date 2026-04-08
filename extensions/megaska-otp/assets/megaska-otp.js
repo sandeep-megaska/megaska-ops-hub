@@ -1601,7 +1601,15 @@
 
       try {
         resumingCartAddForms.add(form);
-        form.submit();
+        if (
+          action.submitter &&
+          typeof action.submitter.click === "function" &&
+          document.contains(action.submitter)
+        ) {
+          action.submitter.click();
+        } else {
+          form.submit();
+        }
       } finally {
         setTimeout(() => {
           resumingCartAddForms.delete(form);
@@ -2194,6 +2202,75 @@
     }
   }
 
+  function hasBuyNowIntentText(value) {
+    return /\bbuy[\s_-]*now\b|\bdynamic[\s_-]*checkout\b|\bcheckout[\s_-]*now\b/i.test(
+      String(value || "")
+    );
+  }
+
+  function getSubmitterForForm(event, form) {
+    if (event?.submitter) return event.submitter;
+    const active = document?.activeElement;
+    if (!active || typeof active.closest !== "function") return null;
+    if (active.closest("form") !== form) return null;
+    if (!active.matches("button,input[type='submit'],input[type='image']")) return null;
+    return active;
+  }
+
+  function isBuyNowCartAddSubmitIntent(event, form) {
+    const submitter = getSubmitterForForm(event, form);
+    const submitterText = String(submitter?.textContent || submitter?.value || "").trim();
+    const submitterClassName = String(submitter?.className || "");
+    const submitterName = String(submitter?.getAttribute?.("name") || "");
+    const submitterId = String(submitter?.id || "");
+    const submitterDataAction = String(submitter?.getAttribute?.("data-action") || "");
+    const submitterDataAttrNames = submitter?.getAttributeNames?.() || [];
+    const submitterFormAction = String(submitter?.getAttribute?.("formaction") || "");
+    const formAction = String(form?.getAttribute?.("action") || "");
+    const formClassName = String(form?.className || "");
+    const formId = String(form?.id || "");
+    const formDataAttrNames = form?.getAttributeNames?.() || [];
+
+    if (submitter && submitter.matches(".pbar-buy, .shopify-payment-button__button")) {
+      return { intent: true, submitter };
+    }
+
+    if (
+      hasBuyNowIntentText(submitterText) ||
+      hasBuyNowIntentText(submitterClassName) ||
+      hasBuyNowIntentText(submitterName) ||
+      hasBuyNowIntentText(submitterId) ||
+      hasBuyNowIntentText(submitterDataAction)
+    ) {
+      return { intent: true, submitter };
+    }
+
+    if (
+      hasBuyNowIntentText(submitterFormAction) ||
+      /\/checkout/i.test(submitterFormAction)
+    ) {
+      return { intent: true, submitter };
+    }
+
+    if (submitterDataAttrNames.some((name) => /buy|dynamic|checkout/i.test(String(name || "")))) {
+      return { intent: true, submitter };
+    }
+
+    if (
+      hasBuyNowIntentText(formClassName) ||
+      hasBuyNowIntentText(formId) ||
+      hasBuyNowIntentText(formAction)
+    ) {
+      return { intent: true, submitter };
+    }
+
+    if (formDataAttrNames.some((name) => /buy|dynamic|checkout/i.test(String(name || "")))) {
+      return { intent: true, submitter };
+    }
+
+    return { intent: false, submitter };
+  }
+
   function bindCartAddSubmitInterceptor() {
     if (cartAddSubmitBound) return;
     cartAddSubmitBound = true;
@@ -2205,14 +2282,18 @@
 
       const action = String(form.getAttribute("action") || "");
       if (!action.includes("/cart/add")) return;
+
+      const buyNowIntent = isBuyNowCartAddSubmitIntent(event, form);
+      if (!buyNowIntent.intent) return;
       if (hasKnownMegaskaSession()) return;
 
       hardBlockEvent(event);
 
-      console.log("[Megaska OTP] cart/add submit intercepted", { form });
+      console.log("[Megaska OTP] buy-now submit intercepted", { form });
       setPendingAction({
         type: "cart-add-submit",
         form,
+        submitter: buyNowIntent.submitter || null,
       });
       openModal("buy-now-intercept");
     }, true);
