@@ -2485,80 +2485,78 @@
   }
 
   function ensureAccountEntryFallbacks() {
-    normalizeNativeAccountTriggers();
+  normalizeNativeAccountTriggers();
 
-    const hasNativeDesktopAccount = hasNativeDesktopAccountEntry();
-    if (!hasNativeDesktopAccount) {
-      const desktopContainer = getDesktopAccountContainer();
-      if (desktopContainer && !document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID)) {
-        const fallback = createDesktopAccountFallback();
-        const containerTag = String(desktopContainer.tagName || "").toUpperCase();
-        if (containerTag === "UL" || containerTag === "OL") {
-          const li = document.createElement("li");
-          li.className = "megaska-account-fallback-item";
-          li.appendChild(fallback);
-          desktopContainer.appendChild(li);
-        } else {
-          desktopContainer.appendChild(fallback);
-        }
-        console.log("[Megaska OTP] desktop account fallback inserted");
-      }
-    } else {
-      const existingDesktopFallback = document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID);
-      if (existingDesktopFallback) {
-        const fallbackWrapper = existingDesktopFallback.closest(".megaska-account-fallback-item");
-        if (fallbackWrapper && fallbackWrapper.childElementCount === 1) {
-          fallbackWrapper.remove();
-        } else {
-          existingDesktopFallback.remove();
-        }
-        console.log("[Megaska OTP] desktop account fallback removed (native detected)");
-      }
-    }
-
-    if (!hasVisibleNativeMobileMenuAccountEntry()) {
-      const mobileContainer = getMobileAccountContainer();
-      if (mobileContainer && !document.getElementById(ACCOUNT_FALLBACK_MOBILE_ID)) {
-        insertMobileFallbackInMenu(mobileContainer, createMobileAccountFallback());
-        console.log("[Megaska OTP] mobile account fallback inserted");
-      }
-    } else {
-      const existingMobileFallback = document.getElementById(ACCOUNT_FALLBACK_MOBILE_ID);
-      if (existingMobileFallback) {
-        existingMobileFallback.remove();
-      }
-    }
-  }
-
-  function ensureDesktopAccountFallback() {
-    normalizeNativeAccountTriggers();
-
-    if (hasNativeDesktopAccountEntry()) {
-      return;
-    }
-
-    if (document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID)) {
-      return;
-    }
-
+  const hasNativeDesktopAccount = hasVisibleNativeDesktopAccountEntry();
+  if (!hasNativeDesktopAccount) {
     const desktopContainer = getDesktopAccountContainer();
-    if (!desktopContainer) {
-      return;
+    if (desktopContainer && !document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID)) {
+      const fallback = createDesktopAccountFallback();
+      const containerTag = String(desktopContainer.tagName || "").toUpperCase();
+      if (containerTag === "UL" || containerTag === "OL") {
+        const li = document.createElement("li");
+        li.className = "megaska-account-fallback-item";
+        li.appendChild(fallback);
+        desktopContainer.appendChild(li);
+      } else {
+        desktopContainer.appendChild(fallback);
+      }
+        console.log("[Megaska OTP] desktop account fallback inserted");
     }
-
-    const fallback = createDesktopAccountFallback();
-    const containerTag = String(desktopContainer.tagName || "").toUpperCase();
-    if (containerTag === "UL" || containerTag === "OL") {
-      const li = document.createElement("li");
-      li.className = "megaska-account-fallback-item";
-      li.appendChild(fallback);
-      desktopContainer.appendChild(li);
-    } else {
-      desktopContainer.appendChild(fallback);
+  } else {
+    const existingDesktopFallback = document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID);
+    if (existingDesktopFallback) {
+      const fallbackWrapper = existingDesktopFallback.closest(".megaska-account-fallback-item");
+      if (fallbackWrapper && fallbackWrapper.childElementCount === 1) {
+        fallbackWrapper.remove();
+      } else {
+        existingDesktopFallback.remove();
+      }
+      console.log("[Megaska OTP] desktop account fallback removed (visible native detected)");
     }
-    console.log("[Megaska OTP] desktop account fallback re-inserted");
   }
 
+  if (!hasVisibleNativeMobileMenuAccountEntry()) {
+    const mobileContainer = getMobileAccountContainer();
+    if (mobileContainer && !document.getElementById(ACCOUNT_FALLBACK_MOBILE_ID)) {
+      insertMobileFallbackInMenu(mobileContainer, createMobileAccountFallback());
+      console.log("[Megaska OTP] mobile account fallback inserted");
+    }
+  } else {
+    const existingMobileFallback = document.getElementById(ACCOUNT_FALLBACK_MOBILE_ID);
+    if (existingMobileFallback) {
+      existingMobileFallback.remove();
+    }
+  }
+}
+ function ensureDesktopAccountFallback() {
+  normalizeNativeAccountTriggers();
+
+  if (hasVisibleNativeDesktopAccountEntry()) {
+    return;
+  }
+
+  if (document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID)) {
+    return;
+  }
+
+  const desktopContainer = getDesktopAccountContainer();
+  if (!desktopContainer) {
+    return;
+  }
+
+  const fallback = createDesktopAccountFallback();
+  const containerTag = String(desktopContainer.tagName || "").toUpperCase();
+  if (containerTag === "UL" || containerTag === "OL") {
+    const li = document.createElement("li");
+    li.className = "megaska-account-fallback-item";
+    li.appendChild(fallback);
+    desktopContainer.appendChild(li);
+  } else {
+    desktopContainer.appendChild(fallback);
+  }
+  console.log("[Megaska OTP] desktop account fallback re-inserted");
+}
   function observeDesktopAccountContainer() {
     const container = getDesktopAccountContainer();
     if (!container) return;
@@ -2675,7 +2673,19 @@
       window.location.assign(finalTargetUrl);
     }, true);
   }
+function hasVisibleNativeDesktopAccountEntry() {
+  const desktopCandidates = Array.from(
+    document.querySelectorAll(
+      NATIVE_DESKTOP_ACCOUNT_SELECTORS
+        .map((selector) => `${selector}:not([data-megaska-fallback-account])`)
+        .join(",")
+    )
+  );
 
+  return desktopCandidates.some(
+    (el) => !isInMobileContext(el) && isElementActuallyVisible(el)
+  );
+}
   function hasKnownMegaskaSession() {
     try {
       return Boolean(
