@@ -2305,14 +2305,27 @@
     return style.display !== "none" && style.visibility !== "hidden";
   }
 
-  function hasVisibleNativeMobileAccountEntry() {
+  function isInMobileMenuContainer(element) {
+    if (!element || typeof element.closest !== "function") return false;
+    return MOBILE_ACCOUNT_CONTAINER_SELECTORS.some((selector) => {
+      try {
+        return Boolean(element.closest(selector));
+      } catch (_error) {
+        return false;
+      }
+    });
+  }
+
+  function hasVisibleNativeMobileMenuAccountEntry() {
     const triggers = Array.from(
       document.querySelectorAll(
         ACCOUNT_TRIGGER_SELECTORS.map((selector) => `${selector}:not([data-megaska-fallback-account])`).join(",")
       )
     );
 
-    return triggers.some((el) => isInMobileContext(el) && isElementActuallyVisible(el));
+    return triggers.some(
+      (el) => isInMobileContext(el) && isInMobileMenuContainer(el) && isElementActuallyVisible(el)
+    );
   }
 
   function normalizeNativeAccountTriggers() {
@@ -2420,7 +2433,7 @@
       }
     }
 
-    if (!hasVisibleNativeMobileAccountEntry()) {
+    if (!hasVisibleNativeMobileMenuAccountEntry()) {
       const mobileContainer = getMobileAccountContainer();
       if (mobileContainer && !document.getElementById(ACCOUNT_FALLBACK_MOBILE_ID)) {
         mobileContainer.appendChild(createMobileAccountFallback());
