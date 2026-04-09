@@ -40,11 +40,6 @@ type ShopifyCustomerLookupInput = {
   phoneE164?: string | null;
 };
 
-type ShopifyClientCredentialsTokenResponse = {
-  access_token?: string;
-  expires_in?: number;
-};
-
 export type OrderMegaskaIdentityInput = {
   orderId: string;
   verifiedPhone: string;
