@@ -533,15 +533,6 @@
     return session;
   }
 
-
-  const DASHBOARD_ORDER_ACTIONS = [
-    { key: "cancel", label: "Cancel Order", hint: "Cancellation module will be available soon." },
-    { key: "return", label: "Return", hint: "Return requests will be enabled in the next phase." },
-    { key: "exchange", label: "Exchange", hint: "Exchange workflow is coming soon." },
-    { key: "defect", label: "Defect Report", hint: "Defect report flow will be connected soon." },
-    { key: "refund", label: "Refund Status", hint: "Refund status tracking will be enabled soon." },
-  ];
-
   function escHtml(value) {
     return String(value || "")
       .replace(/&/g, "&amp;")
@@ -574,137 +565,6 @@
       .join("<br/>");
   }
 
-  function formatOrderTotal(order) {
-    if (!order?.totalAmount || !order?.currencyCode) return "-";
-    return `${escHtml(order.currencyCode)} ${escHtml(order.totalAmount)}`;
-  }
-
-  function renderOrderActions() {
-    return DASHBOARD_ORDER_ACTIONS.map(
-      (action) =>
-        `<button type="button" class="megaska-dashboard-action-btn" data-megaska-order-action="${escHtml(
-          action.key
-        )}">${escHtml(action.label)}</button>`
-    ).join("");
-  }
-
-  function renderOrderDetailsPanel() {
-    return `
-      <div class="megaska-order-detail-layer" data-megaska-order-layer hidden>
-        <button type="button" class="megaska-order-detail-overlay" data-megaska-close-order-detail aria-label="Close order detail panel"></button>
-        <aside class="megaska-order-detail-panel" role="dialog" aria-modal="true" aria-labelledby="megaska-order-detail-title">
-          <div class="megaska-order-detail-header">
-            <div>
-              <p class="megaska-order-detail-kicker">Order details</p>
-              <h3 id="megaska-order-detail-title">Order</h3>
-            </div>
-            <button type="button" class="megaska-order-detail-close" data-megaska-close-order-detail aria-label="Close">×</button>
-          </div>
-          <div class="megaska-order-detail-body">
-            <div class="megaska-order-detail-top">
-              <img data-megaska-order-image alt="" class="megaska-order-detail-image" />
-              <div>
-                <p class="megaska-order-detail-product" data-megaska-order-product>-</p>
-                <p class="megaska-dashboard-subtle" data-megaska-order-date>-</p>
-              </div>
-            </div>
-            <dl class="megaska-order-detail-meta">
-              <div><dt>Order number</dt><dd data-megaska-order-number>-</dd></div>
-              <div><dt>Total amount</dt><dd data-megaska-order-total>-</dd></div>
-              <div><dt>Payment status</dt><dd data-megaska-order-payment>-</dd></div>
-              <div><dt>Fulfillment status</dt><dd data-megaska-order-fulfillment>-</dd></div>
-            </dl>
-            <section class="megaska-order-detail-actions">
-              <h4>Actions</h4>
-              <div class="megaska-order-detail-actions-grid">
-                ${renderOrderActions()}
-              </div>
-              <p class="megaska-order-action-hint" data-megaska-order-action-hint>Choose an action to continue.</p>
-            </section>
-          </div>
-        </aside>
-      </div>
-    `;
-  }
-
-  function bindOrderDetailInteractions(container, orders) {
-    const layer = container.querySelector("[data-megaska-order-layer]");
-    if (!layer) return;
-
-    const closeButtons = layer.querySelectorAll("[data-megaska-close-order-detail]");
-    const titleEl = layer.querySelector("#megaska-order-detail-title");
-    const numberEl = layer.querySelector("[data-megaska-order-number]");
-    const dateEl = layer.querySelector("[data-megaska-order-date]");
-    const productEl = layer.querySelector("[data-megaska-order-product]");
-    const imageEl = layer.querySelector("[data-megaska-order-image]");
-    const totalEl = layer.querySelector("[data-megaska-order-total]");
-    const paymentEl = layer.querySelector("[data-megaska-order-payment]");
-    const fulfillmentEl = layer.querySelector("[data-megaska-order-fulfillment]");
-    const actionHint = layer.querySelector("[data-megaska-order-action-hint]");
-
-    function closePanel() {
-      layer.setAttribute("hidden", "hidden");
-      document.body.classList.remove("megaska-order-detail-open");
-    }
-
-    function openPanel(order) {
-      if (!order) return;
-      const displayName = escHtml(order?.name || "Order");
-      const productTitle = escHtml(order?.displayTitle || "Product details unavailable");
-      const orderDate = escHtml(formatDate(order?.processedAt) || "-");
-      const orderImage = String(order?.displayImage || "").trim();
-
-      if (titleEl) titleEl.textContent = order?.name || "Order";
-      if (numberEl) numberEl.textContent = order?.name || "-";
-      if (dateEl) dateEl.textContent = orderDate;
-      if (productEl) productEl.textContent = order?.displayTitle || "Product details unavailable";
-      if (totalEl) totalEl.innerHTML = formatOrderTotal(order);
-      if (paymentEl) paymentEl.textContent = order?.financialStatus || "Pending";
-      if (fulfillmentEl) fulfillmentEl.textContent = order?.fulfillmentStatus || "Unfulfilled";
-      if (actionHint) actionHint.textContent = `Choose an action for ${order?.name || "this order"}.`;
-
-      if (imageEl) {
-        if (orderImage) {
-          imageEl.src = orderImage;
-          imageEl.alt = `${displayName} ${productTitle}`;
-          imageEl.removeAttribute("hidden");
-        } else {
-          imageEl.src = "";
-          imageEl.alt = "";
-          imageEl.setAttribute("hidden", "hidden");
-        }
-      }
-
-      layer.removeAttribute("hidden");
-      document.body.classList.add("megaska-order-detail-open");
-    }
-
-    closeButtons.forEach((button) => {
-      button.addEventListener("click", closePanel);
-    });
-
-    container.querySelectorAll("[data-megaska-order-index]").forEach((button) => {
-      button.addEventListener("click", function () {
-        const index = Number.parseInt(this.getAttribute("data-megaska-order-index") || "-1", 10);
-        openPanel(orders[index]);
-      });
-    });
-
-    layer.querySelectorAll("[data-megaska-order-action]").forEach((button) => {
-      button.addEventListener("click", function () {
-        const actionKey = this.getAttribute("data-megaska-order-action");
-        const action = DASHBOARD_ORDER_ACTIONS.find((item) => item.key === actionKey);
-        if (actionHint) actionHint.textContent = action?.hint || "This action will be available soon.";
-      });
-    });
-
-    document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape" && !layer.hasAttribute("hidden")) {
-        closePanel();
-      }
-    });
-  }
-
   function renderDashboardSummary(container, summary) {
     const profileName =
       [summary?.customer?.firstName, summary?.customer?.lastName].filter(Boolean).join(" ") ||
@@ -722,21 +582,25 @@
 
     const ordersHtml = orders.length
       ? orders
-          .map((order, index) => {
-            const orderTotal = formatOrderTotal(order);
+          .map((order) => {
+            const orderTotal =
+              order?.totalAmount && order?.currencyCode
+                ? `${escHtml(order.currencyCode)} ${escHtml(order.totalAmount)}`
+                : "-";
+            const orderLink = order?.statusPageUrl
+              ? `<a href="${escHtml(order.statusPageUrl)}" target="_blank" rel="noopener noreferrer">View</a>`
+              : "";
 
             return `<li class="megaska-dashboard-list-item">
-              <button type="button" class="megaska-dashboard-order-card" data-megaska-order-index="${index}">
-                <div>
-                  <strong>${escHtml(order?.name || "Order")}</strong>
-                  <div class="megaska-dashboard-subtle">${escHtml(formatDate(order?.processedAt) || "")}</div>
-                </div>
-                <div class="megaska-dashboard-order-right">
-                  <div>${orderTotal}</div>
-                  <div class="megaska-dashboard-subtle">${escHtml(order?.financialStatus || "")}</div>
-                  <span class="megaska-dashboard-order-link">View details</span>
-                </div>
-              </button>
+              <div>
+                <strong>${escHtml(order?.name || "Order")}</strong>
+                <div class="megaska-dashboard-subtle">${escHtml(formatDate(order?.processedAt) || "")}</div>
+              </div>
+              <div class="megaska-dashboard-order-right">
+                <div>${orderTotal}</div>
+                <div class="megaska-dashboard-subtle">${escHtml(order?.financialStatus || "")}</div>
+                ${orderLink}
+              </div>
             </li>`;
           })
           .join("")
@@ -777,10 +641,7 @@
           <button type="button" data-megaska-logout class="megaska-dashboard-btn megaska-dashboard-btn--danger">Logout</button>
         </div>
       </section>
-      ${renderOrderDetailsPanel()}
     `;
-
-    bindOrderDetailInteractions(container, orders);
   }
 
   async function initDashboardPage() {
