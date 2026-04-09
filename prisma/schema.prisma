@@ -28,6 +28,7 @@ model CustomerProfile {
 
   sessions            AuthSession[]
   otpChallenges       OTPChallenge[]
+  orderActionRequests OrderActionRequest[]
 }
 
 model AuthSession {
@@ -69,4 +70,149 @@ model AuditEvent {
   entityId      String?
   payload       Json?
   createdAt     DateTime @default(now())
+}
+
+enum RequestType {
+  EXCHANGE
+  REFUND
+  CANCELLATION
+  ISSUE
+}
+
+enum ExchangeRequestStatus {
+  OPEN
+  AWAITING_PAYMENT
+  PAYMENT_RECEIVED
+  PICKUP_PENDING
+  PICKUP_SCHEDULED
+  PICKUP_COMPLETED
+  ITEM_RECEIVED
+  APPROVED
+  REJECTED
+  REPLACEMENT_PROCESSING
+  REPLACEMENT_SHIPPED
+  CLOSED
+}
+
+enum PaymentPurpose {
+  REVERSE_PICKUP_FEE
+}
+
+enum PaymentProvider {
+  RAZORPAY
+}
+
+enum PaymentStatus {
+  NOT_CREATED
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  CANCELLED
+}
+
+enum ShipmentDirection {
+  REVERSE_PICKUP
+  FORWARD_REPLACEMENT
+}
+
+enum ShipmentStatus {
+  NOT_STARTED
+  PENDING
+  SCHEDULED
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+}
+
+model OrderActionRequest {
+  id                    String                @id @default(uuid())
+  requestType           RequestType           @default(EXCHANGE)
+  customerProfileId     String
+  shopifyCustomerId     String?
+  shopifyOrderId        String?
+  orderNumber           String
+  status                ExchangeRequestStatus @default(OPEN)
+  reason                String?
+  customerNote          String?
+  adminNote             String?
+  requestedAt           DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  customerNameSnapshot  String?
+  customerPhoneSnapshot String?
+  customerEmailSnapshot String?
+  orderAmountSnapshot   String?
+  deliveryDateSnapshot  DateTime?
+  eligibilityDecision   String?
+  eligibilityReason     String?
+
+  customerProfile       CustomerProfile       @relation(fields: [customerProfileId], references: [id])
+  items                 OrderActionItem[]
+  payments              RequestPayment[]
+  shipments             ShipmentTracking[]
+
+  @@index([customerProfileId])
+  @@index([status])
+  @@index([orderNumber])
+}
+
+model OrderActionItem {
+  id                 String             @id @default(uuid())
+  requestId          String
+  shopifyLineItemId  String?
+  productTitle       String
+  variantTitle       String?
+  sku                String?
+  currentSize        String?
+  requestedSize      String
+  quantity           Int                @default(1)
+  isClearance        Boolean            @default(false)
+  isExcludedCategory Boolean            @default(false)
+  eligibilitySnapshot Json?
+  createdAt          DateTime           @default(now())
+
+  request            OrderActionRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+}
+
+model RequestPayment {
+  id                  String         @id @default(uuid())
+  requestId           String
+  purpose             PaymentPurpose @default(REVERSE_PICKUP_FEE)
+  provider            PaymentProvider @default(RAZORPAY)
+  amount              Int
+  currency            String         @default("INR")
+  status              PaymentStatus  @default(NOT_CREATED)
+  paymentLinkId       String?
+  paymentLinkUrl      String?
+  providerReferenceId String?
+  paymentId           String?
+  paidAt              DateTime?
+  expiresAt           DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  request             OrderActionRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([status])
+  @@index([paymentLinkId])
+}
+
+model ShipmentTracking {
+  id          String            @id @default(uuid())
+  requestId   String
+  direction   ShipmentDirection
+  carrier     String?
+  awb         String?
+  trackingUrl String?
+  status      ShipmentStatus    @default(NOT_STARTED)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  request     OrderActionRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@unique([requestId, direction])
 }

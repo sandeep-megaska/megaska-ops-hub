@@ -177,6 +177,74 @@ exports.Prisma.AuditEventScalarFieldEnum = {
   createdAt: 'createdAt'
 };
 
+exports.Prisma.OrderActionRequestScalarFieldEnum = {
+  id: 'id',
+  requestType: 'requestType',
+  customerProfileId: 'customerProfileId',
+  shopifyCustomerId: 'shopifyCustomerId',
+  shopifyOrderId: 'shopifyOrderId',
+  orderNumber: 'orderNumber',
+  status: 'status',
+  reason: 'reason',
+  customerNote: 'customerNote',
+  adminNote: 'adminNote',
+  requestedAt: 'requestedAt',
+  updatedAt: 'updatedAt',
+  customerNameSnapshot: 'customerNameSnapshot',
+  customerPhoneSnapshot: 'customerPhoneSnapshot',
+  customerEmailSnapshot: 'customerEmailSnapshot',
+  orderAmountSnapshot: 'orderAmountSnapshot',
+  deliveryDateSnapshot: 'deliveryDateSnapshot',
+  eligibilityDecision: 'eligibilityDecision',
+  eligibilityReason: 'eligibilityReason'
+};
+
+exports.Prisma.OrderActionItemScalarFieldEnum = {
+  id: 'id',
+  requestId: 'requestId',
+  shopifyLineItemId: 'shopifyLineItemId',
+  productTitle: 'productTitle',
+  variantTitle: 'variantTitle',
+  sku: 'sku',
+  currentSize: 'currentSize',
+  requestedSize: 'requestedSize',
+  quantity: 'quantity',
+  isClearance: 'isClearance',
+  isExcludedCategory: 'isExcludedCategory',
+  eligibilitySnapshot: 'eligibilitySnapshot',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.RequestPaymentScalarFieldEnum = {
+  id: 'id',
+  requestId: 'requestId',
+  purpose: 'purpose',
+  provider: 'provider',
+  amount: 'amount',
+  currency: 'currency',
+  status: 'status',
+  paymentLinkId: 'paymentLinkId',
+  paymentLinkUrl: 'paymentLinkUrl',
+  providerReferenceId: 'providerReferenceId',
+  paymentId: 'paymentId',
+  paidAt: 'paidAt',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ShipmentTrackingScalarFieldEnum = {
+  id: 'id',
+  requestId: 'requestId',
+  direction: 'direction',
+  carrier: 'carrier',
+  awb: 'awb',
+  trackingUrl: 'trackingUrl',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -202,13 +270,68 @@ exports.Prisma.JsonNullValueFilter = {
   JsonNull: Prisma.JsonNull,
   AnyNull: Prisma.AnyNull
 };
+exports.RequestType = exports.$Enums.RequestType = {
+  EXCHANGE: 'EXCHANGE',
+  REFUND: 'REFUND',
+  CANCELLATION: 'CANCELLATION',
+  ISSUE: 'ISSUE'
+};
 
+exports.ExchangeRequestStatus = exports.$Enums.ExchangeRequestStatus = {
+  OPEN: 'OPEN',
+  AWAITING_PAYMENT: 'AWAITING_PAYMENT',
+  PAYMENT_RECEIVED: 'PAYMENT_RECEIVED',
+  PICKUP_PENDING: 'PICKUP_PENDING',
+  PICKUP_SCHEDULED: 'PICKUP_SCHEDULED',
+  PICKUP_COMPLETED: 'PICKUP_COMPLETED',
+  ITEM_RECEIVED: 'ITEM_RECEIVED',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  REPLACEMENT_PROCESSING: 'REPLACEMENT_PROCESSING',
+  REPLACEMENT_SHIPPED: 'REPLACEMENT_SHIPPED',
+  CLOSED: 'CLOSED'
+};
+
+exports.PaymentPurpose = exports.$Enums.PaymentPurpose = {
+  REVERSE_PICKUP_FEE: 'REVERSE_PICKUP_FEE'
+};
+
+exports.PaymentProvider = exports.$Enums.PaymentProvider = {
+  RAZORPAY: 'RAZORPAY'
+};
+
+exports.PaymentStatus = exports.$Enums.PaymentStatus = {
+  NOT_CREATED: 'NOT_CREATED',
+  PENDING: 'PENDING',
+  PAID: 'PAID',
+  FAILED: 'FAILED',
+  EXPIRED: 'EXPIRED',
+  CANCELLED: 'CANCELLED'
+};
+
+exports.ShipmentDirection = exports.$Enums.ShipmentDirection = {
+  REVERSE_PICKUP: 'REVERSE_PICKUP',
+  FORWARD_REPLACEMENT: 'FORWARD_REPLACEMENT'
+};
+
+exports.ShipmentStatus = exports.$Enums.ShipmentStatus = {
+  NOT_STARTED: 'NOT_STARTED',
+  PENDING: 'PENDING',
+  SCHEDULED: 'SCHEDULED',
+  IN_TRANSIT: 'IN_TRANSIT',
+  DELIVERED: 'DELIVERED',
+  FAILED: 'FAILED'
+};
 
 exports.Prisma.ModelName = {
   CustomerProfile: 'CustomerProfile',
   AuthSession: 'AuthSession',
   OTPChallenge: 'OTPChallenge',
-  AuditEvent: 'AuditEvent'
+  AuditEvent: 'AuditEvent',
+  OrderActionRequest: 'OrderActionRequest',
+  OrderActionItem: 'OrderActionItem',
+  RequestPayment: 'RequestPayment',
+  ShipmentTracking: 'ShipmentTracking'
 };
 
 /**
