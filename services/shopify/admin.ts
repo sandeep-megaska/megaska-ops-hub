@@ -209,7 +209,11 @@ async function findCustomerByQuery(query: string): Promise<ShopifyCustomerNode |
 export async function findShopifyCustomerIdByIdentity(
   input: ShopifyCustomerLookupInput
 ): Promise<string | null> {
+
   const email = normalizeEmail(input.email);
+  const phone = normalizeIndianPhoneToE164(input.phoneE164);
+
+  // 1. Try email FIRST (most reliable)
   if (email) {
     const customer = await findCustomerByQuery(`email:${email}`);
     if (customer?.id) {
@@ -217,7 +221,7 @@ export async function findShopifyCustomerIdByIdentity(
     }
   }
 
-  const phone = normalizePhone(input.phoneE164);
+  // 2. Try phone (but normalized)
   if (phone) {
     const customer = await findCustomerByQuery(`phone:${phone}`);
     if (customer?.id) {
