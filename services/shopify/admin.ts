@@ -534,24 +534,33 @@ export async function getShopifyCustomerDashboardData(
             country
             phone
           }
-          orders(first: 5, sortKey: PROCESSED_AT, reverse: true) {
-            nodes {
-              id
-              name
-              processedAt
-              displayFinancialStatus
-              displayFulfillmentStatus
-              statusPageUrl
-              currentTotalPriceSet {
-                shopMoney {
-                  amount
-                  currencyCode
-                }
-              }
-            }
+         orders(first: 5, sortKey: PROCESSED_AT, reverse: true) {
+  nodes {
+    id
+    name
+    processedAt
+    displayFinancialStatus
+    displayFulfillmentStatus
+    statusPageUrl
+    currentTotalPriceSet {
+      shopMoney {
+        amount
+        currencyCode
+      }
+    }
+    lineItems(first: 5) {
+      nodes {
+        title
+        quantity
+        variant {
+          image {
+            url
           }
         }
       }
+    }
+  }
+}
     `,
     { id: customerGid }
   );
