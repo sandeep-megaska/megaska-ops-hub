@@ -514,6 +514,17 @@ export async function getShopifyCustomerDashboardData(
           currentTotalPriceSet?: {
             shopMoney?: ShopifyMoney | null;
           } | null;
+          lineItems?: {
+            nodes: Array<{
+              title?: string | null;
+              quantity?: number | null;
+              variant?: {
+                image?: {
+                  url?: string | null;
+                } | null;
+              } | null;
+            }>;
+          } | null;
         }>;
       };
     } | null;
@@ -535,33 +546,35 @@ export async function getShopifyCustomerDashboardData(
             country
             phone
           }
-         orders(first: 5, sortKey: PROCESSED_AT, reverse: true) {
-  nodes {
-    id
-    name
-    processedAt
-    displayFinancialStatus
-    displayFulfillmentStatus
-    statusPageUrl
-    currentTotalPriceSet {
-      shopMoney {
-        amount
-        currencyCode
+          orders(first: 5, sortKey: PROCESSED_AT, reverse: true) {
+            nodes {
+              id
+              name
+              processedAt
+              displayFinancialStatus
+              displayFulfillmentStatus
+              statusPageUrl
+              currentTotalPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+              lineItems(first: 5) {
+                nodes {
+                  title
+                  quantity
+                  variant {
+                    image {
+                      url
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
-    }
-    lineItems(first: 5) {
-  nodes {
-    title
-    quantity
-    variant {
-      image {
-        url
-      }
-    }
-  }
-}
-  }
-}
     `,
     { id: customerGid }
   );
@@ -580,36 +593,26 @@ export async function getShopifyCustomerDashboardData(
     phone: customer.phone || null,
     defaultAddress: customer.defaultAddress || null,
     totalOrderCount,
-  recentOrders: (customer.orders?.nodes || []).map((order) => {
-  const lineItems = order.lineItems?.nodes || [];
-  const firstItem = lineItems[0];
+    recentOrders: (customer.orders?.nodes || []).map((order) => {
+      const lineItems = order.lineItems?.nodes || [];
+      const firstItem = lineItems[0];
 
-  return {
-    id: order.id,
-    orderNumber: String(order.name || "").trim(),
-    date: order.processedAt || null,
-    total: order.currentTotalPriceSet?.shopMoney?.amount || null,
-    currency: order.currentTotalPriceSet?.shopMoney?.currencyCode || "INR",
-    paymentStatus: order.displayFinancialStatus || null,
-    fulfillmentStatus: order.displayFulfillmentStatus || null,
-    statusPageUrl: order.statusPageUrl || null,
-    displayTitle: firstItem?.title || "Order items",
-    displayImage: firstItem?.variant?.image?.url || null,
-    itemsCount: lineItems.length,
-  };
-}),
-      id: order.id,
-      name: String(order.name || "").trim(),
-      processedAt: order.processedAt || null,
-      totalAmount: order.currentTotalPriceSet?.shopMoney?.amount || null,
-      currencyCode: order.currentTotalPriceSet?.shopMoney?.currencyCode || null,
-      financialStatus: order.displayFinancialStatus || null,
-      fulfillmentStatus: order.displayFulfillmentStatus || null,
-      statusPageUrl: order.statusPageUrl || null,
-    })),
+      return {
+        id: order.id,
+        name: String(order.name || "").trim(),
+        processedAt: order.processedAt || null,
+        totalAmount: order.currentTotalPriceSet?.shopMoney?.amount || null,
+        currencyCode: order.currentTotalPriceSet?.shopMoney?.currencyCode || null,
+        financialStatus: order.displayFinancialStatus || null,
+        fulfillmentStatus: order.displayFulfillmentStatus || null,
+        statusPageUrl: order.statusPageUrl || null,
+        displayTitle: String(firstItem?.title || "Order items").trim(),
+        displayImage: firstItem?.variant?.image?.url || null,
+        itemsCount: lineItems.length,
+      };
+    }),
   };
 }
-
 
 export async function findOrCreateShopifyCustomer(
   input: ShopifyCustomerSyncInput
