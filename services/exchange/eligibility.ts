@@ -7,9 +7,49 @@ type EligibilityInput = {
   variantTitle?: string | null;
   reason?: string | null;
   deliveredAt?: string | null;
+  fulfillmentStatus?: string | null;
 };
 
 export type EligibilityDecision = "ELIGIBLE" | "REJECTED" | "REVIEW_REQUIRED";
+
+const OPERATIONAL_EXCHANGE_WINDOW_DAYS = 4;
+const STOCK_REVIEW_MESSAGE =
+  "Exchange approval depends on the availability of the requested size. If unavailable, our team will contact you with next steps.";
+
+function normalizeStatus(value: string | null | undefined) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isDeliveredOrFulfilledStatus(status: string) {
+  if (!status) return false;
+  return ["delivered", "fulfilled"].some((keyword) => status.includes(keyword));
+}
+
+function isKnownUndeliveredStatus(status: string) {
+  if (!status) return false;
+
+  const blockedKeywords = [
+    "unfulfilled",
+    "pending",
+    "processing",
+    "confirmed",
+    "on hold",
+    "hold",
+    "in transit",
+    "in_transit",
+    "out for delivery",
+    "ready for pickup",
+    "shipment created",
+    "label printed",
+    "partial",
+    "scheduled",
+    "open",
+    "failure",
+    "failed",
+  ];
+
+  return blockedKeywords.some((keyword) => status.includes(keyword));
+}
 
 export function evaluateExchangeEligibility(input: EligibilityInput) {
   const currentSize = String(input.currentSize || "").trim().toLowerCase();
@@ -18,9 +58,15 @@ export function evaluateExchangeEligibility(input: EligibilityInput) {
   const variantTitle = String(input.variantTitle || "").toLowerCase();
   const reason = String(input.reason || "").trim();
   const combinedText = `${productTitle} ${variantTitle}`;
+  const fulfillmentStatus = normalizeStatus(input.fulfillmentStatus);
 
   if (!requestedSize) {
-    return { decision: "REJECTED" as const, reason: "Requested size is required", blocked: true };
+    return {
+      decision: "REJECTED" as const,
+      reason: "Requested size is required",
+      blocked: true,
+      stockReviewMessage: STOCK_REVIEW_MESSAGE,
+    };
   }
 
   if (currentSize && currentSize === requestedSize) {
@@ -28,17 +74,28 @@ export function evaluateExchangeEligibility(input: EligibilityInput) {
       decision: "REJECTED" as const,
       reason: "Current size and requested size are identical",
       blocked: true,
+      stockReviewMessage: STOCK_REVIEW_MESSAGE,
     };
   }
 
   const isExcludedCategory = EXCLUDED_CATEGORY_KEYWORDS.some((keyword) => combinedText.includes(keyword));
   if (isExcludedCategory) {
-    return { decision: "REJECTED" as const, reason: "Product category is excluded from exchange", blocked: true };
+    return {
+      decision: "REJECTED" as const,
+      reason: "Product category is excluded from exchange",
+      blocked: true,
+      stockReviewMessage: STOCK_REVIEW_MESSAGE,
+    };
   }
 
   const isClearance = CLEARANCE_KEYWORDS.some((keyword) => combinedText.includes(keyword));
   if (isClearance) {
-    return { decision: "REJECTED" as const, reason: "Clearance items are not exchangeable", blocked: true };
+    return {
+      decision: "REJECTED" as const,
+      reason: "Clearance items are not exchangeable",
+      blocked: true,
+      stockReviewMessage: STOCK_REVIEW_MESSAGE,
+    };
   }
 
   if (!reason) {
@@ -46,27 +103,48 @@ export function evaluateExchangeEligibility(input: EligibilityInput) {
       decision: "REVIEW_REQUIRED" as const,
       reason: "Reason missing; admin review required",
       blocked: false,
+      stockReviewMessage: STOCK_REVIEW_MESSAGE,
     };
   }
 
   const deliveredAt = input.deliveredAt ? new Date(input.deliveredAt) : null;
-  if (deliveredAt && !Number.isNaN(deliveredAt.getTime())) {
-    const elapsedMs = Date.now() - deliveredAt.getTime();
-    const days = elapsedMs / (1000 * 60 * 60 * 24);
-    if (days > 2) {
-      return {
-        decision: "REJECTED" as const,
-        reason: "Request is beyond the 2-day exchange window",
-        blocked: true,
-      };
-    }
-  } else {
+  const hasValidDeliveredAt = Boolean(deliveredAt && !Number.isNaN(deliveredAt.getTime()));
+
+  if (fulfillmentStatus && !isDeliveredOrFulfilledStatus(fulfillmentStatus) && isKnownUndeliveredStatus(fulfillmentStatus)) {
     return {
-      decision: "REVIEW_REQUIRED" as const,
-      reason: "Delivery date missing; admin review required",
-      blocked: false,
+      decision: "REJECTED" as const,
+      reason: "Exchange can be requested only after the order has been delivered.",
+      blocked: true,
+      stockReviewMessage: STOCK_REVIEW_MESSAGE,
     };
   }
 
-  return { decision: "ELIGIBLE" as const, reason: "Eligible for exchange", blocked: false };
+  if (!isDeliveredOrFulfilledStatus(fulfillmentStatus) && !hasValidDeliveredAt) {
+    return {
+      decision: "REVIEW_REQUIRED" as const,
+      reason: "Delivery status is unclear; admin review required",
+      blocked: false,
+      stockReviewMessage: STOCK_REVIEW_MESSAGE,
+    };
+  }
+
+  if (hasValidDeliveredAt && deliveredAt) {
+    const elapsedMs = Date.now() - deliveredAt.getTime();
+    const days = elapsedMs / (1000 * 60 * 60 * 24);
+    if (days > OPERATIONAL_EXCHANGE_WINDOW_DAYS) {
+      return {
+        decision: "REJECTED" as const,
+        reason: "Exchange requests cannot be processed more than 4 days after delivery.",
+        blocked: true,
+        stockReviewMessage: STOCK_REVIEW_MESSAGE,
+      };
+    }
+  }
+
+  return {
+    decision: "ELIGIBLE" as const,
+    reason: "Eligible for exchange",
+    blocked: false,
+    stockReviewMessage: STOCK_REVIEW_MESSAGE,
+  };
 }

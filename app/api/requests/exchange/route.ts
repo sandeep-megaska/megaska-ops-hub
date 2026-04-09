@@ -3,6 +3,7 @@ import { withCors, handleOptions } from "../../_lib/cors";
 import { prisma } from "../../../../services/db/prisma";
 import { getAuthenticatedCustomer } from "../../../../services/exchange/auth";
 import { evaluateExchangeEligibility } from "../../../../services/exchange/eligibility";
+import { sendExchangeRequestCreatedEmail } from "../../../../services/notifications/exchange";
 
 export async function OPTIONS(req: NextRequest) {
   return handleOptions(req);
@@ -25,6 +26,7 @@ export async function POST(req: NextRequest) {
     const reason = String(body?.reason || "").trim();
     const customerNote = String(body?.customerNote || "").trim() || null;
     const deliveredAtRaw = String(body?.deliveredAt || "").trim() || null;
+    const fulfillmentStatus = String(body?.fulfillmentStatus || "").trim() || null;
     const quantity = Number(body?.quantity || 1);
     const amountSnapshot = String(body?.orderAmountSnapshot || "").trim() || null;
 
@@ -39,14 +41,14 @@ export async function POST(req: NextRequest) {
       variantTitle,
       reason,
       deliveredAt: deliveredAtRaw,
+      fulfillmentStatus,
     });
 
-    const initialStatus =
-      eligibility.decision === "REJECTED"
-        ? "REJECTED"
-        : eligibility.decision === "ELIGIBLE"
-          ? "AWAITING_PAYMENT"
-          : "OPEN";
+    if (eligibility.blocked) {
+      return withCors(req, NextResponse.json({ error: eligibility.reason }, { status: 400 }));
+    }
+
+    const initialStatus = eligibility.decision === "ELIGIBLE" ? "AWAITING_PAYMENT" : "OPEN";
 
     const created = await prisma.orderActionRequest.create({
       data: {
@@ -58,7 +60,10 @@ export async function POST(req: NextRequest) {
         status: initialStatus,
         reason,
         customerNote,
-        customerNameSnapshot: `${session.customer.firstName || ""} ${session.customer.lastName || ""}`.trim() || session.customer.fullName || null,
+        customerNameSnapshot:
+          `${session.customer.firstName || ""} ${session.customer.lastName || ""}`.trim() ||
+          session.customer.fullName ||
+          null,
         customerPhoneSnapshot: session.customer.phoneE164,
         customerEmailSnapshot: session.customer.email,
         orderAmountSnapshot: amountSnapshot,
@@ -86,7 +91,37 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return withCors(req, NextResponse.json({ request: created }, { status: 201 }));
+    void sendExchangeRequestCreatedEmail({
+      requestId: created.id,
+      customerName: created.customerNameSnapshot,
+      customerPhone: created.customerPhoneSnapshot,
+      customerEmail: created.customerEmailSnapshot,
+      orderNumber: created.orderNumber,
+      itemTitle: created.items[0]?.productTitle || productTitle,
+      currentSize: created.items[0]?.currentSize || currentSize,
+      requestedSize: created.items[0]?.requestedSize || requestedSize,
+      reason: created.reason || created.customerNote,
+      createdAt: created.requestedAt.toISOString(),
+      status: created.status,
+    }).catch((error) => {
+      console.error("[EXCHANGE NOTIFY] Failed to send exchange creation email", {
+        requestId: created.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+
+    return withCors(
+      req,
+      NextResponse.json(
+        {
+          request: created,
+          stockReviewMessage:
+            eligibility.stockReviewMessage ||
+            "Exchange approval depends on the availability of the requested size. If unavailable, our team will contact you with next steps.",
+        },
+        { status: 201 }
+      )
+    );
   } catch (error) {
     return withCors(
       req,
