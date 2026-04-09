@@ -35,6 +35,11 @@ type ShopifyCustomerSyncResult = {
   matchedBy?: "email" | "phone";
 };
 
+type ShopifyCustomerLookupInput = {
+  email?: string | null;
+  phoneE164?: string | null;
+};
+
 export type OrderMegaskaIdentityInput = {
   orderId: string;
   verifiedPhone: string;
@@ -199,6 +204,28 @@ async function findCustomerByQuery(query: string): Promise<ShopifyCustomerNode |
   );
 
   return data.customers.edges[0]?.node || null;
+}
+
+export async function findShopifyCustomerIdByIdentity(
+  input: ShopifyCustomerLookupInput
+): Promise<string | null> {
+  const email = normalizeEmail(input.email);
+  if (email) {
+    const customer = await findCustomerByQuery(`email:${email}`);
+    if (customer?.id) {
+      return parseCustomerId(customer.id);
+    }
+  }
+
+  const phone = normalizePhone(input.phoneE164);
+  if (phone) {
+    const customer = await findCustomerByQuery(`phone:${phone}`);
+    if (customer?.id) {
+      return parseCustomerId(customer.id);
+    }
+  }
+
+  return null;
 }
 
 async function createCustomer(input: ShopifyCustomerSyncInput) {

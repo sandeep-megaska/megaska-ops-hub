@@ -556,10 +556,10 @@
   function formatAddress(address) {
     if (!address) return "";
     return [
-      address.address1,
-      address.address2,
-      [address.city, address.province].filter(Boolean).join(", "),
-      [address.country, address.zip].filter(Boolean).join(" "),
+      address.line1 || address.address1,
+      address.line2 || address.address2,
+      [address.city, address.state || address.province].filter(Boolean).join(", "),
+      [address.country, address.postalCode || address.zip].filter(Boolean).join(" "),
     ]
       .filter(Boolean)
       .join("<br/>");
@@ -567,17 +567,18 @@
 
   function renderDashboardSummary(container, summary) {
     const profileName =
-      summary?.customer?.fullName ||
       [summary?.customer?.firstName, summary?.customer?.lastName].filter(Boolean).join(" ") ||
       "Megaska Customer";
-    const verifiedPhone = summary?.verifiedPhone || "-";
-    const email = summary?.email || "-";
+    const verifiedPhone = summary?.customer?.phone || "-";
+    const email = summary?.customer?.email || "-";
+    const verified = Boolean(summary?.customer?.verified);
     const totalOrders = Number(summary?.stats?.totalOrders || 0);
     const openRequests = Number(summary?.stats?.openRequests || 0);
-    const storeCredit = Number(summary?.wallet?.storeCredit || 0);
+    const savedAddresses = Number(summary?.stats?.savedAddresses || 0);
+    const storeCredit = Number(summary?.wallet?.balance || 0);
     const currency = summary?.wallet?.currency || "INR";
-    const addressHtml = formatAddress(summary?.defaultAddress);
-    const orders = Array.isArray(summary?.recentOrders) ? summary.recentOrders : [];
+    const addressHtml = formatAddress(summary?.address);
+    const orders = Array.isArray(summary?.orders) ? summary.orders : [];
 
     const ordersHtml = orders.length
       ? orders
@@ -610,10 +611,12 @@
         <h2>${escHtml(profileName)}</h2>
         <p class="megaska-dashboard-subtle">Verified phone: ${escHtml(verifiedPhone)}</p>
         <p class="megaska-dashboard-subtle">Email: ${escHtml(email)}</p>
+        <p class="megaska-dashboard-subtle">Verification status: ${verified ? "Verified" : "Pending"}</p>
       </section>
       <section class="megaska-dashboard-grid">
         <article class="megaska-dashboard-card"><h3>Total orders</h3><p>${totalOrders}</p></article>
         <article class="megaska-dashboard-card"><h3>Open requests</h3><p>${openRequests}</p></article>
+        <article class="megaska-dashboard-card"><h3>Saved addresses</h3><p>${savedAddresses}</p></article>
         <article class="megaska-dashboard-card"><h3>Store credit</h3><p>${escHtml(currency)} ${storeCredit.toFixed(
       2
     )}</p></article>
