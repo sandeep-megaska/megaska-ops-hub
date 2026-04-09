@@ -40,6 +40,11 @@ type ShopifyCustomerLookupInput = {
   phoneE164?: string | null;
 };
 
+type ShopifyClientCredentialsTokenResponse = {
+  access_token?: string;
+  expires_in?: number;
+};
+
 export type OrderMegaskaIdentityInput = {
   orderId: string;
   verifiedPhone: string;
@@ -77,12 +82,22 @@ export type ShopifyCustomerDashboardData = {
   recentOrders: ShopifyRecentOrder[];
 };
 
+let cachedAccessToken: string | null = null;
+let cachedAccessTokenExpiresAt = 0;
+
 function getShopDomain() {
-  return (process.env.SHOPIFY_STORE_DOMAIN || "").trim();
+  return (process.env.SHOPIFY_STORE_DOMAIN || "")
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "");
 }
 
-function getAdminAccessToken() {
-  return (process.env.SHOPIFY_ADMIN_ACCESS_TOKEN || "").trim();
+function getShopifyClientId() {
+  return (process.env.SHOPIFY_API_KEY || "").trim();
+}
+
+function getShopifyClientSecret() {
+  return (process.env.SHOPIFY_API_SECRET || "").trim();
 }
 
 function splitName(fullNameRaw: string | null | undefined) {
@@ -143,9 +158,62 @@ export function normalizeIndianPhoneToE164(input: string | null | undefined) {
   return null;
 }
 
+async function getAdminAccessToken(): Promise<string> {
+  const now = Date.now();
+
+  if (cachedAccessToken && cachedAccessTokenExpiresAt - 60_000 > now) {
+    return cachedAccessToken;
+  }
+
+  const shopDomain = getShopDomain();
+  const clientId = getShopifyClientId();
+  const clientSecret = getShopifyClientSecret();
+
+  if (!shopDomain || !clientId || !clientSecret) {
+    throw new Error("Shopify client credentials are not configured");
+  }
+
+  const response = await fetch(`https://${shopDomain}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: "client_credentials",
+    }),
+  });
+
+  const rawText = await response.text().catch(() => "");
+  let payload: ShopifyClientCredentialsTokenResponse | null = null;
+
+  try {
+    payload = rawText ? (JSON.parse(rawText) as ShopifyClientCredentialsTokenResponse) : null;
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Shopify token request failed (${response.status}) ${rawText || ""}`.trim());
+  }
+
+  const accessToken = String(payload?.access_token || "").trim();
+  const expiresIn = Number(payload?.expires_in || 0);
+
+  if (!accessToken) {
+    throw new Error("Shopify token response missing access_token");
+  }
+
+  cachedAccessToken = accessToken;
+  cachedAccessTokenExpiresAt = now + (expiresIn > 0 ? expiresIn * 1000 : 23 * 60 * 60 * 1000);
+
+  return accessToken;
+}
+
 async function adminGraphql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
   const shopDomain = getShopDomain();
-  const token = getAdminAccessToken();
+  const token = await getAdminAccessToken();
 
   if (!shopDomain || !token) {
     throw new Error("Shopify admin sync is not configured");
@@ -160,24 +228,33 @@ async function adminGraphql<T>(query: string, variables?: Record<string, unknown
     body: JSON.stringify({ query, variables: variables || {} }),
   });
 
- if (!response.ok) {
-  const errorText = await response.text().catch(() => "");
-  throw new Error(
-    `Shopify admin request failed (${response.status}) ${errorText || ""}`.trim()
-  );
-}
-
-  const payload = (await response.json()) as {
+  const rawText = await response.text().catch(() => "");
+  let payload: {
     data?: T;
     errors?: Array<{ message?: string }>;
-  };
+  } | null = null;
 
-  if (payload.errors?.length) {
+  try {
+    payload = rawText
+      ? (JSON.parse(rawText) as {
+          data?: T;
+          errors?: Array<{ message?: string }>;
+        })
+      : null;
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Shopify admin request failed (${response.status}) ${rawText || ""}`.trim());
+  }
+
+  if (payload?.errors?.length) {
     const message = payload.errors.map((error) => error.message).filter(Boolean).join(", ");
     throw new Error(message || "Shopify admin GraphQL error");
   }
 
-  if (!payload.data) {
+  if (!payload?.data) {
     throw new Error("Shopify admin response missing data");
   }
 
@@ -212,11 +289,9 @@ async function findCustomerByQuery(query: string): Promise<ShopifyCustomerNode |
 export async function findShopifyCustomerIdByIdentity(
   input: ShopifyCustomerLookupInput
 ): Promise<string | null> {
-
   const email = normalizeEmail(input.email);
   const phone = normalizeIndianPhoneToE164(input.phoneE164);
 
-  // 1. Try email FIRST (most reliable)
   if (email) {
     const customer = await findCustomerByQuery(`email:${email}`);
     if (customer?.id) {
@@ -224,7 +299,6 @@ export async function findShopifyCustomerIdByIdentity(
     }
   }
 
-  // 2. Try phone (but normalized)
   if (phone) {
     const customer = await findCustomerByQuery(`phone:${phone}`);
     if (customer?.id) {
@@ -291,7 +365,7 @@ async function setOrderTags(input: { orderId: string; tags: string[] }) {
         id: resolveOrderGid(input.orderId),
         tags: [] as string[],
       },
-      userErrors: [] as Array<{ message: string; field?: string[] }> ,
+      userErrors: [] as Array<{ message: string; field?: string[] }>,
     };
   }
 
@@ -489,7 +563,7 @@ export async function getShopifyCustomerDashboardData(
 }
 
 export function isShopifyAdminConfigured() {
-  return Boolean(getShopDomain() && getAdminAccessToken());
+  return Boolean(getShopDomain() && getShopifyClientId() && getShopifyClientSecret());
 }
 
 export async function findOrCreateShopifyCustomer(
