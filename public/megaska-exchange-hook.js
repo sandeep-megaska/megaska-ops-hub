@@ -51,7 +51,7 @@
           if (token) return token;
         }
       }
-    } catch (e) {}
+    } catch {}
 
     try {
       return localStorage.getItem(SESSION_STORAGE_KEY) || "";
@@ -67,12 +67,37 @@
     const productTitle = drawer.querySelector(".mk-order-hero-name")?.textContent?.trim() || "";
     const metaText = drawer.querySelector(".mk-order-hero-meta")?.textContent?.trim() || "";
     const orderNumber = metaText.split("•")[0]?.trim() || "";
+    const statusText = String(
+      drawer.getAttribute("data-order-fulfillment-status") ||
+        drawer.getAttribute("data-fulfillment-status") ||
+        drawer.querySelector("[data-order-fulfillment-status]")?.getAttribute("data-order-fulfillment-status") ||
+        ""
+    ).trim();
+    const deliveredAt = String(
+      drawer.getAttribute("data-order-delivered-at") ||
+        drawer.getAttribute("data-delivered-at") ||
+        drawer.querySelector("[data-order-delivered-at]")?.getAttribute("data-order-delivered-at") ||
+        ""
+    ).trim();
+
+    const metaLower = metaText.toLowerCase();
+    const inferredStatus = statusText
+      ? statusText
+      : metaLower.includes("delivered")
+        ? "delivered"
+        : metaLower.includes("fulfilled")
+          ? "fulfilled"
+          : metaLower.includes("unfulfilled")
+            ? "unfulfilled"
+            : "";
 
     return {
       orderNumber,
       productTitle,
       currentSize: "",
       displayMeta: metaText,
+      deliveredAt: deliveredAt || null,
+      fulfillmentStatus: inferredStatus || null,
     };
   }
 
@@ -165,7 +190,7 @@
     node.textContent = "";
   }
 
-  function renderSuccess(request) {
+  function renderSuccess(request, stockReviewMessage) {
     const success = document.getElementById("mk-ex-success");
     const actions = document.getElementById("mk-ex-form-actions");
     if (!success || !actions) return;
@@ -180,9 +205,27 @@
       <div>Payment: Manual support follow-up</div>
       <div class="mk-ex-muted">Payment for reverse pickup is currently handled manually. Our support team will share the payment instructions or next steps after reviewing your request.</div>
       <div class="mk-ex-muted">Forward shipping for the replacement item will be free once the exchange is approved.</div>
+      <div class="mk-ex-muted">${escapeHtml(stockReviewMessage || "Exchange approval depends on the availability of the requested size.")}</div>
+      <div class="mk-ex-muted">If the requested size is unavailable, our team will contact you with the next steps.</div>
     `;
 
     actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
+  }
+
+  function toCustomerSafeError(message) {
+    const text = String(message || "").trim();
+    if (!text) return "Exchange request creation failed. Please try again.";
+
+    if (
+      text.includes("Exchange can be requested only after the order has been delivered") ||
+      text.includes("Exchange requests cannot be processed more than 4 days after delivery") ||
+      text.includes("Requested size is required") ||
+      text.includes("Current size and requested size are identical")
+    ) {
+      return text;
+    }
+
+    return "Exchange request creation failed. Please try again.";
   }
 
   async function submitExchange(context) {
@@ -223,6 +266,8 @@
           requestedSize,
           reason: reason || "Size exchange requested",
           customerNote: reason || null,
+          deliveredAt: context.deliveredAt || null,
+          fulfillmentStatus: context.fulfillmentStatus || null,
           quantity: 1,
         }),
       });
@@ -232,12 +277,12 @@
       });
 
       if (!createResponse.ok || !createData?.request?.id) {
-        throw new Error(createData?.error || "Exchange request creation failed");
+        throw new Error(toCustomerSafeError(createData?.error || ""));
       }
 
-      renderSuccess(createData.request);
+      renderSuccess(createData.request, createData.stockReviewMessage);
     } catch (error) {
-      showError(error instanceof Error ? error.message : "Exchange request creation failed.");
+      showError(toCustomerSafeError(error instanceof Error ? error.message : ""));
     } finally {
       setSubmittingState(false);
     }

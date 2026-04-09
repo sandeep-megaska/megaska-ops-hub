@@ -2,6 +2,13 @@ import { prisma } from "../../../../services/db/prisma";
 
 export const dynamic = "force-dynamic";
 
+function getStockReviewNote(snapshot: unknown) {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const note = (snapshot as { stockReviewMessage?: unknown }).stockReviewMessage;
+  const value = typeof note === "string" ? note.trim() : "";
+  return value || null;
+}
+
 export default async function AdminExchangeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const request = await prisma.orderActionRequest.findFirst({
@@ -40,6 +47,7 @@ export default async function AdminExchangeDetailPage({ params }: { params: Prom
             <p>Current Size: {item.currentSize || "-"}</p>
             <p>Requested Size: {item.requestedSize}</p>
             <p>Reason: {request.reason || "-"}</p>
+            <p>Stock Review Note: {getStockReviewNote(item.eligibilitySnapshot) || "-"}</p>
           </article>
         ))}
       </section>
