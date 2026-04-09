@@ -579,7 +579,26 @@ export async function getShopifyCustomerDashboardData(
     phone: customer.phone || null,
     defaultAddress: customer.defaultAddress || null,
     totalOrderCount,
-    recentOrders: (customer.orders?.nodes || []).map((order) => ({
+   recentOrders: (customer.orders?.nodes || []).map((order) => {
+  const lineItems = order.lineItems?.nodes || [];
+
+  const firstItem = lineItems[0];
+
+  return {
+    id: order.id,
+    orderNumber: order.name || "",
+    date: order.processedAt || null,
+    total: order.currentTotalPriceSet?.shopMoney?.amount || null,
+    currency: order.currentTotalPriceSet?.shopMoney?.currencyCode || "INR",
+    paymentStatus: order.displayFinancialStatus || null,
+    fulfillmentStatus: order.displayFulfillmentStatus || null,
+
+    // 🔥 NEW FIELDS
+    displayTitle: firstItem?.title || "Order items",
+    displayImage: firstItem?.variant?.image?.url || null,
+    itemsCount: lineItems.length,
+  };
+})
       id: order.id,
       name: String(order.name || "").trim(),
       processedAt: order.processedAt || null,
