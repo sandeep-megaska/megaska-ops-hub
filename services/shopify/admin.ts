@@ -607,7 +607,10 @@ export async function getShopifyCustomerDashboardData(
         fulfillmentStatus: order.displayFulfillmentStatus || null,
         statusPageUrl: order.statusPageUrl || null,
         displayTitle: String(firstItem?.title || "Order items").trim(),
-        displayImage: firstItem?.variant?.image?.url || null,
+       displayImage:
+  firstItem?.variant?.image?.url ||
+  firstItem?.variant?.product?.featuredImage?.url ||
+  null,
         itemsCount: lineItems.length,
       };
     }),
