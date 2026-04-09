@@ -112,6 +112,7 @@ export async function GET(req: NextRequest) {
           shopifyDashboard = await getShopifyCustomerDashboardData(resolvedShopifyCustomerId);
 
           console.log("[DASHBOARD SUMMARY] dashboard result", {
+            console.log("[DEBUG ORDERS RAW]", JSON.stringify(shopifyDashboard?.recentOrders, null, 2));
             resolvedShopifyCustomerId,
             foundEmail: shopifyDashboard?.email || null,
             totalOrderCount: shopifyDashboard?.totalOrderCount || 0,
