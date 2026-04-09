@@ -588,9 +588,6 @@ export async function getShopifyCustomerDashboardData(
   };
 }
 
-export function isShopifyAdminConfigured() {
-  return Boolean(getShopDomain() && getShopifyClientId() && getShopifyClientSecret());
-}
 
 export async function findOrCreateShopifyCustomer(
   input: ShopifyCustomerSyncInput
