@@ -165,13 +165,10 @@
     node.textContent = "";
   }
 
-  function renderSuccess(request, payment, paymentErrorMessage) {
+  function renderSuccess(request) {
     const success = document.getElementById("mk-ex-success");
     const actions = document.getElementById("mk-ex-form-actions");
     if (!success || !actions) return;
-
-    const paymentUrl = payment?.paymentLinkUrl || "";
-    const paymentStatus = payment?.status || "PENDING";
 
     success.style.display = "block";
     success.className = "mk-ex-success";
@@ -180,41 +177,12 @@
       <div>Request ID: ${escapeHtml(request?.id || "—")}</div>
       <div>Request status: ${escapeHtml(request?.status || "OPEN")}</div>
       <div>Reverse pickup fee: ₹120</div>
-      <div>Payment status: ${escapeHtml(paymentStatus)}</div>
-      ${
-        paymentUrl
-          ? `<a class="mk-ex-btn primary" href="${escapeHtml(paymentUrl)}" target="_blank" rel="noopener noreferrer">Pay now</a>`
-          : paymentErrorMessage
-            ? `<div class="mk-ex-error" style="display:block;margin-top:0;">${escapeHtml(paymentErrorMessage)}</div>
-               <button class="mk-ex-btn" id="mk-ex-retry-payment" type="button">Retry payment link</button>`
-            : ""
-      }
+      <div>Payment: Manual support follow-up</div>
+      <div class="mk-ex-muted">Payment for reverse pickup is currently handled manually. Our support team will share the payment instructions or next steps after reviewing your request.</div>
+      <div class="mk-ex-muted">Forward shipping for the replacement item will be free once the exchange is approved.</div>
     `;
 
     actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
-
-    const retryBtn = document.getElementById("mk-ex-retry-payment");
-    if (retryBtn && request?.id) {
-      retryBtn.addEventListener("click", async function () {
-        try {
-          retryBtn.disabled = true;
-          retryBtn.textContent = "Retrying...";
-          const token = await getSessionToken();
-          const paymentResponse = await fetch(API_BASE_URL + "/api/requests/exchange/" + encodeURIComponent(request.id) + "/payment-link", {
-            method: "POST",
-            headers: { Authorization: "Bearer " + token },
-          });
-          if (!paymentResponse.ok) {
-            throw new Error("Payment-link generation failed");
-          }
-          const paymentData = await paymentResponse.json();
-          renderSuccess(request, paymentData?.payment || null, "");
-        } catch (error) {
-          retryBtn.disabled = false;
-          retryBtn.textContent = "Retry payment link";
-        }
-      });
-    }
   }
 
   async function submitExchange(context) {
@@ -267,34 +235,7 @@
         throw new Error(createData?.error || "Exchange request creation failed");
       }
 
-      let payment = null;
-      let paymentErrorMessage = "";
-
-      try {
-        const paymentResponse = await fetch(
-          API_BASE_URL + "/api/requests/exchange/" + encodeURIComponent(createData.request.id) + "/payment-link",
-          {
-            method: "POST",
-            headers: {
-              Authorization: "Bearer " + token,
-            },
-          }
-        );
-
-        const paymentData = await paymentResponse.json().catch(function () {
-          return {};
-        });
-
-        if (!paymentResponse.ok) {
-          paymentErrorMessage = paymentData?.error || "Payment-link generation failed. Please retry.";
-        } else {
-          payment = paymentData?.payment || null;
-        }
-      } catch (error) {
-        paymentErrorMessage = "Payment-link generation failed. Please retry.";
-      }
-
-      renderSuccess(createData.request, payment, paymentErrorMessage);
+      renderSuccess(createData.request);
     } catch (error) {
       showError(error instanceof Error ? error.message : "Exchange request creation failed.");
     } finally {
