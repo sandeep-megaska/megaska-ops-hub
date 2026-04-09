@@ -160,9 +160,12 @@ async function adminGraphql<T>(query: string, variables?: Record<string, unknown
     body: JSON.stringify({ query, variables: variables || {} }),
   });
 
-  if (!response.ok) {
-    throw new Error(`Shopify admin request failed (${response.status})`);
-  }
+ if (!response.ok) {
+  const errorText = await response.text().catch(() => "");
+  throw new Error(
+    `Shopify admin request failed (${response.status}) ${errorText || ""}`.trim()
+  );
+}
 
   const payload = (await response.json()) as {
     data?: T;
