@@ -66,20 +66,44 @@ export async function GET(req: NextRequest) {
     if (isShopifyAdminConfigured()) {
       try {
         if (!resolvedShopifyCustomerId) {
-          resolvedShopifyCustomerId =
-            (await findShopifyCustomerIdByIdentity({
-              email: customer.email,
-              phoneE164: customer.phoneE164,
-            })) || "";
-
-          console.log("[DASHBOARD SUMMARY] lookup result", {
-            resolvedShopifyCustomerId,
+          console.log("[DASHBOARD SUMMARY] resolving Shopify customer identity", {
+            email: customer.email || null,
+            phoneE164: customer.phoneE164 || null,
           });
+
+          if (customer.email) {
+            resolvedShopifyCustomerId =
+              (await findShopifyCustomerIdByIdentity({
+                email: customer.email,
+              })) || "";
+
+            console.log("[DASHBOARD SUMMARY] email lookup result", {
+              email: customer.email,
+              resolvedShopifyCustomerId: resolvedShopifyCustomerId || null,
+            });
+          }
+
+          if (!resolvedShopifyCustomerId && customer.phoneE164) {
+            resolvedShopifyCustomerId =
+              (await findShopifyCustomerIdByIdentity({
+                phoneE164: customer.phoneE164,
+              })) || "";
+
+            console.log("[DASHBOARD SUMMARY] phone lookup result", {
+              phoneE164: customer.phoneE164,
+              resolvedShopifyCustomerId: resolvedShopifyCustomerId || null,
+            });
+          }
 
           if (resolvedShopifyCustomerId) {
             await prisma.customerProfile.update({
               where: { id: customer.id },
               data: { shopifyCustomerId: resolvedShopifyCustomerId },
+            });
+
+            console.log("[DASHBOARD SUMMARY] saved resolved Shopify customer id", {
+              customerId: customer.id,
+              resolvedShopifyCustomerId,
             });
           }
         }
