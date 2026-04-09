@@ -504,29 +504,29 @@ export async function getShopifyCustomerDashboardData(
       numberOfOrders?: string | number | null;
       defaultAddress?: ShopifyMailingAddress | null;
       orders: {
-        nodes: Array<{
-          id: string;
-          name?: string | null;
-          processedAt?: string | null;
-          displayFinancialStatus?: string | null;
-          displayFulfillmentStatus?: string | null;
-          statusPageUrl?: string | null;
-          currentTotalPriceSet?: {
-            shopMoney?: ShopifyMoney | null;
+  nodes: Array<{
+    id: string;
+    name?: string | null;
+    processedAt?: string | null;
+    displayFinancialStatus?: string | null;
+    displayFulfillmentStatus?: string | null;
+    statusPageUrl?: string | null;
+    currentTotalPriceSet?: {
+      shopMoney?: ShopifyMoney | null;
+    } | null;
+    lineItems?: {
+      nodes: Array<{
+        title?: string | null;
+        quantity?: number | null;
+        variant?: {
+          image?: {
+            url?: string | null;
           } | null;
-          lineItems?: {
-            nodes: Array<{
-              title?: string | null;
-              quantity?: number | null;
-              variant?: {
-                image?: {
-                  url?: string | null;
-                } | null;
-              } | null;
-            }>;
-          } | null;
-        }>;
-      };
+        } | null;
+      }>;
+    } | null;
+  }>;
+};
     } | null;
   }>(
     `
