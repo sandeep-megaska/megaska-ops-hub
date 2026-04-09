@@ -2485,22 +2485,7 @@
   }
 
 function ensureAccountEntryFallbacks() {
-  const desktopContainer = getDesktopAccountContainer();
-  if (desktopContainer && !document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID)) {
-    const fallback = createDesktopAccountFallback();
-    const containerTag = String(desktopContainer.tagName || "").toUpperCase();
-
-    if (containerTag === "UL" || containerTag === "OL") {
-      const li = document.createElement("li");
-      li.className = "megaska-account-fallback-item";
-      li.appendChild(fallback);
-      desktopContainer.appendChild(li);
-    } else {
-      desktopContainer.appendChild(fallback);
-    }
-
-    console.log("[Megaska OTP] desktop account fallback inserted");
-  }
+  ensureDesktopAccountFallback();
 
   if (!hasVisibleNativeMobileMenuAccountEntry()) {
     const mobileContainer = getMobileAccountContainer();
@@ -2515,13 +2500,11 @@ function ensureAccountEntryFallbacks() {
     }
   }
 }
+
 function ensureDesktopAccountFallback() {
   const desktopContainer = getDesktopAccountContainer();
   if (!desktopContainer) return;
-
-  if (document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID)) {
-    return;
-  }
+  if (document.getElementById(ACCOUNT_FALLBACK_DESKTOP_ID)) return;
 
   const fallback = createDesktopAccountFallback();
   const containerTag = String(desktopContainer.tagName || "").toUpperCase();
@@ -2535,40 +2518,17 @@ function ensureDesktopAccountFallback() {
     desktopContainer.appendChild(fallback);
   }
 
-  console.log("[Megaska OTP] desktop account fallback re-inserted");
-}  function observeDesktopAccountContainer() {
-    const container = getDesktopAccountContainer();
-/*   if (!container) return;
+  console.log("[Megaska OTP] desktop account fallback inserted");
+}
 
-    if (observedDesktopAccountContainer === container && desktopAccountContainerObserver) {
-      return;
-    }
+function observeDesktopAccountContainer() {
+  return;
+}
 
-    if (desktopAccountContainerObserver) {
-      desktopAccountContainerObserver.disconnect();*/
-    }
-
-    observedDesktopAccountContainer = container;
-    desktopAccountContainerObserver = new MutationObserver(() => {
-      ensureDesktopAccountFallback();
-    });
-    desktopAccountContainerObserver.observe(container, { childList: true, subtree: true });*/
- return;
-  }
-  function bindAccountFallbackObserver() {
-/*    if (accountFallbackObserverBound) return;
-    accountFallbackObserverBound = true;
-
-    const observer = new MutationObserver(() => {
-      ensureAccountEntryFallbacks();
-      ensureDesktopAccountFallback();
-      observeDesktopAccountContainer();
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });*/
-     if (accountFallbackObserverBound) return;
+function bindAccountFallbackObserver() {
+  if (accountFallbackObserverBound) return;
   accountFallbackObserverBound = true;
-  }
+}
 
   function bindAuthStateSync() {
     document.addEventListener("megaska:auth-state-changed", () => {
