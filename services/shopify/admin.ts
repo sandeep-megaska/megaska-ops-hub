@@ -507,34 +507,34 @@ export async function getShopifyCustomerDashboardData(
       numberOfOrders?: string | number | null;
       defaultAddress?: ShopifyMailingAddress | null;
       orders: {
-  nodes: Array<{
-    id: string;
-    name?: string | null;
-    processedAt?: string | null;
-    displayFinancialStatus?: string | null;
-    displayFulfillmentStatus?: string | null;
-    statusPageUrl?: string | null;
-    currentTotalPriceSet?: {
-      shopMoney?: ShopifyMoney | null;
-    } | null;
-    lineItems?: {
-      nodes: Array<{
-        title?: string | null;
-        quantity?: number | null;
-       variant?: {
-  image?: {
-    url?: string | null;
-  } | null;
-  product?: {
-    featuredImage?: {
-      url?: string | null;
-    } | null;
-  } | null;
-} | null;
-      }>;
-    } | null;
-  }>;
-};
+        nodes: Array<{
+          id: string;
+          name?: string | null;
+          processedAt?: string | null;
+          displayFinancialStatus?: string | null;
+          displayFulfillmentStatus?: string | null;
+          statusPageUrl?: string | null;
+          currentTotalPriceSet?: {
+            shopMoney?: ShopifyMoney | null;
+          } | null;
+          lineItems?: {
+            nodes: Array<{
+              title?: string | null;
+              quantity?: number | null;
+              variant?: {
+                image?: {
+                  url?: string | null;
+                } | null;
+                product?: {
+                  featuredImage?: {
+                    url?: string | null;
+                  } | null;
+                } | null;
+              } | null;
+            }>;
+          } | null;
+        }>;
+      };
     } | null;
   }>(
     `
@@ -576,6 +576,11 @@ export async function getShopifyCustomerDashboardData(
                     image {
                       url
                     }
+                    product {
+                      featuredImage {
+                        url
+                      }
+                    }
                   }
                 }
               }
@@ -615,10 +620,10 @@ export async function getShopifyCustomerDashboardData(
         fulfillmentStatus: order.displayFulfillmentStatus || null,
         statusPageUrl: order.statusPageUrl || null,
         displayTitle: String(firstItem?.title || "Order items").trim(),
-       displayImage:
-  firstItem?.variant?.image?.url ||
-  firstItem?.variant?.product?.featuredImage?.url ||
-  null,
+        displayImage:
+          firstItem?.variant?.image?.url ||
+          firstItem?.variant?.product?.featuredImage?.url ||
+          null,
         itemsCount: lineItems.length,
       };
     }),
