@@ -60,6 +60,27 @@
     }
   }
 
+  function normalizeFulfillmentStatus(value) {
+    const status = String(value || "")
+      .trim()
+      .toLowerCase();
+
+    if (!status) return null;
+    if (status === "unfulfilled") return "UNFULFILLED";
+    if (status === "fulfilled" || status === "delivered") return "FULFILLED";
+    if (status === "partial" || status === "partially fulfilled") return "PARTIAL";
+    return null;
+  }
+
+  function normalizeDeliveredAt(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return null;
+
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toISOString();
+  }
+
   function getDrawerOrderContext() {
     const drawer = document.getElementById("mk-order-drawer");
     if (!drawer) return null;
@@ -96,8 +117,8 @@
       productTitle,
       currentSize: "",
       displayMeta: metaText,
-      deliveredAt: deliveredAt || null,
-      fulfillmentStatus: inferredStatus || null,
+      deliveredAt: normalizeDeliveredAt(deliveredAt),
+      fulfillmentStatus: normalizeFulfillmentStatus(inferredStatus),
     };
   }
 
