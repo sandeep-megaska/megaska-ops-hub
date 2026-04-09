@@ -55,17 +55,49 @@ export async function GET(req: NextRequest) {
     let resolvedShopifyCustomerId = String(customer.shopifyCustomerId || "").trim();
     let shopifyDashboard = null;
 
+    console.log("[DASHBOARD SUMMARY] start", {
+      customerId: customer.id,
+      phoneE164: customer.phoneE164,
+      email: customer.email,
+      existingShopifyCustomerId: customer.shopifyCustomerId,
+      adminConfigured: isShopifyAdminConfigured(),
+    });
+
     if (isShopifyAdminConfigured()) {
       try {
         if (!resolvedShopifyCustomerId) {
-          resolvedShopifyCustomerId = (await findShopifyCustomerIdByIdentity({
-            email: customer.email,
-            phoneE164: customer.phoneE164,
-          })) || "";
+          resolvedShopifyCustomerId =
+            (await findShopifyCustomerIdByIdentity({
+              email: customer.email,
+              phoneE164: customer.phoneE164,
+            })) || "";
+
+          console.log("[DASHBOARD SUMMARY] lookup result", {
+            resolvedShopifyCustomerId,
+          });
+
+          if (resolvedShopifyCustomerId) {
+            await prisma.customerProfile.update({
+              where: { id: customer.id },
+              data: { shopifyCustomerId: resolvedShopifyCustomerId },
+            });
+          }
         }
 
         if (resolvedShopifyCustomerId) {
           shopifyDashboard = await getShopifyCustomerDashboardData(resolvedShopifyCustomerId);
+
+          console.log("[DASHBOARD SUMMARY] dashboard result", {
+            resolvedShopifyCustomerId,
+            foundEmail: shopifyDashboard?.email || null,
+            totalOrderCount: shopifyDashboard?.totalOrderCount || 0,
+            recentOrdersCount: Array.isArray(shopifyDashboard?.recentOrders)
+              ? shopifyDashboard.recentOrders.length
+              : 0,
+            hasDefaultAddress: Boolean(shopifyDashboard?.defaultAddress),
+          });
+        } else {
+          console.log("[DASHBOARD SUMMARY] no Shopify customer resolved");
         }
       } catch (error) {
         console.error("[DASHBOARD SUMMARY] Shopify customer fetch failed", error);
@@ -77,6 +109,7 @@ export async function GET(req: NextRequest) {
       : customer.addressLine1
         ? 1
         : 0;
+
     const totalOrders = Number(shopifyDashboard?.totalOrderCount || 0);
 
     const response = {
