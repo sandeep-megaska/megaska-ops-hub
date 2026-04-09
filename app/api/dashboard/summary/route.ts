@@ -110,9 +110,9 @@ export async function GET(req: NextRequest) {
 
         if (resolvedShopifyCustomerId) {
           shopifyDashboard = await getShopifyCustomerDashboardData(resolvedShopifyCustomerId);
-
+          console.log("[DEBUG ORDERS RAW]", JSON.stringify(shopifyDashboard?.recentOrders, null, 2));
           console.log("[DASHBOARD SUMMARY] dashboard result", {
-            console.log("[DEBUG ORDERS RAW]", JSON.stringify(shopifyDashboard?.recentOrders, null, 2));
+            
             resolvedShopifyCustomerId,
             foundEmail: shopifyDashboard?.email || null,
             totalOrderCount: shopifyDashboard?.totalOrderCount || 0,
