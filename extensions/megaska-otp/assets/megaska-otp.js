@@ -2111,8 +2111,8 @@
     hardBlockEvent(event);
 
     const gateState = await getMegaskaCheckoutGateState();
-    const authenticated = gateState.authenticated;
-    const accountDestination = resolveAccountDestinationUrl(triggerEl);
+    const authenticated = Boolean(gateState.authenticated || hasKnownMegaskaSession());
+    const accountDestination = resolveAccountDestinationUrl();
 
     if (!authenticated) {
       setPendingAction({
