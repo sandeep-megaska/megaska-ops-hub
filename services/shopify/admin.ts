@@ -68,6 +68,9 @@ export type ShopifyRecentOrder = {
   financialStatus: string | null;
   fulfillmentStatus: string | null;
   statusPageUrl: string | null;
+  displayTitle?: string | null;
+  displayImage?: string | null;
+  itemsCount?: number | null;
 };
 
 export type ShopifyCustomerDashboardData = {
@@ -518,11 +521,16 @@ export async function getShopifyCustomerDashboardData(
       nodes: Array<{
         title?: string | null;
         quantity?: number | null;
-        variant?: {
-          image?: {
-            url?: string | null;
-          } | null;
-        } | null;
+       variant?: {
+  image?: {
+    url?: string | null;
+  } | null;
+  product?: {
+    featuredImage?: {
+      url?: string | null;
+    } | null;
+  } | null;
+} | null;
       }>;
     } | null;
   }>;
