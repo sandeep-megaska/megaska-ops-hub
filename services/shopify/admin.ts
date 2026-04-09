@@ -6,6 +6,23 @@ type ShopifyCustomerNode = {
   phone?: string | null;
 };
 
+type ShopifyMoney = {
+  amount: string;
+  currencyCode: string;
+};
+
+type ShopifyMailingAddress = {
+  firstName?: string | null;
+  lastName?: string | null;
+  address1?: string | null;
+  address2?: string | null;
+  city?: string | null;
+  province?: string | null;
+  zip?: string | null;
+  country?: string | null;
+  phone?: string | null;
+};
+
 type ShopifyCustomerSyncInput = {
   fullName?: string | null;
   email?: string | null;
@@ -34,6 +51,25 @@ export type OrderMegaskaIdentityInput = {
   phoneCorrected?: boolean;
   correctionAttempted?: boolean;
   correctionError?: string | null;
+};
+
+export type ShopifyRecentOrder = {
+  id: string;
+  name: string;
+  processedAt: string | null;
+  totalAmount: string | null;
+  currencyCode: string | null;
+  financialStatus: string | null;
+  fulfillmentStatus: string | null;
+  statusPageUrl: string | null;
+};
+
+export type ShopifyCustomerDashboardData = {
+  email: string | null;
+  phone: string | null;
+  defaultAddress: ShopifyMailingAddress | null;
+  totalOrderCount: number;
+  recentOrders: ShopifyRecentOrder[];
 };
 
 function getShopDomain() {
@@ -76,6 +112,14 @@ function resolveOrderGid(orderId: string) {
   const trimmed = String(orderId || "").trim();
   if (trimmed.startsWith("gid://shopify/Order/")) return trimmed;
   return `gid://shopify/Order/${trimmed}`;
+}
+
+function resolveCustomerGid(customerId: string) {
+  const trimmed = String(customerId || "").trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("gid://shopify/Customer/")) return trimmed;
+  if (/^\d+$/.test(trimmed)) return `gid://shopify/Customer/${trimmed}`;
+  return "";
 }
 
 export function normalizeIndianPhoneToE164(input: string | null | undefined) {
@@ -315,6 +359,99 @@ export async function updateShopifyOrderEmail(orderGid: string, email: string) {
   );
 
   return data.orderUpdate;
+}
+
+export async function getShopifyCustomerDashboardData(
+  customerId: string
+): Promise<ShopifyCustomerDashboardData | null> {
+  const customerGid = resolveCustomerGid(customerId);
+  if (!customerGid) return null;
+
+  const data = await adminGraphql<{
+    customer: {
+      email?: string | null;
+      phone?: string | null;
+      numberOfOrders?: string | number | null;
+      defaultAddress?: ShopifyMailingAddress | null;
+      orders: {
+        nodes: Array<{
+          id: string;
+          name?: string | null;
+          processedAt?: string | null;
+          displayFinancialStatus?: string | null;
+          displayFulfillmentStatus?: string | null;
+          statusPageUrl?: string | null;
+          currentTotalPriceSet?: {
+            shopMoney?: ShopifyMoney | null;
+          } | null;
+        }>;
+      };
+    } | null;
+  }>(
+    `
+      query MegaskaCustomerDashboard($id: ID!) {
+        customer(id: $id) {
+          email
+          phone
+          numberOfOrders
+          defaultAddress {
+            firstName
+            lastName
+            address1
+            address2
+            city
+            province
+            zip
+            country
+            phone
+          }
+          orders(first: 5, sortKey: PROCESSED_AT, reverse: true) {
+            nodes {
+              id
+              name
+              processedAt
+              displayFinancialStatus
+              displayFulfillmentStatus
+              statusPageUrl
+              currentTotalPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+            }
+          }
+        }
+      }
+    `,
+    { id: customerGid }
+  );
+
+  const customer = data.customer;
+  if (!customer) return null;
+
+  const totalOrderCountRaw = customer.numberOfOrders;
+  const totalOrderCount =
+    typeof totalOrderCountRaw === "number"
+      ? totalOrderCountRaw
+      : Number.parseInt(String(totalOrderCountRaw || "0"), 10) || 0;
+
+  return {
+    email: customer.email || null,
+    phone: customer.phone || null,
+    defaultAddress: customer.defaultAddress || null,
+    totalOrderCount,
+    recentOrders: (customer.orders?.nodes || []).map((order) => ({
+      id: order.id,
+      name: String(order.name || "").trim(),
+      processedAt: order.processedAt || null,
+      totalAmount: order.currentTotalPriceSet?.shopMoney?.amount || null,
+      currencyCode: order.currentTotalPriceSet?.shopMoney?.currencyCode || null,
+      financialStatus: order.displayFinancialStatus || null,
+      fulfillmentStatus: order.displayFulfillmentStatus || null,
+      statusPageUrl: order.statusPageUrl || null,
+    })),
+  };
 }
 
 export function isShopifyAdminConfigured() {
