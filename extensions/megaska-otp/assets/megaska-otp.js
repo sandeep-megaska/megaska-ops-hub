@@ -81,7 +81,7 @@
   const resumingCartAddForms = new WeakSet();
   const ACCOUNT_FALLBACK_DESKTOP_ID = "megaska-account-fallback-desktop";
   const ACCOUNT_FALLBACK_MOBILE_ID = "megaska-account-fallback-mobile";
-  const DEFAULT_MEGASKA_DASHBOARD_URL = "https://shopify.com/96810074410/account";
+  const DEFAULT_MEGASKA_DASHBOARD_URL = "pages/megaska-account";
 
   const ACCOUNT_TRIGGER_SELECTORS = [
     "[data-megaska-open-login]",
