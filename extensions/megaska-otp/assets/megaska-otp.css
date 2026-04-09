@@ -690,3 +690,120 @@
     opacity: 1;
   }
 }
+
+.megaska-dashboard-root {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 20px 14px 28px;
+  display: grid;
+  gap: 14px;
+}
+
+.megaska-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.megaska-dashboard-card {
+  background: #fff;
+  border: 1px solid rgba(12, 35, 64, 0.1);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.megaska-dashboard-card h2,
+.megaska-dashboard-card h3 {
+  margin: 0 0 8px;
+  color: #0c2340;
+}
+
+.megaska-dashboard-card p {
+  margin: 0;
+}
+
+.megaska-dashboard-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.megaska-dashboard-list-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgba(12, 35, 64, 0.15);
+}
+
+.megaska-dashboard-list-item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.megaska-dashboard-subtle {
+  color: #617083;
+  font-size: 13px;
+}
+
+.megaska-dashboard-order-right {
+  text-align: right;
+}
+
+.megaska-dashboard-address {
+  line-height: 1.5;
+}
+
+.megaska-dashboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.megaska-dashboard-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  text-decoration: none;
+  border: 1px solid #0c2340;
+  background: #0c2340;
+  color: #fff;
+  cursor: pointer;
+}
+
+.megaska-dashboard-btn--secondary {
+  background: #fff;
+  color: #0c2340;
+}
+
+.megaska-dashboard-btn--danger {
+  background: #fff5f5;
+  border-color: #cb1b45;
+  color: #cb1b45;
+}
+
+.megaska-dashboard-loading,
+.megaska-dashboard-error,
+.megaska-dashboard-empty {
+  color: #617083;
+  font-size: 14px;
+}
+
+@media (max-width: 799px) {
+  .megaska-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .megaska-dashboard-list-item {
+    flex-direction: column;
+  }
+
+  .megaska-dashboard-order-right {
+    text-align: left;
+  }
+}

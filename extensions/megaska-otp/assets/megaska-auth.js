@@ -162,6 +162,12 @@
     }
   }
 
+  async function fetchDashboardSummary() {
+    return apiFetch("/dashboard/summary", {
+      method: "GET",
+    });
+  }
+
   async function completeProfile(payload) {
     return apiFetch("/profile/complete", {
       method: "POST",
@@ -527,6 +533,140 @@
     return session;
   }
 
+  function escHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function formatDate(isoDate) {
+    if (!isoDate) return "";
+    const parsed = new Date(isoDate);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return parsed.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  }
+
+  function formatAddress(address) {
+    if (!address) return "";
+    return [
+      address.address1,
+      address.address2,
+      [address.city, address.province].filter(Boolean).join(", "),
+      [address.country, address.zip].filter(Boolean).join(" "),
+    ]
+      .filter(Boolean)
+      .join("<br/>");
+  }
+
+  function renderDashboardSummary(container, summary) {
+    const profileName =
+      summary?.customer?.fullName ||
+      [summary?.customer?.firstName, summary?.customer?.lastName].filter(Boolean).join(" ") ||
+      "Megaska Customer";
+    const verifiedPhone = summary?.verifiedPhone || "-";
+    const email = summary?.email || "-";
+    const totalOrders = Number(summary?.stats?.totalOrders || 0);
+    const openRequests = Number(summary?.stats?.openRequests || 0);
+    const storeCredit = Number(summary?.wallet?.storeCredit || 0);
+    const currency = summary?.wallet?.currency || "INR";
+    const addressHtml = formatAddress(summary?.defaultAddress);
+    const orders = Array.isArray(summary?.recentOrders) ? summary.recentOrders : [];
+
+    const ordersHtml = orders.length
+      ? orders
+          .map((order) => {
+            const orderTotal =
+              order?.totalAmount && order?.currencyCode
+                ? `${escHtml(order.currencyCode)} ${escHtml(order.totalAmount)}`
+                : "-";
+            const orderLink = order?.statusPageUrl
+              ? `<a href="${escHtml(order.statusPageUrl)}" target="_blank" rel="noopener noreferrer">View</a>`
+              : "";
+
+            return `<li class="megaska-dashboard-list-item">
+              <div>
+                <strong>${escHtml(order?.name || "Order")}</strong>
+                <div class="megaska-dashboard-subtle">${escHtml(formatDate(order?.processedAt) || "")}</div>
+              </div>
+              <div class="megaska-dashboard-order-right">
+                <div>${orderTotal}</div>
+                <div class="megaska-dashboard-subtle">${escHtml(order?.financialStatus || "")}</div>
+                ${orderLink}
+              </div>
+            </li>`;
+          })
+          .join("")
+      : '<li class="megaska-dashboard-empty">No recent orders yet.</li>';
+
+    container.innerHTML = `
+      <section class="megaska-dashboard-card">
+        <h2>${escHtml(profileName)}</h2>
+        <p class="megaska-dashboard-subtle">Verified phone: ${escHtml(verifiedPhone)}</p>
+        <p class="megaska-dashboard-subtle">Email: ${escHtml(email)}</p>
+      </section>
+      <section class="megaska-dashboard-grid">
+        <article class="megaska-dashboard-card"><h3>Total orders</h3><p>${totalOrders}</p></article>
+        <article class="megaska-dashboard-card"><h3>Open requests</h3><p>${openRequests}</p></article>
+        <article class="megaska-dashboard-card"><h3>Store credit</h3><p>${escHtml(currency)} ${storeCredit.toFixed(
+      2
+    )}</p></article>
+      </section>
+      <section class="megaska-dashboard-card">
+        <h3>Recent orders</h3>
+        <ul class="megaska-dashboard-list">${ordersHtml}</ul>
+      </section>
+      <section class="megaska-dashboard-card">
+        <h3>Saved address</h3>
+        ${
+          addressHtml
+            ? `<p class="megaska-dashboard-address">${addressHtml}</p>`
+            : '<p class="megaska-dashboard-empty">No default address saved yet.</p>'
+        }
+      </section>
+      <section class="megaska-dashboard-card">
+        <h3>Quick actions</h3>
+        <div class="megaska-dashboard-actions">
+          <a href="/collections/all" class="megaska-dashboard-btn">Continue Shopping</a>
+          <a href="/pages/contact" class="megaska-dashboard-btn megaska-dashboard-btn--secondary">Contact Support</a>
+          <button type="button" data-megaska-logout class="megaska-dashboard-btn megaska-dashboard-btn--danger">Logout</button>
+        </div>
+      </section>
+    `;
+  }
+
+  async function initDashboardPage() {
+    const pathname = String(window?.location?.pathname || "");
+    if (!pathname.includes("/pages/megaska-account")) return;
+
+    const mountEl =
+      document.querySelector("[data-megaska-account-dashboard]") ||
+      document.getElementById("megaska-account-dashboard") ||
+      document.querySelector("main") ||
+      document.body;
+
+    if (!mountEl) return;
+
+    mountEl.classList.add("megaska-dashboard-root");
+    mountEl.innerHTML = '<div class="megaska-dashboard-loading">Loading account dashboard...</div>';
+
+    try {
+      const summary = await fetchDashboardSummary();
+      renderDashboardSummary(mountEl, summary);
+      bindLogoutButtons();
+    } catch (error) {
+      console.error("[Megaska Dashboard] summary fetch failed", error);
+      mountEl.innerHTML =
+        '<div class="megaska-dashboard-error">Unable to load dashboard. Please login again.</div>';
+    }
+  }
+
   async function bootstrapAuth() {
     return refreshAuthState();
   }
@@ -554,6 +694,7 @@
   async function init() {
     bindLogoutButtons();
     await bootstrapAuth();
+    await initDashboardPage();
   }
 
   window.MegaskaAuth = {
@@ -564,6 +705,7 @@
     // Backward compatible aliases
     saveSessionToken: setSessionToken,
     fetchSession,
+    fetchDashboardSummary,
     refreshAuthState,
     bootstrapAuth,
     requestOtp,
