@@ -3,6 +3,7 @@ import { withCors, handleOptions } from "../../_lib/cors";
 import { prisma } from "../../../../services/db/prisma";
 import { hashSessionToken } from "../../../../services/auth/session";
 import {
+  findShopifyCustomerIdByIdentity,
   getShopifyCustomerDashboardData,
   isShopifyAdminConfigured,
 } from "../../../../services/shopify/admin";
@@ -51,50 +52,71 @@ export async function GET(req: NextRequest) {
 
     const customer = session.customer;
 
+    let resolvedShopifyCustomerId = String(customer.shopifyCustomerId || "").trim();
     let shopifyDashboard = null;
-    if (isShopifyAdminConfigured() && customer.shopifyCustomerId) {
+
+    if (isShopifyAdminConfigured()) {
       try {
-        shopifyDashboard = await getShopifyCustomerDashboardData(customer.shopifyCustomerId);
+        if (!resolvedShopifyCustomerId) {
+          resolvedShopifyCustomerId = (await findShopifyCustomerIdByIdentity({
+            email: customer.email,
+            phoneE164: customer.phoneE164,
+          })) || "";
+        }
+
+        if (resolvedShopifyCustomerId) {
+          shopifyDashboard = await getShopifyCustomerDashboardData(resolvedShopifyCustomerId);
+        }
       } catch (error) {
         console.error("[DASHBOARD SUMMARY] Shopify customer fetch failed", error);
       }
     }
 
+    const savedAddressCount = shopifyDashboard?.defaultAddress
+      ? 1
+      : customer.addressLine1
+        ? 1
+        : 0;
+    const totalOrders = Number(shopifyDashboard?.totalOrderCount || 0);
+
     const response = {
       customer: {
-        id: customer.id,
-        fullName: customer.fullName,
         firstName: customer.firstName,
         lastName: customer.lastName,
+        phone: customer.phoneE164,
+        email: shopifyDashboard?.email || customer.email || null,
+        verified: Boolean(customer.phoneVerifiedAt),
       },
-      verifiedPhone: customer.phoneE164,
-      email: shopifyDashboard?.email || customer.email || null,
-      defaultAddress: shopifyDashboard?.defaultAddress
-        ? {
-            firstName: shopifyDashboard.defaultAddress.firstName || null,
-            lastName: shopifyDashboard.defaultAddress.lastName || null,
-            address1: shopifyDashboard.defaultAddress.address1 || null,
-            address2: shopifyDashboard.defaultAddress.address2 || null,
-            city: shopifyDashboard.defaultAddress.city || null,
-            province: shopifyDashboard.defaultAddress.province || null,
-            zip: shopifyDashboard.defaultAddress.zip || null,
-            country: shopifyDashboard.defaultAddress.country || null,
-            phone: shopifyDashboard.defaultAddress.phone || null,
-          }
-        : null,
-      recentOrders: shopifyDashboard?.recentOrders || [],
       wallet: {
-        storeCredit: 0,
+        balance: 0,
         currency: "INR",
+        pendingRefund: 0,
       },
       stats: {
-        totalOrders: shopifyDashboard?.totalOrderCount || 0,
+        totalOrders,
         openRequests: 0,
+        savedAddresses: savedAddressCount,
       },
-      placeholders: {
-        walletManagedBy: "megaska",
-        openRequestsSource: "megaska",
-      },
+      address: shopifyDashboard?.defaultAddress
+        ? {
+            line1: shopifyDashboard.defaultAddress.address1 || null,
+            line2: shopifyDashboard.defaultAddress.address2 || null,
+            city: shopifyDashboard.defaultAddress.city || null,
+            state: shopifyDashboard.defaultAddress.province || null,
+            postalCode: shopifyDashboard.defaultAddress.zip || null,
+            country: shopifyDashboard.defaultAddress.country || null,
+          }
+        : customer.addressLine1
+          ? {
+              line1: customer.addressLine1 || null,
+              line2: customer.addressLine2 || null,
+              city: customer.city || null,
+              state: customer.stateProvince || null,
+              postalCode: customer.postalCode || null,
+              country: customer.countryRegion || null,
+            }
+          : null,
+      orders: shopifyDashboard?.recentOrders || [],
     };
 
     return withCors(req, NextResponse.json(response));
