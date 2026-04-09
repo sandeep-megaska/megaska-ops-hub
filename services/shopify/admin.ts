@@ -85,6 +85,12 @@ export type ShopifyCustomerDashboardData = {
 let cachedAccessToken: string | null = null;
 let cachedAccessTokenExpiresAt = 0;
 
+type ShopifyClientCredentialsTokenResponse = {
+  access_token?: string;
+  scope?: string;
+  expires_in?: number;
+};
+
 function getShopDomain() {
   return (process.env.SHOPIFY_STORE_DOMAIN || "")
     .trim()
@@ -99,6 +105,7 @@ function getShopifyClientId() {
 function getShopifyClientSecret() {
   return (process.env.SHOPIFY_API_SECRET || "").trim();
 }
+
 
 function splitName(fullNameRaw: string | null | undefined) {
   const normalized = String(fullNameRaw || "").replace(/\s+/g, " ").trim();
@@ -173,19 +180,30 @@ async function getAdminAccessToken(): Promise<string> {
     throw new Error("Shopify client credentials are not configured");
   }
 
+  console.log("[SHOPIFY AUTH SERVER] requesting client-credentials token", {
+    shopDomain,
+    hasClientId: Boolean(clientId),
+    hasClientSecret: Boolean(clientSecret),
+  });
+
   const response = await fetch(`https://${shopDomain}/admin/oauth/access_token`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: JSON.stringify({
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
       client_id: clientId,
       client_secret: clientSecret,
-      grant_type: "client_credentials",
-    }),
+    }).toString(),
   });
 
   const rawText = await response.text().catch(() => "");
+
+  if (!response.ok) {
+    throw new Error(`Shopify token request failed (${response.status}) ${rawText || ""}`.trim());
+  }
+
   let payload: ShopifyClientCredentialsTokenResponse | null = null;
 
   try {
@@ -194,23 +212,23 @@ async function getAdminAccessToken(): Promise<string> {
     payload = null;
   }
 
-  if (!response.ok) {
-    throw new Error(`Shopify token request failed (${response.status}) ${rawText || ""}`.trim());
-  }
-
   const accessToken = String(payload?.access_token || "").trim();
   const expiresIn = Number(payload?.expires_in || 0);
 
   if (!accessToken) {
-    throw new Error("Shopify token response missing access_token");
+    throw new Error(`Shopify token response missing access_token ${rawText || ""}`.trim());
   }
 
   cachedAccessToken = accessToken;
   cachedAccessTokenExpiresAt = now + (expiresIn > 0 ? expiresIn * 1000 : 23 * 60 * 60 * 1000);
 
+  console.log("[SHOPIFY AUTH SERVER] token acquired", {
+    expiresIn,
+    hasAccessToken: Boolean(accessToken),
+  });
+
   return accessToken;
 }
-
 async function adminGraphql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
   const shopDomain = getShopDomain();
   const token = await getAdminAccessToken();
@@ -218,6 +236,11 @@ async function adminGraphql<T>(query: string, variables?: Record<string, unknown
   if (!shopDomain || !token) {
     throw new Error("Shopify admin sync is not configured");
   }
+
+  console.log("[SHOPIFY AUTH SERVER] calling admin graphql", {
+    shopDomain,
+    hasToken: Boolean(token),
+  });
 
   const response = await fetch(`https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`, {
     method: "POST",
@@ -261,6 +284,9 @@ async function adminGraphql<T>(query: string, variables?: Record<string, unknown
   return payload.data;
 }
 
+export function isShopifyAdminConfigured() {
+  return Boolean(getShopDomain() && getShopifyClientId() && getShopifyClientSecret());
+}
 async function findCustomerByQuery(query: string): Promise<ShopifyCustomerNode | null> {
   const data = await adminGraphql<{
     customers: {
