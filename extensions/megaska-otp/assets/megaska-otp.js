@@ -1052,10 +1052,19 @@
         return;
       }
 
-      hideAccountMenu();
-      await resumePendingAction(sessionCustomer);
-      renderSuccessStep("Login successful. Welcome to Megaska");
-      setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS);
+     hideAccountMenu();
+await syncAccountUiState();
+
+const accountRedirectTarget = consumePendingAccountRedirect();
+if (accountRedirectTarget) {
+  console.log("[Megaska OTP] account redirect after OTP", { accountRedirectTarget });
+  window.location.assign(accountRedirectTarget);
+  return;
+}
+
+await resumePendingAction(sessionCustomer);
+renderSuccessStep("Login successful. Welcome to Megaska");
+setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS);
     } catch (error) {
       state.verifying = false;
       state.errorMessage = error.message || "Invalid or expired OTP. Please try again.";
@@ -1154,10 +1163,19 @@
       const refreshedSession = await window.MegaskaAuth.refreshAuthState();
       const sessionCustomer = refreshedSession?.customer || null;
       state.savingProfile = false;
-      hideAccountMenu();
-      await resumePendingAction(sessionCustomer);
-      renderSuccessStep("Profile saved. Welcome to Megaska");
-      setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS);
+hideAccountMenu();
+await syncAccountUiState();
+
+const accountRedirectTarget = consumePendingAccountRedirect();
+if (accountRedirectTarget) {
+  console.log("[Megaska OTP] account redirect after profile save", { accountRedirectTarget });
+  window.location.assign(accountRedirectTarget);
+  return;
+}
+
+await resumePendingAction(sessionCustomer);
+renderSuccessStep("Profile saved. Welcome to Megaska");
+setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS);
     } catch (error) {
       state.savingProfile = false;
       state.errorMessage = error.message || "Unable to save your profile right now.";
@@ -1640,7 +1658,15 @@
     });
     window.location.assign(targetUrl);
   }
+function consumePendingAccountRedirect() {
+  if (!pendingAction || pendingAction.type !== "account-redirect") {
+    return null;
+  }
 
+  const target = resolveAccountDestinationUrl(pendingAction.accountDestination);
+  clearPendingAction();
+  return target;
+}
   async function resumePendingAction(preferredCustomer) {
     if (!pendingAction) return;
 
@@ -2070,6 +2096,7 @@
     );
   }
 
+  
   function isNativeAccountIntentElement(element) {
     if (!element || typeof element.getAttribute !== "function") return false;
     const href = String(element.getAttribute("href") || "").trim();
@@ -2107,32 +2134,34 @@
     );
   }
 
-  async function handleAccountTriggerClick(event, triggerEl) {
-    hardBlockEvent(event);
+ async function handleAccountTriggerClick(event, triggerEl) {
+  hardBlockEvent(event);
 
-    const gateState = await getMegaskaCheckoutGateState();
-    const authenticated = Boolean(gateState.authenticated || hasKnownMegaskaSession());
-    const accountDestination = resolveAccountDestinationUrl();
+  const gateState = await getMegaskaCheckoutGateState();
+  const authenticated = Boolean(gateState?.authenticated || hasKnownMegaskaSession());
+  const accountDestination = resolveAccountDestinationUrl(triggerEl);
 
-    if (!authenticated) {
-      setPendingAction({
-        type: "account-redirect",
-        accountDestination,
-        createdAt: Date.now(),
-      });
-      try {
-        openModal("account-intercept");
-      } catch {
-        await handlePromptFallback();
-      }
-      console.log("[Megaska OTP] account trigger intercepted", { authenticated: false });
-      return;
+  if (!authenticated) {
+    setPendingAction({
+      type: "account-redirect",
+      accountDestination,
+      createdAt: Date.now(),
+    });
+
+    try {
+      openModal("account-intercept");
+    } catch {
+      await handlePromptFallback();
     }
 
-    hideAccountMenu();
-    window.location.assign(accountDestination);
-    console.log("[Megaska OTP] account trigger intercepted", { authenticated: true });
+    console.log("[Megaska OTP] account trigger intercepted", { authenticated: false, accountDestination });
+    return;
   }
+
+  hideAccountMenu();
+  console.log("[Megaska OTP] account trigger intercepted", { authenticated: true, accountDestination });
+  window.location.assign(accountDestination);
+}
 
   async function ensureMegaskaAuthenticatedBeforeCheckout(options) {
     const opts = options || {};
