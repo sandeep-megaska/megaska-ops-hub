@@ -63,6 +63,7 @@ export type ShopifyRecentOrder = {
   id: string;
   name: string;
   processedAt: string | null;
+  deliveredAt: string | null;
   totalAmount: string | null;
   currencyCode: string | null;
   financialStatus: string | null;
@@ -618,6 +619,7 @@ export async function getShopifyCustomerDashboardData(
         currencyCode: order.currentTotalPriceSet?.shopMoney?.currencyCode || null,
         financialStatus: order.displayFinancialStatus || null,
         fulfillmentStatus: order.displayFulfillmentStatus || null,
+        deliveredAt: order.processedAt || null,
         statusPageUrl: order.statusPageUrl || null,
         displayTitle: String(firstItem?.title || "Order items").trim(),
         displayImage:

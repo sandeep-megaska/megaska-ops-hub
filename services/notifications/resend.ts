@@ -1,3 +1,5 @@
+import { Resend } from "resend";
+
 type SendEmailInput = {
   from: string;
   to: string[];
@@ -15,6 +17,10 @@ function parseEmails(value: string | undefined) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function getResendClient(apiKey: string) {
+  return new Resend(apiKey);
 }
 
 export function getOpsNotificationConfig() {
@@ -51,24 +57,17 @@ export async function sendEmailWithResend(input: SendEmailInput, context: SendEm
   }
 
   try {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: input.from,
-        to: input.to,
-        cc: input.cc,
-        subject: input.subject,
-        html: input.html,
-      }),
+    const resend = getResendClient(config.apiKey);
+    const result = await resend.emails.send({
+      from: input.from,
+      to: input.to,
+      cc: input.cc,
+      subject: input.subject,
+      html: input.html,
     });
 
-    if (!response.ok) {
-      const failure = await response.text().catch(() => "");
-      throw new Error(`Resend email failed (${response.status}) ${failure}`.trim());
+    if (result.error) {
+      throw new Error(`Resend email failed: ${result.error.message}`);
     }
   } catch (error) {
     console.error("[EXCHANGE NOTIFY] Resend send failed", {
