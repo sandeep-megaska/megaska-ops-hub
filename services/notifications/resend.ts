@@ -69,6 +69,12 @@ export async function sendEmailWithResend(input: SendEmailInput, context: SendEm
     if (result.error) {
       throw new Error(`Resend email failed: ${result.error.message}`);
     }
+
+    console.info("[EXCHANGE NOTIFY] Resend send success", {
+      requestId: context.requestId || null,
+      resendEmailId: result.data?.id || null,
+    });
+    return { skipped: false, success: true, resendEmailId: result.data?.id || null } as const;
   } catch (error) {
     console.error("[EXCHANGE NOTIFY] Resend send failed", {
       requestId: context.requestId || null,
@@ -79,8 +85,11 @@ export async function sendEmailWithResend(input: SendEmailInput, context: SendEm
       errorStack: error instanceof Error ? error.stack : null,
       errorCause: error instanceof Error ? String(error.cause || "") || null : null,
     });
-    throw error;
+    return {
+      skipped: false,
+      success: false,
+      errorName: error instanceof Error ? error.name : null,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    } as const;
   }
-
-  return { skipped: false } as const;
 }

@@ -61,6 +61,7 @@ export type OrderMegaskaIdentityInput = {
 
 export type ShopifyRecentOrder = {
   id: string;
+  shopifyOrderId: string;
   name: string;
   processedAt: string | null;
   deliveredAt: string | null;
@@ -72,6 +73,10 @@ export type ShopifyRecentOrder = {
   displayTitle?: string | null;
   displayImage?: string | null;
   itemsCount?: number | null;
+  firstLineItemId?: string | null;
+  firstLineItemTitle?: string | null;
+  firstLineItemVariantTitle?: string | null;
+  firstLineItemSku?: string | null;
 };
 
 export type ShopifyCustomerDashboardData = {
@@ -571,9 +576,12 @@ export async function getShopifyCustomerDashboardData(
               }
               lineItems(first: 5) {
                 nodes {
+                  id
                   title
                   quantity
+                  sku
                   variant {
+                    title
                     image {
                       url
                     }
@@ -613,6 +621,7 @@ export async function getShopifyCustomerDashboardData(
 
       return {
         id: order.id,
+        shopifyOrderId: order.id,
         name: String(order.name || "").trim(),
         processedAt: order.processedAt || null,
         totalAmount: order.currentTotalPriceSet?.shopMoney?.amount || null,
@@ -627,6 +636,10 @@ export async function getShopifyCustomerDashboardData(
           firstItem?.variant?.product?.featuredImage?.url ||
           null,
         itemsCount: lineItems.length,
+        firstLineItemId: firstItem?.id || null,
+        firstLineItemTitle: String(firstItem?.title || "").trim() || null,
+        firstLineItemVariantTitle: String(firstItem?.variant?.title || "").trim() || null,
+        firstLineItemSku: String(firstItem?.sku || "").trim() || null,
       };
     }),
   };

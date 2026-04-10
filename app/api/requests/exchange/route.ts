@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
     const fulfillmentStatus = String(body?.fulfillmentStatus || "").trim() || null;
     const quantity = Number(body?.quantity || 1);
     const amountSnapshot = String(body?.orderAmountSnapshot || "").trim() || null;
+    const shopifyLineItemId = String(body?.shopifyLineItemId || "").trim() || null;
 
     if (!orderNumber || !productTitle || !requestedSize) {
       return withCors(req, NextResponse.json({ error: "Missing required fields" }, { status: 400 }));
@@ -48,6 +49,61 @@ export async function POST(req: NextRequest) {
 
     if (eligibility.blocked) {
       return withCors(req, NextResponse.json({ error: eligibility.reason }, { status: 400 }));
+    }
+
+    const activeStatuses = [
+      "OPEN",
+      "AWAITING_PAYMENT",
+      "PAYMENT_RECEIVED",
+      "PICKUP_PENDING",
+      "PICKUP_SCHEDULED",
+      "PICKUP_COMPLETED",
+      "ITEM_RECEIVED",
+      "APPROVED",
+      "REPLACEMENT_PROCESSING",
+      "REPLACEMENT_SHIPPED",
+    ] as const;
+
+    const duplicateWhere = {
+      customerProfileId: session.customer.id,
+      requestType: "EXCHANGE" as const,
+      orderNumber,
+      status: { in: [...activeStatuses] },
+      items: {
+        some: {
+          ...(shopifyLineItemId
+            ? { shopifyLineItemId }
+            : {
+                productTitle: { equals: productTitle, mode: "insensitive" as const },
+                ...(variantTitle
+                  ? { variantTitle: { equals: variantTitle, mode: "insensitive" as const } }
+                  : {}),
+              }),
+        },
+      },
+    };
+
+    const existingActiveRequest = await prisma.orderActionRequest.findFirst({
+      where: duplicateWhere,
+      select: {
+        id: true,
+        status: true,
+        requestedAt: true,
+      },
+      orderBy: { requestedAt: "desc" },
+    });
+
+    if (existingActiveRequest) {
+      return withCors(
+        req,
+        NextResponse.json(
+          {
+            error:
+              "You already have an open exchange request for this item in this order. Please wait for an update before submitting another request.",
+          },
+          { status: 409 }
+        )
+      );
     }
 
     const initialStatus = eligibility.decision === "ELIGIBLE" ? "AWAITING_PAYMENT" : "OPEN";
@@ -74,7 +130,7 @@ export async function POST(req: NextRequest) {
         eligibilityReason: eligibility.reason,
         items: {
           create: {
-            shopifyLineItemId: String(body?.shopifyLineItemId || "").trim() || null,
+            shopifyLineItemId,
             productTitle,
             variantTitle,
             sku: String(body?.sku || "").trim() || null,
