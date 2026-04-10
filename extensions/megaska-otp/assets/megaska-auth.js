@@ -583,6 +583,8 @@
     const ordersHtml = orders.length
       ? orders
           .map((order) => {
+            const deliveredAt = order?.deliveredAt || order?.processedAt || "";
+            const fulfillmentStatus = order?.fulfillmentStatus || "";
             const orderTotal =
               order?.totalAmount && order?.currencyCode
                 ? `${escHtml(order.currencyCode)} ${escHtml(order.totalAmount)}`
@@ -591,7 +593,9 @@
               ? `<a href="${escHtml(order.statusPageUrl)}" target="_blank" rel="noopener noreferrer">View</a>`
               : "";
 
-            return `<li class="megaska-dashboard-list-item">
+            return `<li class="megaska-dashboard-list-item" data-order-fulfillment-status="${escHtml(
+              fulfillmentStatus
+            )}" data-order-delivered-at="${escHtml(deliveredAt)}">
               <div>
                 <strong>${escHtml(order?.name || "Order")}</strong>
                 <div class="megaska-dashboard-subtle">${escHtml(formatDate(order?.processedAt) || "")}</div>

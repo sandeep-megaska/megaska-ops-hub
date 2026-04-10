@@ -5,6 +5,8 @@ import { getAuthenticatedCustomer } from "../../../../services/exchange/auth";
 import { evaluateExchangeEligibility } from "../../../../services/exchange/eligibility";
 import { sendExchangeRequestCreatedEmail } from "../../../../services/notifications/exchange";
 
+export const runtime = "nodejs";
+
 export async function OPTIONS(req: NextRequest) {
   return handleOptions(req);
 }
