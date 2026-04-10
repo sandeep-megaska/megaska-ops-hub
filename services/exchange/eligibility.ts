@@ -97,15 +97,6 @@ export function evaluateExchangeEligibility(input: EligibilityInput) {
     };
   }
 
-  if (!reason) {
-    return {
-      decision: "REVIEW_REQUIRED" as const,
-      reason: "Reason missing; admin review required",
-      blocked: false,
-      stockReviewMessage: STOCK_REVIEW_MESSAGE,
-    };
-  }
-
   const deliveredAt = input.deliveredAt ? new Date(input.deliveredAt) : null;
   const hasValidDeliveredAt = Boolean(deliveredAt && !Number.isNaN(deliveredAt.getTime()));
 
@@ -118,10 +109,28 @@ export function evaluateExchangeEligibility(input: EligibilityInput) {
     };
   }
 
-  if (!isDeliveredOrFulfilledStatus(fulfillmentStatus) && !hasValidDeliveredAt) {
+  if (!isDeliveredOrFulfilledStatus(fulfillmentStatus)) {
+    return {
+      decision: "REJECTED" as const,
+      reason: "Exchange can be requested only after the order has been delivered.",
+      blocked: true,
+      stockReviewMessage: STOCK_REVIEW_MESSAGE,
+    };
+  }
+
+  if (!hasValidDeliveredAt) {
+    return {
+      decision: "REJECTED" as const,
+      reason: "We couldn’t confirm the delivery date for this order. Please contact support for help.",
+      blocked: true,
+      stockReviewMessage: STOCK_REVIEW_MESSAGE,
+    };
+  }
+
+  if (!reason) {
     return {
       decision: "REVIEW_REQUIRED" as const,
-      reason: "Delivery status is unclear; admin review required",
+      reason: "Reason missing; admin review required",
       blocked: false,
       stockReviewMessage: STOCK_REVIEW_MESSAGE,
     };

@@ -98,13 +98,33 @@
     return String((node.dataset && node.dataset[camel]) || node.getAttribute("data-" + key) || "").trim();
   }
 
+  function findStructuredOrderSource(drawer, sourceButton) {
+    if (sourceButton && sourceButton.closest) {
+      const candidate = sourceButton.closest("[data-shopify-order-id], [data-order-number]");
+      if (candidate) return candidate;
+    }
+
+    const fromDrawer = drawer.querySelector(
+      "[data-shopify-order-id], [data-order-number], [data-order-id], .megaska-dashboard-list-item"
+    );
+    return fromDrawer || drawer;
+  }
+
   function getDrawerOrderContext(sourceButton) {
     const drawer = document.getElementById("mk-order-drawer");
     if (!drawer) return null;
+    const structuredSource = findStructuredOrderSource(drawer, sourceButton);
 
     const productTitle = drawer.querySelector(".mk-order-hero-name")?.textContent?.trim() || "";
     const metaText = drawer.querySelector(".mk-order-hero-meta")?.textContent?.trim() || "";
-    const orderNumber = metaText.split("•")[0]?.trim() || "";
+    const orderNumber =
+      readFirstValue([
+        getDataValue(sourceButton, "order-number"),
+        getDataValue(structuredSource, "order-number"),
+        getDataValue(drawer, "order-number"),
+      ]) ||
+      metaText.split("•")[0]?.trim() ||
+      "";
     const statusText = readFirstValue([
       getDataValue(sourceButton, "order-fulfillment-status"),
       getDataValue(sourceButton, "fulfillment-status"),
@@ -115,6 +135,8 @@
     const deliveredAt = readFirstValue([
       getDataValue(sourceButton, "order-delivered-at"),
       getDataValue(sourceButton, "delivered-at"),
+      getDataValue(structuredSource, "order-delivered-at"),
+      getDataValue(structuredSource, "delivered-at"),
       getDataValue(drawer, "order-delivered-at"),
       getDataValue(drawer, "delivered-at"),
       getDataValue(drawer.querySelector("[data-order-delivered-at]"), "order-delivered-at"),
@@ -133,8 +155,30 @@
 
     return {
       orderNumber,
-      productTitle,
+      productTitle:
+        readFirstValue([
+          getDataValue(sourceButton, "item-title"),
+          getDataValue(structuredSource, "item-title"),
+          productTitle,
+        ]) || "",
       currentSize: "",
+      variantTitle: readFirstValue([
+        getDataValue(sourceButton, "variant-title"),
+        getDataValue(structuredSource, "variant-title"),
+      ]),
+      sku: readFirstValue([getDataValue(sourceButton, "sku"), getDataValue(structuredSource, "sku")]),
+      shopifyOrderId: readFirstValue([
+        getDataValue(sourceButton, "shopify-order-id"),
+        getDataValue(structuredSource, "shopify-order-id"),
+        getDataValue(sourceButton, "order-id"),
+        getDataValue(structuredSource, "order-id"),
+      ]),
+      shopifyLineItemId: readFirstValue([
+        getDataValue(sourceButton, "shopify-line-item-id"),
+        getDataValue(structuredSource, "shopify-line-item-id"),
+        getDataValue(sourceButton, "line-item-id"),
+        getDataValue(structuredSource, "line-item-id"),
+      ]),
       displayMeta: metaText,
       deliveredAt: normalizeDeliveredAt(deliveredAt),
       fulfillmentStatus: normalizeFulfillmentStatus(inferredStatus),
@@ -260,7 +304,8 @@
       text.includes("Exchange can be requested only after the order has been delivered") ||
       text.includes("Exchange requests cannot be processed more than") ||
       text.includes("Requested size is required") ||
-      text.includes("Current size and requested size are identical")
+      text.includes("Current size and requested size are identical") ||
+      text.includes("already have an open exchange request")
     ) {
       return text;
     }
@@ -306,6 +351,10 @@
           requestedSize,
           reason: reason || "Size exchange requested",
           customerNote: reason || null,
+          shopifyOrderId: context.shopifyOrderId || null,
+          shopifyLineItemId: context.shopifyLineItemId || null,
+          variantTitle: context.variantTitle || null,
+          sku: context.sku || null,
           deliveredAt: context.deliveredAt || null,
           fulfillmentStatus: context.fulfillmentStatus || null,
           quantity: 1,
