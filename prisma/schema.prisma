@@ -208,6 +208,10 @@ model ShipmentTracking {
   awb         String?
   trackingUrl String?
   status      ShipmentStatus    @default(NOT_STARTED)
+  pickupAt    DateTime?
+  shippedAt   DateTime?
+  deliveredAt DateTime?
+  remarks     String?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 

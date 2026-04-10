@@ -7,6 +7,14 @@ function isAdmin(req: NextRequest) {
   return Boolean(expected && key === expected);
 }
 
+function parseDate(value: unknown) {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return parsed;
+}
+
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     if (!isAdmin(req)) {
@@ -17,9 +25,16 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
     const direction = String(body?.direction || "").trim();
     const status = String(body?.status || "").trim() || "PENDING";
+    const pickupAt = parseDate(body?.pickupAt);
+    const shippedAt = parseDate(body?.shippedAt);
+    const deliveredAt = parseDate(body?.deliveredAt);
 
     if (!direction) {
       return NextResponse.json({ error: "direction is required" }, { status: 400 });
+    }
+
+    if (pickupAt === undefined || shippedAt === undefined || deliveredAt === undefined) {
+      return NextResponse.json({ error: "Invalid shipment date format" }, { status: 400 });
     }
 
     const existing = await prisma.orderActionRequest.findFirst({ where: { id, requestType: "EXCHANGE" } });
@@ -41,12 +56,20 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         awb: String(body?.awb || "").trim() || null,
         trackingUrl: String(body?.trackingUrl || "").trim() || null,
         status: status as never,
+        pickupAt,
+        shippedAt,
+        deliveredAt,
+        remarks: String(body?.remarks || "").trim() || null,
       },
       update: {
         carrier: String(body?.carrier || "").trim() || null,
         awb: String(body?.awb || "").trim() || null,
         trackingUrl: String(body?.trackingUrl || "").trim() || null,
         status: status as never,
+        pickupAt,
+        shippedAt,
+        deliveredAt,
+        remarks: String(body?.remarks || "").trim() || null,
       },
     });
 
