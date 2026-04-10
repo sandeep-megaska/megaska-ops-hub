@@ -42,6 +42,17 @@
     REJECTED: "Cancellation request rejected",
     CLOSED: "Cancellation request closed",
   };
+
+  const ISSUE_BLOCKING_STATUSES = ["OPEN", "AWAITING_PAYMENT", "PICKUP_PENDING", "PAYMENT_RECEIVED", "APPROVED"];
+  const ISSUE_STATUS_DESCRIPTIONS = {
+    OPEN: "Issue request received",
+    AWAITING_PAYMENT: "Under review",
+    PICKUP_PENDING: "Need more information",
+    PAYMENT_RECEIVED: "Approved for exchange",
+    APPROVED: "Approved for refund",
+    REJECTED: "Issue request rejected",
+    CLOSED: "Issue request closed",
+  };
   function escapeHtml(value) {
     return String(value ?? "")
       .replace(/&/g, "&amp;")
@@ -231,6 +242,11 @@
         getDataValue(structuredSource, "order-financial-status"),
         getDataValue(drawer, "order-financial-status"),
       ]),
+      paymentGatewayName: readFirstValue([
+        getDataValue(sourceButton, "payment-gateway-name"),
+        getDataValue(structuredSource, "payment-gateway-name"),
+        getDataValue(drawer, "payment-gateway-name"),
+      ]),
     };
   }
 
@@ -328,10 +344,14 @@
   }
 
   function setSubmittingState(isSubmitting) {
-    const submitBtn = document.getElementById("mk-ex-submit");
+    const submitBtn = document.getElementById("mk-ex-submit") || document.getElementById("mk-cancel-submit") || document.getElementById("mk-issue-submit");
     if (!submitBtn) return;
     submitBtn.disabled = isSubmitting;
-    submitBtn.textContent = isSubmitting ? "Submitting..." : (submitBtn.id === "mk-cancel-submit" ? "Submit Cancellation Request" : "Submit Exchange Request");
+    submitBtn.textContent = isSubmitting
+      ? "Submitting..."
+      : (submitBtn.id === "mk-cancel-submit"
+        ? "Submit Cancellation Request"
+        : (submitBtn.id === "mk-issue-submit" ? "Submit Issue Request" : "Submit Exchange Request"));
   }
 
   function showError(message) {
@@ -384,6 +404,24 @@
       <div>Request ID: ${escapeHtml(request?.id || "—")}</div>
       <div>Request status: ${escapeHtml(request?.status || "OPEN")}</div>
       <div class="mk-ex-muted">Our operations team will review this request and update you shortly.</div>
+    `;
+
+    actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
+  }
+
+  function renderIssueSuccess(request) {
+    const success = document.getElementById("mk-ex-success");
+    const actions = document.getElementById("mk-ex-form-actions");
+    if (!success || !actions) return;
+
+    success.style.display = "block";
+    success.className = "mk-ex-success";
+    success.innerHTML = `
+      <strong>Issue request created</strong>
+      <div>Request ID: ${escapeHtml(request?.id || "—")}</div>
+      <div>Request status: ${escapeHtml(request?.status || "OPEN")}</div>
+      <div class="mk-ex-muted">This is an exception workflow and will be reviewed by operations.</div>
+      <div class="mk-ex-muted">No return is auto-approved. We may ask for more evidence.</div>
     `;
 
     actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
@@ -599,6 +637,196 @@
     actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
   }
 
+  function findExistingActiveIssue(requests, context) {
+    if (!Array.isArray(requests)) return null;
+    return (
+      requests.find(function (req) {
+        if (!ISSUE_BLOCKING_STATUSES.includes(String(req?.status || ""))) return false;
+        return String(req?.orderNumber || "").trim() === String(context.orderNumber || "").trim();
+      }) || null
+    );
+  }
+
+  function renderExistingIssueStatus(request) {
+    const success = document.getElementById("mk-ex-success");
+    const actions = document.getElementById("mk-ex-form-actions");
+    if (!success || !actions) return;
+
+    const status = String(request?.status || "OPEN");
+    success.style.display = "block";
+    success.className = "mk-ex-success";
+    success.innerHTML = `
+      <strong>Issue request already exists</strong>
+      <div>Request ID: ${escapeHtml(request?.id || "—")}</div>
+      <div>Current status: ${escapeHtml(status)}</div>
+      <div>${escapeHtml(ISSUE_STATUS_DESCRIPTIONS[status] || "Status updated")}</div>
+    `;
+
+    actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
+  }
+
+  function renderIssueModal(context) {
+    closeModal();
+    injectStyles();
+
+    const layer = document.createElement("div");
+    layer.id = MODAL_ID;
+    layer.className = "mk-ex-modal-layer open";
+    layer.innerHTML = `
+      <div class="mk-ex-modal-overlay" data-mk-ex-close="1"></div>
+      <div class="mk-ex-modal" role="dialog" aria-modal="true" aria-label="Issue request">
+        <h3>Report issue</h3>
+        <p class="mk-ex-muted">This is for damaged/wrong/quality exceptions only. Normal returns are not supported.</p>
+
+        <div class="mk-ex-row">
+          <label class="mk-ex-label">Order</label>
+          <input class="mk-ex-input" value="${escapeHtml(context.orderNumber || "")}" readonly />
+        </div>
+
+        <div class="mk-ex-row">
+          <label class="mk-ex-label">Item</label>
+          <input class="mk-ex-input" value="${escapeHtml(context.productTitle || "")}" readonly />
+        </div>
+
+        <div class="mk-ex-row">
+          <label class="mk-ex-label">Issue reason</label>
+          <select class="mk-ex-input" id="mk-issue-reason">
+            <option value="">Select reason</option>
+            <option value="WRONG_ITEM">Wrong item received</option>
+            <option value="DAMAGED_ITEM">Damaged item</option>
+            <option value="QUALITY_ISSUE">Quality issue</option>
+            <option value="OTHER_EXCEPTION">Other approved exception</option>
+          </select>
+        </div>
+
+        <div class="mk-ex-row">
+          <label class="mk-ex-label">Description</label>
+          <textarea class="mk-ex-textarea" id="mk-issue-note" placeholder="Share short issue details."></textarea>
+        </div>
+
+        <div class="mk-ex-row">
+          <label><input type="checkbox" id="mk-issue-unused" /> I confirm item is unused.</label>
+          <label><input type="checkbox" id="mk-issue-unwashed" /> I confirm item is unwashed.</label>
+          <label><input type="checkbox" id="mk-issue-tags" /> I confirm tags are intact.</label>
+          <label><input type="checkbox" id="mk-issue-window" /> I confirm request is within 2 days of delivery.</label>
+        </div>
+
+        <div class="mk-ex-row">
+          <label class="mk-ex-label">Image proof URL(s) (optional, comma-separated)</label>
+          <input class="mk-ex-input" id="mk-issue-image-urls" placeholder="https://... , https://..." />
+        </div>
+
+        <div class="mk-ex-row">
+          <label class="mk-ex-label">Video/unboxing proof URL(s) (optional, comma-separated)</label>
+          <input class="mk-ex-input" id="mk-issue-video-urls" placeholder="https://... , https://..." />
+        </div>
+
+        <div class="mk-ex-error" id="mk-ex-error" style="display:none"></div>
+        <div id="mk-ex-success" style="display:none"></div>
+
+        <div class="mk-ex-actions" id="mk-ex-form-actions">
+          <button class="mk-ex-btn" type="button" data-mk-ex-close="1">Back</button>
+          <button class="mk-ex-btn primary" type="button" id="mk-issue-submit">Submit Issue Request</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(layer);
+
+    layer.addEventListener("click", function (event) {
+      const target = event.target;
+      if (target && target.getAttribute && target.getAttribute("data-mk-ex-close") === "1") {
+        closeModal();
+      }
+    });
+
+    const submitBtn = document.getElementById("mk-issue-submit");
+    if (submitBtn) {
+      submitBtn.addEventListener("click", function () {
+        submitIssue(context);
+      });
+    }
+  }
+
+  function splitUrls(raw) {
+    return String(raw || "")
+      .split(",")
+      .map(function (value) { return value.trim(); })
+      .filter(Boolean)
+      .slice(0, 8);
+  }
+
+  async function submitIssue(context) {
+    clearError();
+    const reason = document.getElementById("mk-issue-reason")?.value?.trim() || "";
+    const customerNote = document.getElementById("mk-issue-note")?.value?.trim() || "";
+    const declaredUnused = Boolean(document.getElementById("mk-issue-unused")?.checked);
+    const declaredUnwashed = Boolean(document.getElementById("mk-issue-unwashed")?.checked);
+    const declaredTagsIntact = Boolean(document.getElementById("mk-issue-tags")?.checked);
+    const declaredWithinWindow = Boolean(document.getElementById("mk-issue-window")?.checked);
+    const imageEvidenceUrls = splitUrls(document.getElementById("mk-issue-image-urls")?.value);
+    const videoEvidenceUrls = splitUrls(document.getElementById("mk-issue-video-urls")?.value);
+
+    if (!context.orderNumber || !context.productTitle) {
+      showError("Order details are missing. Please close and reopen this order.");
+      return;
+    }
+    if (!reason) {
+      showError("Issue reason is required.");
+      return;
+    }
+    if (!declaredUnused || !declaredUnwashed || !declaredTagsIntact || !declaredWithinWindow) {
+      showError("All policy declarations are required for issue requests.");
+      return;
+    }
+
+    const token = await getSessionToken();
+    if (!token) {
+      showError("Session expired. Please login again.");
+      return;
+    }
+
+    try {
+      setSubmittingState(true);
+      const createResponse = await fetch(API_BASE_URL + "/api/requests/issue", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token,
+        },
+        body: JSON.stringify({
+          orderNumber: context.orderNumber,
+          shopifyOrderId: context.shopifyOrderId || null,
+          shopifyLineItemId: context.shopifyLineItemId || null,
+          productTitle: context.productTitle,
+          variantTitle: context.variantTitle || null,
+          reason,
+          customerNote: customerNote || null,
+          deliveredAt: context.deliveredAt || null,
+          fulfilledAt: context.fulfilledAt || null,
+          fulfillmentStatus: context.fulfillmentStatus || null,
+          paymentGatewayName: context.paymentGatewayName || null,
+          declaredUnused,
+          declaredUnwashed,
+          declaredTagsIntact,
+          imageEvidenceUrls,
+          videoEvidenceUrls,
+        }),
+      });
+
+      const data = await createResponse.json().catch(function () { return {}; });
+      if (!createResponse.ok || !data?.request?.id) {
+        throw new Error(String(data?.error || "Issue request creation failed. Please try again."));
+      }
+
+      renderIssueSuccess(data.request);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : "Issue request creation failed. Please try again.");
+    } finally {
+      setSubmittingState(false);
+    }
+  }
+
   async function submitCancellation(context) {
     clearError();
 
@@ -672,6 +900,16 @@
     const title = button.querySelector("strong")?.textContent?.trim()?.toLowerCase() || "";
     return title === "exchange" || button.getAttribute("data-order-action") === "exchange";
   }
+  function looksLikeIssueButton(button) {
+    if (!button || !button.querySelector) return false;
+    const title = button.querySelector("strong")?.textContent?.trim()?.toLowerCase() || "";
+    return (
+      title === "report issue" ||
+      title === "report issue / return request" ||
+      button.getAttribute("data-order-action") === "issue" ||
+      button.getAttribute("data-order-action") === "report-issue"
+    );
+  }
 
   function bindExchangeHook() {
     document.addEventListener("click", function (event) {
@@ -679,7 +917,8 @@
       if (!button) return;
       const isExchangeAction = looksLikeExchangeButton(button);
       const isCancellationAction = looksLikeCancellationButton(button);
-      if (!isExchangeAction && !isCancellationAction) return;
+      const isIssueAction = looksLikeIssueButton(button);
+      if (!isExchangeAction && !isCancellationAction && !isIssueAction) return;
       event.preventDefault();
 
       const context = getDrawerOrderContext(button);
@@ -698,6 +937,8 @@
         }
 
         renderCancellationModal(context);
+      } else if (isIssueAction) {
+        renderIssueModal(context);
       } else {
         renderModal(context);
       }
@@ -707,7 +948,9 @@
           const token = await getSessionToken();
           if (!token) return;
 
-          const endpoint = isCancellationAction ? "/api/requests/cancellation" : "/api/requests/exchange";
+          const endpoint = isCancellationAction
+            ? "/api/requests/cancellation"
+            : (isIssueAction ? "/api/requests/issue" : "/api/requests/exchange");
           const response = await fetch(API_BASE_URL + endpoint, {
             headers: {
               Authorization: "Bearer " + token,
@@ -722,6 +965,14 @@
             const existingCancellation = findExistingActiveCancellation(data?.requests, context);
             if (existingCancellation) {
               renderExistingCancellationStatus(existingCancellation);
+            }
+            return;
+          }
+
+          if (isIssueAction) {
+            const existingIssue = findExistingActiveIssue(data?.requests, context);
+            if (existingIssue) {
+              renderExistingIssueStatus(existingIssue);
             }
             return;
           }
