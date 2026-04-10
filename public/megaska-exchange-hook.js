@@ -32,6 +32,16 @@
     REJECTED: "Request rejected",
   };
 
+
+
+  const CANCELLATION_ACTIVE_STATUSES = ["OPEN", "APPROVED"];
+
+  const CANCELLATION_STATUS_DESCRIPTIONS = {
+    OPEN: "Cancellation request received",
+    APPROVED: "Cancellation approved",
+    REJECTED: "Cancellation request rejected",
+    CLOSED: "Cancellation request closed",
+  };
   function escapeHtml(value) {
     return String(value ?? "")
       .replace(/&/g, "&amp;")
@@ -216,9 +226,34 @@
         getDataValue(drawer, "order-fulfilled-at"),
       ])),
       fulfillmentStatus: normalizeFulfillmentStatus(inferredStatus),
+      financialStatus: readFirstValue([
+        getDataValue(sourceButton, "order-financial-status"),
+        getDataValue(structuredSource, "order-financial-status"),
+        getDataValue(drawer, "order-financial-status"),
+      ]),
     };
   }
 
+
+
+  function normalizeStatusValue(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function isCancellationEligible(context) {
+    const fulfillmentStatus = normalizeStatusValue(context?.fulfillmentStatus);
+    const financialStatus = normalizeStatusValue(context?.financialStatus);
+
+    if (["void", "cancel", "refunded"].some(function (keyword) { return financialStatus.includes(keyword); })) {
+      return { eligible: false, reason: "Order is already cancelled." };
+    }
+
+    if (["fulfilled", "delivered", "shipped", "in transit", "out for delivery", "ready for pickup", "label printed", "partial"].some(function (keyword) { return fulfillmentStatus.includes(keyword); })) {
+      return { eligible: false, reason: "Cancellation is allowed only before dispatch/shipment." };
+    }
+
+    return { eligible: true, reason: "Eligible" };
+  }
   function closeModal() {
     const layer = document.getElementById(MODAL_ID);
     if (layer) {
@@ -291,7 +326,7 @@
     const submitBtn = document.getElementById("mk-ex-submit");
     if (!submitBtn) return;
     submitBtn.disabled = isSubmitting;
-    submitBtn.textContent = isSubmitting ? "Submitting..." : "Submit Exchange Request";
+    submitBtn.textContent = isSubmitting ? "Submitting..." : (submitBtn.id === "mk-cancel-submit" ? "Submit Cancellation Request" : "Submit Exchange Request");
   }
 
   function showError(message) {
@@ -330,6 +365,24 @@
     actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
   }
 
+
+
+  function renderCancellationSuccess(request) {
+    const success = document.getElementById("mk-ex-success");
+    const actions = document.getElementById("mk-ex-form-actions");
+    if (!success || !actions) return;
+
+    success.style.display = "block";
+    success.className = "mk-ex-success";
+    success.innerHTML = `
+      <strong>Cancellation request created</strong>
+      <div>Request ID: ${escapeHtml(request?.id || "—")}</div>
+      <div>Request status: ${escapeHtml(request?.status || "OPEN")}</div>
+      <div class="mk-ex-muted">Our operations team will review this request and update you shortly.</div>
+    `;
+
+    actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
+  }
   function toCustomerSafeError(message) {
     const text = String(message || "").trim();
     if (!text) return "Exchange request creation failed. Please try again.";
@@ -456,6 +509,159 @@
     }
   }
 
+
+
+  function renderCancellationModal(context) {
+    closeModal();
+    injectStyles();
+
+    const layer = document.createElement("div");
+    layer.id = MODAL_ID;
+    layer.className = "mk-ex-modal-layer open";
+    layer.innerHTML = `
+      <div class="mk-ex-modal-overlay" data-mk-ex-close="1"></div>
+      <div class="mk-ex-modal" role="dialog" aria-modal="true" aria-label="Cancellation request">
+        <h3>Cancel order</h3>
+        <p class="mk-ex-muted">Cancellation is allowed only before dispatch/shipment.</p>
+
+        <div class="mk-ex-row">
+          <label class="mk-ex-label">Order</label>
+          <input class="mk-ex-input" value="${escapeHtml(context.orderNumber || "")}" readonly />
+        </div>
+
+        <div class="mk-ex-row">
+          <label class="mk-ex-label">Reason</label>
+          <input class="mk-ex-input" id="mk-cancel-reason" placeholder="e.g. Ordered by mistake" />
+        </div>
+
+        <div class="mk-ex-row">
+          <label class="mk-ex-label">Optional note</label>
+          <textarea class="mk-ex-textarea" id="mk-cancel-note" placeholder="Add any useful detail"></textarea>
+        </div>
+
+        <div class="mk-ex-error" id="mk-ex-error" style="display:none"></div>
+        <div id="mk-ex-success" style="display:none"></div>
+
+        <div class="mk-ex-actions" id="mk-ex-form-actions">
+          <button class="mk-ex-btn" type="button" data-mk-ex-close="1">Back</button>
+          <button class="mk-ex-btn primary" type="button" id="mk-cancel-submit">Submit Cancellation Request</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(layer);
+
+    layer.addEventListener("click", function (event) {
+      const target = event.target;
+      if (target && target.getAttribute && target.getAttribute("data-mk-ex-close") === "1") {
+        closeModal();
+      }
+    });
+
+    const submitBtn = document.getElementById("mk-cancel-submit");
+    if (submitBtn) {
+      submitBtn.addEventListener("click", function () {
+        submitCancellation(context);
+      });
+    }
+  }
+
+  function findExistingActiveCancellation(requests, context) {
+    if (!Array.isArray(requests)) return null;
+    return (
+      requests.find(function (req) {
+        if (!CANCELLATION_ACTIVE_STATUSES.includes(String(req?.status || ""))) return false;
+        return String(req?.orderNumber || "").trim() === String(context.orderNumber || "").trim();
+      }) || null
+    );
+  }
+
+  function renderExistingCancellationStatus(request) {
+    const success = document.getElementById("mk-ex-success");
+    const actions = document.getElementById("mk-ex-form-actions");
+    if (!success || !actions) return;
+
+    const status = String(request?.status || "OPEN");
+    success.style.display = "block";
+    success.className = "mk-ex-success";
+    success.innerHTML = `
+      <strong>Cancellation request already exists</strong>
+      <div>Request ID: ${escapeHtml(request?.id || "—")}</div>
+      <div>Current status: ${escapeHtml(status)}</div>
+      <div>${escapeHtml(CANCELLATION_STATUS_DESCRIPTIONS[status] || "Status updated")}</div>
+    `;
+
+    actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
+  }
+
+  async function submitCancellation(context) {
+    clearError();
+
+    const reason = document.getElementById("mk-cancel-reason")?.value?.trim() || "";
+    const customerNote = document.getElementById("mk-cancel-note")?.value?.trim() || "";
+
+    if (!context.orderNumber) {
+      showError("Order details are missing. Please close and reopen this order.");
+      return;
+    }
+
+    const eligibility = isCancellationEligible(context);
+    if (!eligibility.eligible) {
+      showError(eligibility.reason);
+      return;
+    }
+
+    if (!reason) {
+      showError("Cancellation reason is required.");
+      return;
+    }
+
+    const token = await getSessionToken();
+    if (!token) {
+      showError("Session expired. Please login again.");
+      return;
+    }
+
+    try {
+      setSubmittingState(true);
+
+      const createResponse = await fetch(API_BASE_URL + "/api/requests/cancellation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token,
+        },
+        body: JSON.stringify({
+          orderNumber: context.orderNumber,
+          shopifyOrderId: context.shopifyOrderId || null,
+          fulfillmentStatus: context.fulfillmentStatus || null,
+          financialStatus: context.financialStatus || null,
+          reason,
+          customerNote: customerNote || null,
+        }),
+      });
+
+      const data = await createResponse.json().catch(function () {
+        return {};
+      });
+
+      if (!createResponse.ok || !data?.request?.id) {
+        throw new Error(String(data?.error || "Cancellation request creation failed. Please try again."));
+      }
+
+      renderCancellationSuccess(data.request);
+    } catch (error) {
+      showError(error instanceof Error ? error.message : "Cancellation request creation failed. Please try again.");
+    } finally {
+      setSubmittingState(false);
+    }
+  }
+
+  function looksLikeCancellationButton(button) {
+    if (!button || !button.querySelector) return false;
+    const title = button.querySelector("strong")?.textContent?.trim()?.toLowerCase() || "";
+    return title === "cancel order" || title === "cancel" || button.getAttribute("data-order-action") === "cancellation";
+  }
   function looksLikeExchangeButton(button) {
     if (!button || !button.querySelector) return false;
     const title = button.querySelector("strong")?.textContent?.trim()?.toLowerCase() || "";
@@ -465,19 +671,39 @@
   function bindExchangeHook() {
     document.addEventListener("click", function (event) {
       const button = event.target && event.target.closest ? event.target.closest(".mk-order-action-item") : null;
-      if (!button || !looksLikeExchangeButton(button)) return;
+      if (!button) return;
+      const isExchangeAction = looksLikeExchangeButton(button);
+      const isCancellationAction = looksLikeCancellationButton(button);
+      if (!isExchangeAction && !isCancellationAction) return;
       event.preventDefault();
 
       const context = getDrawerOrderContext(button);
       if (!context) return;
-      renderModal(context);
+
+      if (isCancellationAction) {
+        const cancellationEligibility = isCancellationEligible(context);
+        if (!cancellationEligibility.eligible) {
+          renderCancellationModal(context);
+          showError(cancellationEligibility.reason);
+          const actions = document.getElementById("mk-ex-form-actions");
+          if (actions) {
+            actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
+          }
+          return;
+        }
+
+        renderCancellationModal(context);
+      } else {
+        renderModal(context);
+      }
 
       (async function () {
         try {
           const token = await getSessionToken();
           if (!token) return;
 
-          const response = await fetch(API_BASE_URL + "/api/requests/exchange", {
+          const endpoint = isCancellationAction ? "/api/requests/cancellation" : "/api/requests/exchange";
+          const response = await fetch(API_BASE_URL + endpoint, {
             headers: {
               Authorization: "Bearer " + token,
             },
@@ -486,6 +712,14 @@
             return {};
           });
           if (!response.ok) return;
+
+          if (isCancellationAction) {
+            const existingCancellation = findExistingActiveCancellation(data?.requests, context);
+            if (existingCancellation) {
+              renderExistingCancellationStatus(existingCancellation);
+            }
+            return;
+          }
 
           const existing = findExistingActiveRequest(data?.requests, context);
           if (existing) {
