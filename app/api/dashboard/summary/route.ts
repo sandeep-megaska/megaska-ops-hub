@@ -194,6 +194,32 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    const issueRequests = orderNumbers.length
+      ? await prisma.orderActionRequest.findMany({
+          where: {
+            customerProfileId: customer.id,
+            requestType: "ISSUE",
+            orderNumber: { in: orderNumbers },
+          },
+          orderBy: { requestedAt: "desc" },
+          select: {
+            orderNumber: true,
+            status: true,
+            requestedAt: true,
+          },
+        })
+      : [];
+
+    const latestIssueByOrder = new Map<string, { status: string; requestedAt: Date }>();
+    for (const request of issueRequests) {
+      if (!latestIssueByOrder.has(request.orderNumber)) {
+        latestIssueByOrder.set(request.orderNumber, {
+          status: request.status,
+          requestedAt: request.requestedAt,
+        });
+      }
+    }
+
     const openRequests = cancellationRequests.filter((request) => isCancellationStatusBlocking(request.status)).length;
 
     const response = {
@@ -237,11 +263,13 @@ export async function GET(req: NextRequest) {
         const orderNumber = String(order?.name || "").trim();
         const latestCancellation = latestCancellationByOrder.get(orderNumber);
         const latestExchange = latestExchangeByOrder.get(orderNumber);
+        const latestIssue = latestIssueByOrder.get(orderNumber);
 
         return {
           ...order,
           latestCancellationStatus: latestCancellation?.status || null,
           latestExchangeStatus: latestExchange?.status || null,
+          latestIssueStatus: latestIssue?.status || null,
           hasActiveExchangeRequest: ACTIVE_EXCHANGE_STATUSES.includes(
             String(latestExchange?.status || "").trim().toUpperCase() as (typeof ACTIVE_EXCHANGE_STATUSES)[number]
           ),
