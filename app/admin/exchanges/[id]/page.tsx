@@ -11,6 +11,18 @@ function getStockReviewNote(snapshot: unknown) {
   return value || null;
 }
 
+function getOptionalDateValue(record: unknown, key: string) {
+  if (!record || typeof record !== "object") return null;
+  const value = (record as Record<string, unknown>)[key];
+  return value instanceof Date ? value.toISOString() : null;
+}
+
+function getOptionalStringValue(record: unknown, key: string) {
+  if (!record || typeof record !== "object") return null;
+  const value = (record as Record<string, unknown>)[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
 export default async function AdminExchangeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const request = await prisma.orderActionRequest.findFirst({
@@ -89,9 +101,9 @@ export default async function AdminExchangeDetailPage({ params }: { params: Prom
         <p>Carrier: {reverseShipment?.carrier || "-"}</p>
         <p>AWB: {reverseShipment?.awb || "-"}</p>
         <p>Tracking URL: {reverseShipment?.trackingUrl || "-"}</p>
-        <p>Pickup Date: {reverseShipment?.pickupAt?.toISOString() || "-"}</p>
-        <p>Delivered Date: {reverseShipment?.deliveredAt?.toISOString() || "-"}</p>
-        <p>Remarks: {reverseShipment?.remarks || "-"}</p>
+        <p>Pickup Date: {getOptionalDateValue(reverseShipment, "pickupAt") || "-"}</p>
+        <p>Delivered Date: {getOptionalDateValue(reverseShipment, "deliveredAt") || "-"}</p>
+        <p>Remarks: {getOptionalStringValue(reverseShipment, "remarks") || "-"}</p>
       </section>
 
       <section>
@@ -100,9 +112,9 @@ export default async function AdminExchangeDetailPage({ params }: { params: Prom
         <p>Carrier: {forwardShipment?.carrier || "-"}</p>
         <p>AWB: {forwardShipment?.awb || "-"}</p>
         <p>Tracking URL: {forwardShipment?.trackingUrl || "-"}</p>
-        <p>Shipped Date: {forwardShipment?.shippedAt?.toISOString() || "-"}</p>
-        <p>Delivered Date: {forwardShipment?.deliveredAt?.toISOString() || "-"}</p>
-        <p>Remarks: {forwardShipment?.remarks || "-"}</p>
+        <p>Shipped Date: {getOptionalDateValue(forwardShipment, "shippedAt") || "-"}</p>
+        <p>Delivered Date: {getOptionalDateValue(forwardShipment, "deliveredAt") || "-"}</p>
+        <p>Remarks: {getOptionalStringValue(forwardShipment, "remarks") || "-"}</p>
       </section>
 
       <ExchangeLifecycleControls requestId={request.id} currentStatus={request.status} allowedTransitions={nextTransitions} currentAdminNote={request.adminNote || ""} />
