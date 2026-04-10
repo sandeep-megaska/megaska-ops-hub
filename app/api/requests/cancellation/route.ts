@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withCors, handleOptions } from "../../_lib/cors";
 import { prisma } from "../../../../services/db/prisma";
 import { getAuthenticatedCustomer } from "../../../../services/exchange/auth";
-import { CANCELLATION_ACTIVE_STATUSES, evaluateCancellationEligibility } from "../../../../services/exchange/cancellation";
+import { evaluateCancellationEligibility, isCancellationStatusBlocking } from "../../../../services/exchange/cancellation";
 
 export const runtime = "nodejs";
 
@@ -40,20 +40,26 @@ export async function POST(req: NextRequest) {
       return withCors(req, NextResponse.json({ error: eligibility.reason }, { status: 400 }));
     }
 
-    const existingActiveRequest = await prisma.orderActionRequest.findFirst({
+    const existingBlockingRequest = await prisma.orderActionRequest.findFirst({
       where: {
         customerProfileId: session.customer.id,
         requestType: "CANCELLATION",
         orderNumber,
-        status: { in: [...CANCELLATION_ACTIVE_STATUSES] },
+        status: { in: ["OPEN", "APPROVED", "CLOSED"] },
       },
       select: { id: true, status: true },
     });
 
-    if (existingActiveRequest) {
+    if (existingBlockingRequest && isCancellationStatusBlocking(existingBlockingRequest.status)) {
+      const status = String(existingBlockingRequest.status || "").trim().toUpperCase();
+      const error =
+        status === "CLOSED"
+          ? "Order cancellation is already finalized for this order."
+          : "A cancellation request already exists for this order.";
+
       return withCors(
         req,
-        NextResponse.json({ error: "An active cancellation request already exists for this order." }, { status: 400 })
+        NextResponse.json({ error }, { status: 400 })
       );
     }
 

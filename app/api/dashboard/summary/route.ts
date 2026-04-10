@@ -7,6 +7,7 @@ import {
   getShopifyCustomerDashboardData,
   isShopifyAdminConfigured,
 } from "../../../../services/shopify/admin";
+import { isCancellationStatusBlocking } from "../../../../services/exchange/cancellation";
 
 export async function OPTIONS(req: NextRequest) {
   return handleOptions(req);
@@ -136,6 +137,37 @@ export async function GET(req: NextRequest) {
         : 0;
 
     const totalOrders = Number(shopifyDashboard?.totalOrderCount || 0);
+    const orderNumbers = Array.isArray(shopifyDashboard?.recentOrders)
+      ? shopifyDashboard.recentOrders.map((order) => String(order?.name || "").trim()).filter(Boolean)
+      : [];
+
+    const cancellationRequests = orderNumbers.length
+      ? await prisma.orderActionRequest.findMany({
+          where: {
+            customerProfileId: customer.id,
+            requestType: "CANCELLATION",
+            orderNumber: { in: orderNumbers },
+          },
+          orderBy: { requestedAt: "desc" },
+          select: {
+            orderNumber: true,
+            status: true,
+            requestedAt: true,
+          },
+        })
+      : [];
+
+    const latestCancellationByOrder = new Map<string, { status: string; requestedAt: Date }>();
+    for (const request of cancellationRequests) {
+      if (!latestCancellationByOrder.has(request.orderNumber)) {
+        latestCancellationByOrder.set(request.orderNumber, {
+          status: request.status,
+          requestedAt: request.requestedAt,
+        });
+      }
+    }
+
+    const openRequests = cancellationRequests.filter((request) => isCancellationStatusBlocking(request.status)).length;
 
     const response = {
       customer: {
@@ -152,7 +184,7 @@ export async function GET(req: NextRequest) {
       },
       stats: {
         totalOrders,
-        openRequests: 0,
+        openRequests,
         savedAddresses: savedAddressCount,
       },
       address: shopifyDashboard?.defaultAddress
@@ -174,7 +206,15 @@ export async function GET(req: NextRequest) {
               country: customer.countryRegion || null,
             }
           : null,
-      orders: shopifyDashboard?.recentOrders || [],
+      orders: (shopifyDashboard?.recentOrders || []).map((order) => {
+        const orderNumber = String(order?.name || "").trim();
+        const latestCancellation = latestCancellationByOrder.get(orderNumber);
+
+        return {
+          ...order,
+          latestCancellationStatus: latestCancellation?.status || null,
+        };
+      }),
     };
 
     return withCors(req, NextResponse.json(response));
