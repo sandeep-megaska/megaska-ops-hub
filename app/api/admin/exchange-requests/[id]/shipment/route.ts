@@ -42,6 +42,8 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    const dateFields = { pickupAt, shippedAt, deliveredAt } as Record<string, Date | null>;
+
     const shipment = await prisma.shipmentTracking.upsert({
       where: {
         requestId_direction: {
@@ -56,20 +58,16 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         awb: String(body?.awb || "").trim() || null,
         trackingUrl: String(body?.trackingUrl || "").trim() || null,
         status: status as never,
-        pickupAt,
-        shippedAt,
-        deliveredAt,
         remarks: String(body?.remarks || "").trim() || null,
+        ...dateFields,
       },
       update: {
         carrier: String(body?.carrier || "").trim() || null,
         awb: String(body?.awb || "").trim() || null,
         trackingUrl: String(body?.trackingUrl || "").trim() || null,
         status: status as never,
-        pickupAt,
-        shippedAt,
-        deliveredAt,
         remarks: String(body?.remarks || "").trim() || null,
+        ...dateFields,
       },
     });
 
