@@ -58,7 +58,6 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         awb: String(body?.awb || "").trim() || null,
         trackingUrl: String(body?.trackingUrl || "").trim() || null,
         status: status as never,
-        remarks: String(body?.remarks || "").trim() || null,
         ...dateFields,
       },
       update: {
@@ -66,7 +65,6 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         awb: String(body?.awb || "").trim() || null,
         trackingUrl: String(body?.trackingUrl || "").trim() || null,
         status: status as never,
-        remarks: String(body?.remarks || "").trim() || null,
         ...dateFields,
       },
     });
