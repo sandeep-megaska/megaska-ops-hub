@@ -1,4 +1,5 @@
 import { prisma } from "../../../../services/db/prisma";
+import ExchangeLifecycleControls from "./ExchangeLifecycleControls";
 
 export const dynamic = "force-dynamic";
 
@@ -24,64 +25,70 @@ export default async function AdminExchangeDetailPage({ params }: { params: Prom
     return <main style={{ padding: 24 }}>Exchange request not found.</main>;
   }
 
+  const reverseShipment = request.shipments.find((shipment) => shipment.direction === "REVERSE_PICKUP");
+  const forwardShipment = request.shipments.find((shipment) => shipment.direction === "FORWARD_REPLACEMENT");
+
   return (
     <main style={{ padding: 24, display: "grid", gap: 16 }}>
       <h1>Exchange Request {request.id}</h1>
+
+      <section>
+        <h3>Request Summary</h3>
+        <p>Status: {request.status}</p>
+        <p>Requested At: {request.requestedAt.toISOString()}</p>
+        <p>Request Type: {request.requestType}</p>
+      </section>
+
       <section>
         <h3>Customer Summary</h3>
         <p>Name: {request.customerNameSnapshot || "-"}</p>
         <p>Phone: {request.customerPhoneSnapshot || "-"}</p>
         <p>Email: {request.customerEmailSnapshot || "-"}</p>
       </section>
+
       <section>
-        <h3>Order Summary</h3>
+        <h3>Order / Item Summary</h3>
         <p>Order Number: {request.orderNumber}</p>
         <p>Order Amount: {request.orderAmountSnapshot || "-"}</p>
         <p>Delivery Date: {request.deliveryDateSnapshot?.toISOString() || "-"}</p>
-      </section>
-      <section>
-        <h3>Item Summary</h3>
         {request.items.map((item) => (
-          <article key={item.id} style={{ border: "1px solid #ddd", padding: 12, marginBottom: 8 }}>
-            <p>{item.productTitle}</p>
+          <article key={item.id} style={{ border: "1px solid #ddd", padding: 12, marginTop: 8 }}>
+            <p>Product: {item.productTitle}</p>
             <p>Current Size: {item.currentSize || "-"}</p>
             <p>Requested Size: {item.requestedSize}</p>
-            <p>Reason: {request.reason || "-"}</p>
             <p>Stock Review Note: {getStockReviewNote(item.eligibilitySnapshot) || "-"}</p>
           </article>
         ))}
       </section>
+
       <section>
-        <h3>Eligibility</h3>
+        <h3>Eligibility Summary</h3>
         <p>Decision: {request.eligibilityDecision || "-"}</p>
         <p>Reason: {request.eligibilityReason || "-"}</p>
       </section>
+
       <section>
-        <h3>Payment</h3>
-        {request.payments.map((payment) => (
-          <article key={payment.id} style={{ border: "1px solid #ddd", padding: 12, marginBottom: 8 }}>
-            <p>Status: {payment.status}</p>
-            <p>Amount: {payment.amount / 100} INR</p>
-            <p>Link: {payment.paymentLinkUrl || "-"}</p>
-          </article>
-        ))}
+        <h3>Reverse Shipment</h3>
+        <p>Shipment Status: {reverseShipment?.status || "NOT_STARTED"}</p>
+        <p>Carrier: {reverseShipment?.carrier || "-"}</p>
+        <p>AWB: {reverseShipment?.awb || "-"}</p>
+        <p>Tracking URL: {reverseShipment?.trackingUrl || "-"}</p>
       </section>
+
       <section>
-        <h3>Shipments</h3>
-        {request.shipments.map((shipment) => (
-          <article key={shipment.id} style={{ border: "1px solid #ddd", padding: 12, marginBottom: 8 }}>
-            <p>Direction: {shipment.direction}</p>
-            <p>Status: {shipment.status}</p>
-            <p>Carrier: {shipment.carrier || "-"}</p>
-            <p>AWB: {shipment.awb || "-"}</p>
-            <p>Tracking URL: {shipment.trackingUrl || "-"}</p>
-          </article>
-        ))}
+        <h3>Replacement Shipment</h3>
+        <p>Shipment Status: {forwardShipment?.status || "NOT_STARTED"}</p>
+        <p>Carrier: {forwardShipment?.carrier || "-"}</p>
+        <p>AWB: {forwardShipment?.awb || "-"}</p>
+        <p>Tracking URL: {forwardShipment?.trackingUrl || "-"}</p>
       </section>
+
       <section>
-        <h3>Admin Note</h3>
+        <h3>Admin Notes</h3>
         <p>{request.adminNote || "-"}</p>
       </section>
+
+      <ExchangeLifecycleControls requestId={request.id} />
     </main>
   );
 }

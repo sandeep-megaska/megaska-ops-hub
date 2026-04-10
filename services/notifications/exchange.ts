@@ -1,66 +1,77 @@
-import { getOpsNotificationConfig, sendEmailWithResend } from "./resend";
+import { sendAdminAlert } from "./resend";
+import { EXCHANGE_STATUS_DESCRIPTIONS } from "../exchange/lifecycle";
 
-type ExchangeEmailPayload = {
+type ExchangeNotifyPayload = {
   requestId: string;
+  orderNumber: string;
+  status: string;
   customerName?: string | null;
   customerPhone?: string | null;
   customerEmail?: string | null;
-  orderNumber: string;
-  itemTitle: string;
+  itemTitle?: string | null;
   currentSize?: string | null;
-  requestedSize: string;
-  reason?: string | null;
-  createdAt: string;
-  status: string;
+  requestedSize?: string | null;
+  adminNote?: string | null;
 };
 
-function escapeHtml(value: string | null | undefined) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+function buildBody(payload: ExchangeNotifyPayload) {
+  const appBaseUrl = String(process.env.APP_BASE_URL || "").trim().replace(/\/$/, "");
+  const adminUrl = appBaseUrl ? `${appBaseUrl}/admin/exchanges/${encodeURIComponent(payload.requestId)}` : "-";
+  const statusDescription = EXCHANGE_STATUS_DESCRIPTIONS[payload.status] || payload.status;
+
+  return [
+    `Request ID: ${payload.requestId}`,
+    `Order Number: ${payload.orderNumber}`,
+    `Current Status: ${payload.status} (${statusDescription})`,
+    `Customer Name: ${payload.customerName || "-"}`,
+    `Customer Phone: ${payload.customerPhone || "-"}`,
+    `Customer Email: ${payload.customerEmail || "-"}`,
+    `Product Title: ${payload.itemTitle || "-"}`,
+    `Current Size: ${payload.currentSize || "-"}`,
+    `Requested Size: ${payload.requestedSize || "-"}`,
+    `Admin Note: ${payload.adminNote || "-"}`,
+    `Admin URL: ${adminUrl}`,
+  ].join("\n");
 }
 
-export async function sendExchangeRequestCreatedEmail(payload: ExchangeEmailPayload) {
-  const config = getOpsNotificationConfig();
-  if (!config.enabled) return;
+export async function sendExchangeTeamAlert(eventName: string, subject: string, payload: ExchangeNotifyPayload) {
+  const result = await sendAdminAlert(subject, buildBody(payload));
 
-  const appBaseUrl = String(process.env.APP_BASE_URL || "").trim().replace(/\/$/, "");
-  const adminUrl = appBaseUrl ? `${appBaseUrl}/admin/exchanges/${encodeURIComponent(payload.requestId)}` : null;
+  if (result.skipped) return;
 
-  const subject = `New Exchange Request #${payload.requestId}`;
-  const createdAtLabel = new Date(payload.createdAt).toISOString();
-
-  const html = `
-    <h2>New exchange request created</h2>
-    <p><strong>Request ID:</strong> ${escapeHtml(payload.requestId)}</p>
-    <p><strong>Status:</strong> ${escapeHtml(payload.status)}</p>
-    <p><strong>Created at:</strong> ${escapeHtml(createdAtLabel)}</p>
-    <hr />
-    <p><strong>Customer name:</strong> ${escapeHtml(payload.customerName || "-")}</p>
-    <p><strong>Customer phone:</strong> ${escapeHtml(payload.customerPhone || "-")}</p>
-    <p><strong>Customer email:</strong> ${escapeHtml(payload.customerEmail || "-")}</p>
-    <hr />
-    <p><strong>Order number:</strong> ${escapeHtml(payload.orderNumber)}</p>
-    <p><strong>Item title:</strong> ${escapeHtml(payload.itemTitle)}</p>
-    <p><strong>Current size:</strong> ${escapeHtml(payload.currentSize || "-")}</p>
-    <p><strong>Requested size:</strong> ${escapeHtml(payload.requestedSize)}</p>
-    <p><strong>Reason / note:</strong> ${escapeHtml(payload.reason || "-")}</p>
-    ${adminUrl ? `<p><strong>Admin URL:</strong> <a href="${escapeHtml(adminUrl)}">${escapeHtml(adminUrl)}</a></p>` : ""}
-  `;
-
-  await sendEmailWithResend(
-    {
-      from: config.from,
-      to: config.to,
-      cc: config.cc,
-      subject,
-      html,
-    },
-    {
+  if (result.success) {
+    console.info("[EXCHANGE NOTIFY] Email sent", {
       requestId: payload.requestId,
-    }
-  );
+      eventName,
+      providerMessageId: result.messageId || null,
+    });
+    return;
+  }
+
+  console.error("[EXCHANGE NOTIFY] Email failed", {
+    requestId: payload.requestId,
+    eventName,
+  });
+}
+
+export async function sendExchangeRequestCreatedEmail(payload: ExchangeNotifyPayload) {
+  await sendExchangeTeamAlert("REQUEST_CREATED", `New exchange request: #${payload.orderNumber}`, payload);
+}
+
+export async function sendExchangeStatusChangedEmail(payload: ExchangeNotifyPayload) {
+  const eventByStatus: Record<string, { event: string; subject: string } | undefined> = {
+    APPROVED: { event: "APPROVED", subject: `Exchange approved: #${payload.orderNumber}` },
+    REJECTED: { event: "REJECTED", subject: `Exchange rejected: #${payload.orderNumber}` },
+    PICKUP_COMPLETED: {
+      event: "REVERSE_PICKUP_COMPLETED",
+      subject: `Reverse pickup completed: #${payload.orderNumber}`,
+    },
+    REPLACEMENT_SHIPPED: { event: "REPLACEMENT_SHIPPED", subject: `Replacement shipped: #${payload.orderNumber}` },
+    CLOSED: { event: "CLOSED", subject: `Exchange closed: #${payload.orderNumber}` },
+  };
+
+  const config = eventByStatus[payload.status];
+  if (!config) return;
+
+  await sendExchangeTeamAlert(config.event, config.subject, payload);
 }
