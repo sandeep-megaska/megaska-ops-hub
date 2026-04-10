@@ -3,6 +3,35 @@
   const SESSION_STORAGE_KEY = "megaska_session_token";
   const MODAL_ID = "mk-exchange-modal-layer";
 
+
+  const ACTIVE_STATUSES = [
+    "OPEN",
+    "AWAITING_PAYMENT",
+    "PAYMENT_RECEIVED",
+    "APPROVED",
+    "PICKUP_PENDING",
+    "PICKUP_SCHEDULED",
+    "PICKUP_COMPLETED",
+    "ITEM_RECEIVED",
+    "REPLACEMENT_PROCESSING",
+    "REPLACEMENT_SHIPPED",
+  ];
+
+  const STATUS_DESCRIPTIONS = {
+    OPEN: "Request received",
+    AWAITING_PAYMENT: "Under review",
+    PAYMENT_RECEIVED: "Approved for exchange",
+    APPROVED: "Approved for exchange",
+    PICKUP_PENDING: "Reverse pickup pending",
+    PICKUP_SCHEDULED: "Reverse pickup scheduled",
+    PICKUP_COMPLETED: "Pickup completed",
+    ITEM_RECEIVED: "Item received at warehouse",
+    REPLACEMENT_PROCESSING: "Replacement being processed",
+    REPLACEMENT_SHIPPED: "Replacement shipped",
+    CLOSED: "Exchange completed",
+    REJECTED: "Request rejected",
+  };
+
   function escapeHtml(value) {
     return String(value ?? "")
       .replace(/&/g, "&amp;")
@@ -181,6 +210,11 @@
       ]),
       displayMeta: metaText,
       deliveredAt: normalizeDeliveredAt(deliveredAt),
+      fulfilledAt: normalizeDeliveredAt(readFirstValue([
+        getDataValue(sourceButton, "order-fulfilled-at"),
+        getDataValue(structuredSource, "order-fulfilled-at"),
+        getDataValue(drawer, "order-fulfilled-at"),
+      ])),
       fulfillmentStatus: normalizeFulfillmentStatus(inferredStatus),
     };
   }
@@ -305,12 +339,56 @@
       text.includes("Exchange requests cannot be processed more than") ||
       text.includes("Requested size is required") ||
       text.includes("Current size and requested size are identical") ||
-      text.includes("already have an open exchange request")
+      text.includes("already have an open exchange request") ||
+      text.includes("An exchange request already exists for this order")
     ) {
       return text;
     }
 
     return "Exchange request creation failed. Please try again.";
+  }
+
+  function findExistingActiveRequest(requests, context) {
+    if (!Array.isArray(requests)) return null;
+    return (
+      requests.find(function (req) {
+        if (!ACTIVE_STATUSES.includes(String(req?.status || ""))) return false;
+        if (String(req?.orderNumber || "").trim() !== String(context.orderNumber || "").trim()) return false;
+        const items = Array.isArray(req?.items) ? req.items : [];
+        if (!items.length) return true;
+        if (context.shopifyLineItemId) {
+          return items.some(function (item) {
+            return String(item?.shopifyLineItemId || "").trim() === String(context.shopifyLineItemId || "").trim();
+          });
+        }
+        return items.some(function (item) {
+          return String(item?.productTitle || "").trim().toLowerCase() === String(context.productTitle || "").trim().toLowerCase();
+        });
+      }) || null
+    );
+  }
+
+  function renderExistingRequestStatus(request) {
+    const success = document.getElementById("mk-ex-success");
+    const actions = document.getElementById("mk-ex-form-actions");
+    if (!success || !actions) return;
+
+    success.style.display = "block";
+    success.className = "mk-ex-success";
+
+    const status = String(request?.status || "OPEN");
+    const stockReview = String(request?.items?.[0]?.eligibilitySnapshot?.stockReviewMessage || "").trim();
+
+    success.innerHTML = `
+      <strong>Exchange request already exists</strong>
+      <div>Request ID: ${escapeHtml(request?.id || "—")}</div>
+      <div>Current status: ${escapeHtml(status)}</div>
+      <div>${escapeHtml(STATUS_DESCRIPTIONS[status] || "Status updated")}</div>
+      <div class="mk-ex-muted">Payment: Manual support follow-up (if applicable)</div>
+      ${stockReview ? `<div class="mk-ex-muted">${escapeHtml(stockReview)}</div>` : ""}
+    `;
+
+    actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
   }
 
   async function submitExchange(context) {
@@ -356,6 +434,7 @@
           variantTitle: context.variantTitle || null,
           sku: context.sku || null,
           deliveredAt: context.deliveredAt || null,
+          fulfilledAt: context.fulfilledAt || null,
           fulfillmentStatus: context.fulfillmentStatus || null,
           quantity: 1,
         }),
@@ -392,6 +471,28 @@
       const context = getDrawerOrderContext(button);
       if (!context) return;
       renderModal(context);
+
+      (async function () {
+        try {
+          const token = await getSessionToken();
+          if (!token) return;
+
+          const response = await fetch(API_BASE_URL + "/api/requests/exchange", {
+            headers: {
+              Authorization: "Bearer " + token,
+            },
+          });
+          const data = await response.json().catch(function () {
+            return {};
+          });
+          if (!response.ok) return;
+
+          const existing = findExistingActiveRequest(data?.requests, context);
+          if (existing) {
+            renderExistingRequestStatus(existing);
+          }
+        } catch {}
+      })();
     });
 
     document.addEventListener("keydown", function (event) {

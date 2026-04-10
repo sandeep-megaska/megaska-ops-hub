@@ -4,6 +4,7 @@ import { prisma } from "../../../../services/db/prisma";
 import { getAuthenticatedCustomer } from "../../../../services/exchange/auth";
 import { evaluateExchangeEligibility } from "../../../../services/exchange/eligibility";
 import { sendExchangeRequestCreatedEmail } from "../../../../services/notifications/exchange";
+import { ACTIVE_EXCHANGE_STATUSES } from "../../../../services/exchange/lifecycle";
 
 export const runtime = "nodejs";
 
@@ -28,6 +29,8 @@ export async function POST(req: NextRequest) {
     const reason = String(body?.reason || "").trim();
     const customerNote = String(body?.customerNote || "").trim() || null;
     const deliveredAtRaw = String(body?.deliveredAt || "").trim() || null;
+    const fulfilledAtRaw = String(body?.fulfilledAt || "").trim() || null;
+    const effectiveDeliveredAt = deliveredAtRaw || fulfilledAtRaw;
     const fulfillmentStatus = String(body?.fulfillmentStatus || "").trim() || null;
     const quantity = Number(body?.quantity || 1);
     const amountSnapshot = String(body?.orderAmountSnapshot || "").trim() || null;
@@ -43,7 +46,7 @@ export async function POST(req: NextRequest) {
       productTitle,
       variantTitle,
       reason,
-      deliveredAt: deliveredAtRaw,
+      deliveredAt: effectiveDeliveredAt,
       fulfillmentStatus,
     });
 
@@ -51,59 +54,28 @@ export async function POST(req: NextRequest) {
       return withCors(req, NextResponse.json({ error: eligibility.reason }, { status: 400 }));
     }
 
-    const activeStatuses = [
-      "OPEN",
-      "AWAITING_PAYMENT",
-      "PAYMENT_RECEIVED",
-      "PICKUP_PENDING",
-      "PICKUP_SCHEDULED",
-      "PICKUP_COMPLETED",
-      "ITEM_RECEIVED",
-      "APPROVED",
-      "REPLACEMENT_PROCESSING",
-      "REPLACEMENT_SHIPPED",
-    ] as const;
-
-    const duplicateWhere = {
-      customerProfileId: session.customer.id,
-      requestType: "EXCHANGE" as const,
-      orderNumber,
-      status: { in: [...activeStatuses] },
-      items: {
-        some: {
-          ...(shopifyLineItemId
-            ? { shopifyLineItemId }
-            : {
-                productTitle: { equals: productTitle, mode: "insensitive" as const },
-                ...(variantTitle
-                  ? { variantTitle: { equals: variantTitle, mode: "insensitive" as const } }
-                  : {}),
-              }),
+    const existingActiveRequest = await prisma.orderActionRequest.findFirst({
+      where: {
+        customerProfileId: session.customer.id,
+        requestType: "EXCHANGE",
+        orderNumber,
+        status: { in: [...ACTIVE_EXCHANGE_STATUSES] },
+        items: {
+          some: {
+            ...(shopifyLineItemId
+              ? { shopifyLineItemId }
+              : {
+                  productTitle: { equals: productTitle, mode: "insensitive" as const },
+                  ...(variantTitle ? { variantTitle: { equals: variantTitle, mode: "insensitive" as const } } : {}),
+                }),
+          },
         },
       },
-    };
-
-    const existingActiveRequest = await prisma.orderActionRequest.findFirst({
-      where: duplicateWhere,
-      select: {
-        id: true,
-        status: true,
-        requestedAt: true,
-      },
-      orderBy: { requestedAt: "desc" },
+      select: { id: true },
     });
 
     if (existingActiveRequest) {
-      return withCors(
-        req,
-        NextResponse.json(
-          {
-            error:
-              "You already have an open exchange request for this item in this order. Please wait for an update before submitting another request.",
-          },
-          { status: 409 }
-        )
-      );
+      return withCors(req, NextResponse.json({ error: "An exchange request already exists for this order." }, { status: 400 }));
     }
 
     const initialStatus = eligibility.decision === "ELIGIBLE" ? "AWAITING_PAYMENT" : "OPEN";
@@ -125,7 +97,7 @@ export async function POST(req: NextRequest) {
         customerPhoneSnapshot: session.customer.phoneE164,
         customerEmailSnapshot: session.customer.email,
         orderAmountSnapshot: amountSnapshot,
-        deliveryDateSnapshot: deliveredAtRaw ? new Date(deliveredAtRaw) : null,
+        deliveryDateSnapshot: effectiveDeliveredAt ? new Date(effectiveDeliveredAt) : null,
         eligibilityDecision: eligibility.decision,
         eligibilityReason: eligibility.reason,
         items: {
@@ -158,17 +130,7 @@ export async function POST(req: NextRequest) {
       itemTitle: created.items[0]?.productTitle || productTitle,
       currentSize: created.items[0]?.currentSize || currentSize,
       requestedSize: created.items[0]?.requestedSize || requestedSize,
-      reason: created.reason || created.customerNote,
-      createdAt: created.requestedAt.toISOString(),
       status: created.status,
-    }).catch((error) => {
-      console.error("[EXCHANGE NOTIFY] Failed to send exchange creation email", {
-        requestId: created.id,
-        errorName: error instanceof Error ? error.name : null,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        errorStack: error instanceof Error ? error.stack : null,
-        errorCause: error instanceof Error ? String(error.cause || "") || null : null,
-      });
     });
 
     return withCors(

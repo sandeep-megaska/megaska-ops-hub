@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../../../services/db/prisma";
+import { allowedStatusTransitions } from "../../../../../../services/exchange/lifecycle";
+import { sendExchangeStatusChangedEmail } from "../../../../../../services/notifications/exchange";
 
-const allowedTransitions: Record<string, string[]> = {
-  OPEN: ["AWAITING_PAYMENT", "REJECTED"],
-  AWAITING_PAYMENT: ["PAYMENT_RECEIVED", "REJECTED"],
-  PAYMENT_RECEIVED: ["PICKUP_PENDING", "PICKUP_SCHEDULED"],
-  PICKUP_PENDING: ["PICKUP_SCHEDULED", "PICKUP_COMPLETED"],
-  PICKUP_SCHEDULED: ["PICKUP_COMPLETED"],
-  PICKUP_COMPLETED: ["ITEM_RECEIVED"],
-  ITEM_RECEIVED: ["APPROVED", "REJECTED"],
-  APPROVED: ["REPLACEMENT_PROCESSING"],
-  REPLACEMENT_PROCESSING: ["REPLACEMENT_SHIPPED"],
-  REPLACEMENT_SHIPPED: ["CLOSED"],
-};
+export const runtime = "nodejs";
 
 function isAdmin(req: NextRequest) {
   const key = req.headers.get("x-admin-key") || "";
@@ -35,14 +26,26 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       return NextResponse.json({ error: "nextStatus is required" }, { status: 400 });
     }
 
-    const existing = await prisma.orderActionRequest.findFirst({ where: { id, requestType: "EXCHANGE" } });
+    const existing = await prisma.orderActionRequest.findFirst({
+      where: { id, requestType: "EXCHANGE" },
+      include: { items: { take: 1 } },
+    });
+
     if (!existing) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const allowed = allowedTransitions[existing.status] || [];
+    const allowed = allowedStatusTransitions[existing.status] || [];
     if (!allowed.includes(nextStatus) && nextStatus !== existing.status) {
       return NextResponse.json({ error: "Invalid status transition" }, { status: 400 });
+    }
+
+    if (nextStatus === "REPLACEMENT_SHIPPED" && !["ITEM_RECEIVED", "REPLACEMENT_PROCESSING"].includes(existing.status)) {
+      return NextResponse.json({ error: "Cannot ship replacement before item is received." }, { status: 400 });
+    }
+
+    if (nextStatus === "PICKUP_COMPLETED" && !["PICKUP_PENDING", "PICKUP_SCHEDULED"].includes(existing.status)) {
+      return NextResponse.json({ error: "Cannot complete pickup before pickup is pending/scheduled." }, { status: 400 });
     }
 
     const updated = await prisma.orderActionRequest.update({
@@ -51,6 +54,20 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         status: nextStatus as never,
         adminNote: adminNote ?? existing.adminNote,
       },
+      include: { items: { take: 1 } },
+    });
+
+    void sendExchangeStatusChangedEmail({
+      requestId: updated.id,
+      orderNumber: updated.orderNumber,
+      status: updated.status,
+      customerName: updated.customerNameSnapshot,
+      customerPhone: updated.customerPhoneSnapshot,
+      customerEmail: updated.customerEmailSnapshot,
+      itemTitle: updated.items[0]?.productTitle,
+      currentSize: updated.items[0]?.currentSize,
+      requestedSize: updated.items[0]?.requestedSize,
+      adminNote: updated.adminNote,
     });
 
     return NextResponse.json({ request: updated });
