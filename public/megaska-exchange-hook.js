@@ -34,7 +34,7 @@
 
 
 
-  const CANCELLATION_ACTIVE_STATUSES = ["OPEN", "APPROVED"];
+  const CANCELLATION_BLOCKING_STATUSES = ["OPEN", "APPROVED", "CLOSED"];
 
   const CANCELLATION_STATUS_DESCRIPTIONS = {
     OPEN: "Cancellation request received",
@@ -249,10 +249,15 @@
     }
 
     if (["fulfilled", "delivered", "shipped", "in transit", "out for delivery", "ready for pickup", "label printed", "partial"].some(function (keyword) { return fulfillmentStatus.includes(keyword); })) {
-      return { eligible: false, reason: "Cancellation is allowed only before dispatch/shipment." };
+      return { eligible: false, reason: "Cancellation not possible — order already shipped." };
     }
 
     return { eligible: true, reason: "Eligible" };
+  }
+
+  function getBlockingCancellationMessage(requestStatus) {
+    const status = String(requestStatus || "").trim().toUpperCase();
+    return status === "CLOSED" ? "Cancelled" : "Cancellation Requested";
   }
   function closeModal() {
     const layer = document.getElementById(MODAL_ID);
@@ -570,7 +575,7 @@
     if (!Array.isArray(requests)) return null;
     return (
       requests.find(function (req) {
-        if (!CANCELLATION_ACTIVE_STATUSES.includes(String(req?.status || ""))) return false;
+        if (!CANCELLATION_BLOCKING_STATUSES.includes(String(req?.status || ""))) return false;
         return String(req?.orderNumber || "").trim() === String(context.orderNumber || "").trim();
       }) || null
     );
@@ -585,7 +590,7 @@
     success.style.display = "block";
     success.className = "mk-ex-success";
     success.innerHTML = `
-      <strong>Cancellation request already exists</strong>
+      <strong>${escapeHtml(getBlockingCancellationMessage(status))}</strong>
       <div>Request ID: ${escapeHtml(request?.id || "—")}</div>
       <div>Current status: ${escapeHtml(status)}</div>
       <div>${escapeHtml(CANCELLATION_STATUS_DESCRIPTIONS[status] || "Status updated")}</div>

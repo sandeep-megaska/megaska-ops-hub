@@ -565,6 +565,34 @@
       .join("<br/>");
   }
 
+  function normalizeStatus(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function getOrderCancellationDisplayState(order) {
+    const financialStatus = normalizeStatus(order?.financialStatus);
+    const fulfillmentStatus = normalizeStatus(order?.fulfillmentStatus);
+    const cancellationStatus = String(order?.latestCancellationStatus || "").trim().toUpperCase();
+
+    if (["void", "cancel", "refunded"].some((keyword) => financialStatus.includes(keyword))) {
+      return "Cancelled";
+    }
+
+    if (["fulfilled", "delivered", "shipped", "in transit", "out for delivery", "ready for pickup", "label printed", "partial"].some((keyword) => fulfillmentStatus.includes(keyword))) {
+      return "Cancellation not possible — already shipped";
+    }
+
+    if (["OPEN", "APPROVED"].includes(cancellationStatus)) {
+      return "Cancellation Requested";
+    }
+
+    if (cancellationStatus === "CLOSED") {
+      return "Cancelled";
+    }
+
+    return "Cancel Order";
+  }
+
   function renderDashboardSummary(container, summary) {
     const profileName =
       [summary?.customer?.firstName, summary?.customer?.lastName].filter(Boolean).join(" ") ||
@@ -597,6 +625,7 @@
             const orderLink = order?.statusPageUrl
               ? `<a href="${escHtml(order.statusPageUrl)}" target="_blank" rel="noopener noreferrer">View</a>`
               : "";
+            const cancellationState = getOrderCancellationDisplayState(order);
 
             return `<li class="megaska-dashboard-list-item" data-order-fulfillment-status="${escHtml(
               fulfillmentStatus
@@ -612,6 +641,7 @@
               <div class="megaska-dashboard-order-right">
                 <div>${orderTotal}</div>
                 <div class="megaska-dashboard-subtle">${escHtml(order?.financialStatus || "")}</div>
+                <div class="megaska-dashboard-subtle">${escHtml(cancellationState)}</div>
                 ${orderLink}
               </div>
             </li>`;

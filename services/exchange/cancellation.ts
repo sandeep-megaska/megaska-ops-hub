@@ -1,4 +1,5 @@
 export const CANCELLATION_ACTIVE_STATUSES = ["OPEN", "APPROVED"] as const;
+export const CANCELLATION_BLOCKING_STATUSES = ["OPEN", "APPROVED", "CLOSED"] as const;
 
 export const CANCELLATION_ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
   OPEN: ["APPROVED", "REJECTED", "CLOSED"],
@@ -44,7 +45,7 @@ export function evaluateCancellationEligibility(input: {
   ) {
     return {
       eligible: false,
-      reason: "Cancellation is allowed only before dispatch/shipment.",
+      reason: "Cancellation not possible — order already shipped.",
     };
   }
 
@@ -52,4 +53,9 @@ export function evaluateCancellationEligibility(input: {
     eligible: true,
     reason: "Eligible for cancellation",
   };
+}
+
+export function isCancellationStatusBlocking(status: string | null | undefined) {
+  const normalized = String(status || "").trim().toUpperCase();
+  return CANCELLATION_BLOCKING_STATUSES.includes(normalized as (typeof CANCELLATION_BLOCKING_STATUSES)[number]);
 }
