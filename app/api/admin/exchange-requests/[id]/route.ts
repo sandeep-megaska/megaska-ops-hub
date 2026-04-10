@@ -32,3 +32,37 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed" }, { status: 500 });
   }
 }
+
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  try {
+    if (!isAdmin(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await context.params;
+    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+    const adminNote = String(body?.adminNote || "").trim();
+
+    if (!adminNote) {
+      return NextResponse.json({ error: "adminNote is required" }, { status: 400 });
+    }
+
+    const existing = await prisma.orderActionRequest.findFirst({
+      where: { id, requestType: "EXCHANGE" },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const updated = await prisma.orderActionRequest.update({
+      where: { id },
+      data: { adminNote },
+    });
+
+    return NextResponse.json({ request: updated, message: "Admin note updated" });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Failed" }, { status: 500 });
+  }
+}
