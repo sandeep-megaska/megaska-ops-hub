@@ -9,6 +9,9 @@ import {
 } from "../../../../services/shopify/admin";
 import { isCancellationStatusBlocking } from "../../../../services/exchange/cancellation";
 import { ACTIVE_EXCHANGE_STATUSES } from "../../../../services/exchange/lifecycle";
+import { getOrCreateWalletAccount, listWalletTransactions } from "../../../../services/wallet";
+
+export const runtime = "nodejs";
 
 export async function OPTIONS(req: NextRequest) {
   return handleOptions(req);
@@ -221,6 +224,8 @@ export async function GET(req: NextRequest) {
     }
 
     const openRequests = cancellationRequests.filter((request) => isCancellationStatusBlocking(request.status)).length;
+    const walletAccount = await getOrCreateWalletAccount(customer.id, "INR");
+    const walletTransactions = await listWalletTransactions(customer.id, "INR", 15);
 
     const response = {
       customer: {
@@ -231,9 +236,10 @@ export async function GET(req: NextRequest) {
         verified: Boolean(customer.phoneVerifiedAt),
       },
       wallet: {
-        balance: 0,
-        currency: "INR",
+        balance: walletAccount?.currentBalance || 0,
+        currency: walletAccount?.currency || "INR",
         pendingRefund: 0,
+        transactions: walletTransactions,
       },
       stats: {
         totalOrders,

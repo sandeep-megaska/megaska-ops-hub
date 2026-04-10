@@ -29,6 +29,8 @@ model CustomerProfile {
   sessions            AuthSession[]
   otpChallenges       OTPChallenge[]
   orderActionRequests OrderActionRequest[]
+  walletAccounts      WalletAccount[]
+  walletTransactions  WalletTransaction[]
 }
 
 model AuthSession {
@@ -219,4 +221,69 @@ model ShipmentTracking {
 
   @@index([requestId])
   @@unique([requestId, direction])
+}
+
+enum WalletDirection {
+  CREDIT
+  DEBIT
+}
+
+enum WalletTransactionType {
+  COD_REFUND_CREDIT
+  MANUAL_CREDIT
+  MANUAL_DEBIT
+  ADJUSTMENT
+  GOODWILL_CREDIT
+}
+
+enum WalletSourceType {
+  ISSUE_REQUEST
+  ADMIN_MANUAL
+}
+
+enum WalletActorType {
+  SYSTEM
+  ADMIN
+}
+
+model WalletAccount {
+  id                String   @id @default(uuid())
+  customerProfileId String
+  currency          String   @default("INR")
+  currentBalance    Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  customer          CustomerProfile     @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  transactions      WalletTransaction[]
+
+  @@unique([customerProfileId, currency])
+  @@index([customerProfileId])
+}
+
+model WalletTransaction {
+  id                  String                @id @default(uuid())
+  walletAccountId     String
+  customerProfileId   String
+  direction           WalletDirection
+  transactionType     WalletTransactionType
+  amount              Int
+  currency            String                @default("INR")
+  sourceType          WalletSourceType
+  sourceId            String?
+  sourceReference     String?
+  orderNumber         String?
+  reason              String?
+  adminNote           String?
+  createdByType       WalletActorType
+  createdById         String?
+  createdAt           DateTime              @default(now())
+
+  walletAccount       WalletAccount         @relation(fields: [walletAccountId], references: [id], onDelete: Cascade)
+  customer            CustomerProfile       @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+
+  @@index([customerProfileId, createdAt])
+  @@index([walletAccountId, createdAt])
+  @@index([sourceType, sourceId])
+  @@unique([sourceType, sourceId, transactionType])
 }
