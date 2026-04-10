@@ -525,9 +525,12 @@ export async function getShopifyCustomerDashboardData(
           } | null;
           lineItems?: {
             nodes: Array<{
+              id?: string | null;
               title?: string | null;
               quantity?: number | null;
+              sku?: string | null;
               variant?: {
+                title?: string | null;
                 image?: {
                   url?: string | null;
                 } | null;
