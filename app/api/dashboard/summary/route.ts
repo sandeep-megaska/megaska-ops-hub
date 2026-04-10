@@ -8,6 +8,7 @@ import {
   isShopifyAdminConfigured,
 } from "../../../../services/shopify/admin";
 import { isCancellationStatusBlocking } from "../../../../services/exchange/cancellation";
+import { ACTIVE_EXCHANGE_STATUSES } from "../../../../services/exchange/lifecycle";
 
 export async function OPTIONS(req: NextRequest) {
   return handleOptions(req);
@@ -167,6 +168,32 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    const exchangeRequests = orderNumbers.length
+      ? await prisma.orderActionRequest.findMany({
+          where: {
+            customerProfileId: customer.id,
+            requestType: "EXCHANGE",
+            orderNumber: { in: orderNumbers },
+          },
+          orderBy: { requestedAt: "desc" },
+          select: {
+            orderNumber: true,
+            status: true,
+            requestedAt: true,
+          },
+        })
+      : [];
+
+    const latestExchangeByOrder = new Map<string, { status: string; requestedAt: Date }>();
+    for (const request of exchangeRequests) {
+      if (!latestExchangeByOrder.has(request.orderNumber)) {
+        latestExchangeByOrder.set(request.orderNumber, {
+          status: request.status,
+          requestedAt: request.requestedAt,
+        });
+      }
+    }
+
     const openRequests = cancellationRequests.filter((request) => isCancellationStatusBlocking(request.status)).length;
 
     const response = {
@@ -209,10 +236,15 @@ export async function GET(req: NextRequest) {
       orders: (shopifyDashboard?.recentOrders || []).map((order) => {
         const orderNumber = String(order?.name || "").trim();
         const latestCancellation = latestCancellationByOrder.get(orderNumber);
+        const latestExchange = latestExchangeByOrder.get(orderNumber);
 
         return {
           ...order,
           latestCancellationStatus: latestCancellation?.status || null,
+          latestExchangeStatus: latestExchange?.status || null,
+          hasActiveExchangeRequest: ACTIVE_EXCHANGE_STATUSES.includes(
+            String(latestExchange?.status || "").trim().toUpperCase() as (typeof ACTIVE_EXCHANGE_STATUSES)[number]
+          ),
         };
       }),
     };

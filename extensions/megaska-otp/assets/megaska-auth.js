@@ -593,6 +593,51 @@
     return "Cancel Order";
   }
 
+  function getOrderActionStatePills(order) {
+    const financialStatus = normalizeStatus(order?.financialStatus);
+    const fulfillmentStatus = normalizeStatus(order?.fulfillmentStatus);
+    const cancellationStatus = String(order?.latestCancellationStatus || "").trim().toUpperCase();
+    const exchangeStatus = String(order?.latestExchangeStatus || "").trim().toUpperCase();
+    const hasActiveExchangeRequest = Boolean(order?.hasActiveExchangeRequest);
+
+    const isCancelled =
+      ["void", "cancel", "refunded"].some((keyword) => financialStatus.includes(keyword)) ||
+      cancellationStatus === "CLOSED";
+    const hasCancellationRequest = ["OPEN", "APPROVED"].includes(cancellationStatus);
+    const isShippedOrFulfilled = [
+      "fulfilled",
+      "delivered",
+      "shipped",
+      "in transit",
+      "out for delivery",
+      "ready for pickup",
+      "label printed",
+      "partial",
+    ].some((keyword) => fulfillmentStatus.includes(keyword));
+    const exchangeAvailable =
+      !isCancelled && !hasCancellationRequest && !hasActiveExchangeRequest && ["fulfilled", "delivered"].some((keyword) => fulfillmentStatus.includes(keyword));
+
+    const pills = [];
+
+    if (isCancelled) {
+      pills.push({ label: "Cancelled", tone: "danger" });
+    } else if (hasCancellationRequest) {
+      pills.push({ label: "Cancellation Requested", tone: "warning" });
+    } else if (isShippedOrFulfilled) {
+      pills.push({ label: "Shipped", tone: "neutral" });
+    }
+
+    if (hasActiveExchangeRequest) {
+      pills.push({ label: "Exchange Requested", tone: "info" });
+    } else if (exchangeAvailable) {
+      pills.push({ label: "Exchange Available", tone: "success" });
+    } else if (exchangeStatus === "CLOSED") {
+      pills.push({ label: "Exchange Completed", tone: "neutral" });
+    }
+
+    return pills;
+  }
+
   function renderDashboardSummary(container, summary) {
     const profileName =
       [summary?.customer?.firstName, summary?.customer?.lastName].filter(Boolean).join(" ") ||
@@ -626,6 +671,17 @@
               ? `<a href="${escHtml(order.statusPageUrl)}" target="_blank" rel="noopener noreferrer">View</a>`
               : "";
             const cancellationState = getOrderCancellationDisplayState(order);
+            const actionStatePills = getOrderActionStatePills(order);
+            const actionStateStrip = actionStatePills.length
+              ? `<div class="megaska-order-state-strip">${actionStatePills
+                  .map(
+                    (pill) =>
+                      `<span class="megaska-order-state-pill megaska-order-state-pill--${escHtml(
+                        pill.tone
+                      )}">${escHtml(pill.label)}</span>`
+                  )
+                  .join("")}</div>`
+              : "";
 
             return `<li class="megaska-dashboard-list-item" data-order-fulfillment-status="${escHtml(
               fulfillmentStatus
@@ -637,6 +693,7 @@
               <div>
                 <strong>${escHtml(order?.name || "Order")}</strong>
                 <div class="megaska-dashboard-subtle">${escHtml(formatDate(order?.processedAt) || "")}</div>
+                ${actionStateStrip}
               </div>
               <div class="megaska-dashboard-order-right">
                 <div>${orderTotal}</div>

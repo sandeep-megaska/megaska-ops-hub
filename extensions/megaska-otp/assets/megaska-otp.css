@@ -748,6 +748,50 @@
   font-size: 13px;
 }
 
+.megaska-order-state-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.megaska-order-state-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid #d0d8e2;
+  padding: 4px 9px;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: #1b304d;
+  background: #f7f9fc;
+}
+
+.megaska-order-state-pill--danger {
+  border-color: #f2c2cf;
+  color: #9f1239;
+  background: #fff1f5;
+}
+
+.megaska-order-state-pill--warning {
+  border-color: #f3d2a2;
+  color: #9a3412;
+  background: #fff7ed;
+}
+
+.megaska-order-state-pill--info {
+  border-color: #bfd3ff;
+  color: #1e40af;
+  background: #eff6ff;
+}
+
+.megaska-order-state-pill--success {
+  border-color: #b9e6cd;
+  color: #166534;
+  background: #effcf4;
+}
+
 .megaska-dashboard-order-right {
   text-align: right;
 }
