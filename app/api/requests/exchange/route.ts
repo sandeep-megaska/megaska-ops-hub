@@ -106,7 +106,10 @@ export async function POST(req: NextRequest) {
     }).catch((error) => {
       console.error("[EXCHANGE NOTIFY] Failed to send exchange creation email", {
         requestId: created.id,
-        error: error instanceof Error ? error.message : String(error),
+        errorName: error instanceof Error ? error.name : null,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : null,
+        errorCause: error instanceof Error ? String(error.cause || "") || null : null,
       });
     });
 

@@ -51,11 +51,16 @@ export async function sendExchangeRequestCreatedEmail(payload: ExchangeEmailPayl
     ${adminUrl ? `<p><strong>Admin URL:</strong> <a href="${escapeHtml(adminUrl)}">${escapeHtml(adminUrl)}</a></p>` : ""}
   `;
 
-  await sendEmailWithResend({
-    from: config.from,
-    to: config.to,
-    cc: config.cc,
-    subject,
-    html,
-  });
+  await sendEmailWithResend(
+    {
+      from: config.from,
+      to: config.to,
+      cc: config.cc,
+      subject,
+      html,
+    },
+    {
+      requestId: payload.requestId,
+    }
+  );
 }

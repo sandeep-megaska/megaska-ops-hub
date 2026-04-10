@@ -67,8 +67,9 @@
 
     if (!status) return null;
     if (status === "unfulfilled") return "UNFULFILLED";
-    if (status === "fulfilled" || status === "delivered") return "FULFILLED";
-    if (status === "partial" || status === "partially fulfilled") return "PARTIAL";
+    if (status === "fulfilled") return "FULFILLED";
+    if (status === "delivered") return "DELIVERED";
+    if (status === "partial" || status === "partially fulfilled" || status === "partially_fulfilled") return "PARTIAL";
     return null;
   }
 
@@ -81,25 +82,43 @@
     return parsed.toISOString();
   }
 
-  function getDrawerOrderContext() {
+  function readFirstValue(values) {
+    for (const value of values) {
+      const text = String(value || "").trim();
+      if (text) return text;
+    }
+    return "";
+  }
+
+  function getDataValue(node, key) {
+    if (!node || !key) return "";
+    const camel = key.replace(/-([a-z])/g, function (_, char) {
+      return char.toUpperCase();
+    });
+    return String((node.dataset && node.dataset[camel]) || node.getAttribute("data-" + key) || "").trim();
+  }
+
+  function getDrawerOrderContext(sourceButton) {
     const drawer = document.getElementById("mk-order-drawer");
     if (!drawer) return null;
 
     const productTitle = drawer.querySelector(".mk-order-hero-name")?.textContent?.trim() || "";
     const metaText = drawer.querySelector(".mk-order-hero-meta")?.textContent?.trim() || "";
     const orderNumber = metaText.split("•")[0]?.trim() || "";
-    const statusText = String(
-      drawer.getAttribute("data-order-fulfillment-status") ||
-        drawer.getAttribute("data-fulfillment-status") ||
-        drawer.querySelector("[data-order-fulfillment-status]")?.getAttribute("data-order-fulfillment-status") ||
-        ""
-    ).trim();
-    const deliveredAt = String(
-      drawer.getAttribute("data-order-delivered-at") ||
-        drawer.getAttribute("data-delivered-at") ||
-        drawer.querySelector("[data-order-delivered-at]")?.getAttribute("data-order-delivered-at") ||
-        ""
-    ).trim();
+    const statusText = readFirstValue([
+      getDataValue(sourceButton, "order-fulfillment-status"),
+      getDataValue(sourceButton, "fulfillment-status"),
+      getDataValue(drawer, "order-fulfillment-status"),
+      getDataValue(drawer, "fulfillment-status"),
+      getDataValue(drawer.querySelector("[data-order-fulfillment-status]"), "order-fulfillment-status"),
+    ]);
+    const deliveredAt = readFirstValue([
+      getDataValue(sourceButton, "order-delivered-at"),
+      getDataValue(sourceButton, "delivered-at"),
+      getDataValue(drawer, "order-delivered-at"),
+      getDataValue(drawer, "delivered-at"),
+      getDataValue(drawer.querySelector("[data-order-delivered-at]"), "order-delivered-at"),
+    ]);
 
     const metaLower = metaText.toLowerCase();
     const inferredStatus = statusText
@@ -239,7 +258,7 @@
 
     if (
       text.includes("Exchange can be requested only after the order has been delivered") ||
-      text.includes("Exchange requests cannot be processed more than 4 days after delivery") ||
+      text.includes("Exchange requests cannot be processed more than") ||
       text.includes("Requested size is required") ||
       text.includes("Current size and requested size are identical")
     ) {
@@ -321,7 +340,7 @@
       if (!button || !looksLikeExchangeButton(button)) return;
       event.preventDefault();
 
-      const context = getDrawerOrderContext();
+      const context = getDrawerOrderContext(button);
       if (!context) return;
       renderModal(context);
     });

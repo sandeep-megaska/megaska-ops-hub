@@ -1,4 +1,4 @@
-import { CLEARANCE_KEYWORDS, EXCLUDED_CATEGORY_KEYWORDS } from "./constants";
+import { CLEARANCE_KEYWORDS, EXCHANGE_ALLOWED_DAYS_WINDOW, EXCLUDED_CATEGORY_KEYWORDS } from "./constants";
 
 type EligibilityInput = {
   requestedSize: string;
@@ -12,7 +12,6 @@ type EligibilityInput = {
 
 export type EligibilityDecision = "ELIGIBLE" | "REJECTED" | "REVIEW_REQUIRED";
 
-const OPERATIONAL_EXCHANGE_WINDOW_DAYS = 4;
 const STOCK_REVIEW_MESSAGE =
   "Exchange approval depends on the availability of the requested size. If unavailable, our team will contact you with next steps.";
 
@@ -131,10 +130,10 @@ export function evaluateExchangeEligibility(input: EligibilityInput) {
   if (hasValidDeliveredAt && deliveredAt) {
     const elapsedMs = Date.now() - deliveredAt.getTime();
     const days = elapsedMs / (1000 * 60 * 60 * 24);
-    if (days > OPERATIONAL_EXCHANGE_WINDOW_DAYS) {
+    if (days > EXCHANGE_ALLOWED_DAYS_WINDOW) {
       return {
         decision: "REJECTED" as const,
-        reason: "Exchange requests cannot be processed more than 4 days after delivery.",
+        reason: `Exchange requests cannot be processed more than ${EXCHANGE_ALLOWED_DAYS_WINDOW} days after delivery.`,
         blocked: true,
         stockReviewMessage: STOCK_REVIEW_MESSAGE,
       };
