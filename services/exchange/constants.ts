@@ -1,5 +1,6 @@
 export const REVERSE_PICKUP_FEE_PAISE = 12000;
 export const REVERSE_PICKUP_CURRENCY = "INR";
+export const EXCHANGE_ALLOWED_DAYS_WINDOW = 4;
 
 export const EXCLUDED_CATEGORY_KEYWORDS = [
   "bra",
