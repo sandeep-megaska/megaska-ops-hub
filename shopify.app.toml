@@ -22,9 +22,14 @@ api_version = "2026-01"
 scopes = "read_all_orders,read_orders,read_customers,write_customers,read_products,write_products,write_metaobject_definitions,write_orders,read_discounts,write_discounts"
 optional_scopes = []
 use_legacy_install_flow = false
+[access.admin]
+direct_api_mode = "online"
+
+[access.storefront]
+unauthenticated_access_scopes = "unauthenticated_read_product_publications,unauthenticated_read_collection_publications,unauthenticated_read_product_listings,unauthenticated_read_collection_listings,unauthenticated_read_metaobjects"
 
 [auth]
-redirect_urls = [ "https://megaska-ops-hub.vercel.app/auth/callback" ]
+redirect_urls = [ "https://megaska-ops-hub-exs1.vercel.app//auth/callback" ]
 
 [product.metafields.app.demo_info]
 type = "single_line_text_field"
