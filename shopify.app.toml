@@ -19,7 +19,7 @@ api_version = "2026-01"
   uri = "/api/webhooks/orders/create"
 
 [access_scopes]
-scopes = "read_all_orders,read_orders,read_customers,write_customers,read_products,write_products,write_metaobject_definitions,write_orders"
+scopes = "read_all_orders,read_orders,read_customers,write_customers,read_products,write_products,write_metaobject_definitions,write_orders,read_discounts,write_discounts"
 optional_scopes = []
 use_legacy_install_flow = false
 
