@@ -774,3 +774,108 @@ export async function setOrderMegaskaIdentityMetafields(input: OrderMegaskaIdent
     tags: tagsResult.node?.tags || [],
   };
 }
+
+
+export async function createWalletReservationDiscountCode(input: {
+  reservationId: string;
+  amountMinor: number;
+  currency: string;
+  customerProfileId: string;
+  endsAt: Date;
+}) {
+  const amount = (Math.max(0, input.amountMinor) / 100).toFixed(2);
+  const code = `MWR-${input.reservationId.slice(0, 8).toUpperCase()}`;
+
+  const data = await adminGraphql<{
+    discountCodeBasicCreate: {
+      codeDiscountNode?: { id: string } | null;
+      userErrors: Array<{ message: string; field?: string[] }>;
+    };
+  }>(
+    `
+      mutation CreateMegaskaWalletDiscount($basicCodeDiscount: DiscountCodeBasicInput!) {
+        discountCodeBasicCreate(basicCodeDiscount: $basicCodeDiscount) {
+          codeDiscountNode {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+    {
+      basicCodeDiscount: {
+        title: `Megaska Wallet ${input.reservationId}`,
+        code,
+        startsAt: new Date().toISOString(),
+        endsAt: input.endsAt.toISOString(),
+        customerGets: {
+          value: {
+            discountAmount: {
+              amount,
+              appliesOnEachItem: false,
+            },
+          },
+          items: {
+            all: true,
+          },
+        },
+        appliesOncePerCustomer: true,
+        usageLimit: 1,
+        combinesWith: {
+          orderDiscounts: true,
+          productDiscounts: true,
+          shippingDiscounts: false,
+        },
+      },
+    }
+  );
+
+  const error = data.discountCodeBasicCreate.userErrors[0]?.message;
+  if (error) throw new Error(error);
+
+  const nodeId = String(data.discountCodeBasicCreate.codeDiscountNode?.id || "").trim();
+  if (!nodeId) throw new Error("Shopify wallet discount creation failed");
+
+  return {
+    code,
+    discountNodeId: nodeId,
+  };
+}
+
+export async function disableWalletReservationDiscountCode(discountNodeId: string) {
+  const id = String(discountNodeId || "").trim();
+  if (!id) return { ok: true, skipped: true };
+
+  const data = await adminGraphql<{
+    discountCodeDeactivate: {
+      codeDiscountNode?: { id: string } | null;
+      userErrors: Array<{ message: string; field?: string[] }>;
+    };
+  }>(
+    `
+      mutation DisableMegaskaWalletDiscount($id: ID!) {
+        discountCodeDeactivate(id: $id) {
+          codeDiscountNode {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+    { id }
+  );
+
+  const error = data.discountCodeDeactivate.userErrors[0]?.message;
+  if (error) throw new Error(error);
+
+  return {
+    ok: true,
+    id: data.discountCodeDeactivate.codeDiscountNode?.id || id,
+  };
+}

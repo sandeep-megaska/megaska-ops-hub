@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { withCors, handleOptions } from "../../_lib/cors";
 import { hashSessionToken } from "../../../../services/auth/session";
 import { prisma } from "../../../../services/db/prisma";
+import { parseAmountToMinorUnits } from "../../../../services/wallet";
+import { createWalletReservation } from "../../../../services/wallet-reservation";
 import {
   isShopifyStorefrontConfigured,
   resolveCartId,
@@ -54,6 +56,7 @@ export async function POST(req: NextRequest) {
       cartId?: string;
       cartToken?: string;
       checkoutUrl?: string;
+      walletAmount?: string | number;
     };
 
     const email = String(session.customer.email || "").trim();
@@ -76,6 +79,15 @@ export async function POST(req: NextRequest) {
       cartId: body?.cartId,
       cartToken: body?.cartToken,
     });
+
+    const requestedWalletAmount = parseAmountToMinorUnits(body?.walletAmount || "");
+    let walletReservation: {
+      reservationId: string;
+      amountMinor: number;
+      currency: string;
+      discountCode: string;
+      expiresAt: Date;
+    } | null = null;
     const cartSource = String(body?.cartId || "").trim()
       ? "body.cartId"
       : String(body?.cartToken || "").trim()
@@ -178,9 +190,29 @@ export async function POST(req: NextRequest) {
       { key: "megaska_auth_verified_at", value: phoneVerifiedAt },
     ].filter((entry) => entry.value);
 
+    if (requestedWalletAmount > 0) {
+      walletReservation = await createWalletReservation({
+        customerProfileId,
+        cartId: resolvedCartId,
+        amountMinor: requestedWalletAmount,
+        sourceFlow: "CHECKOUT",
+        sessionReference: session.id,
+      });
+    }
+
+    const walletAttributes = walletReservation
+      ? [
+          { key: "megaska_wallet_reservation_id", value: walletReservation.reservationId },
+          { key: "megaska_wallet_discount_code", value: walletReservation.discountCode },
+          { key: "megaska_wallet_reserved_amount", value: String(walletReservation.amountMinor) },
+          { key: "megaska_wallet_currency", value: walletReservation.currency },
+          { key: "megaska_wallet_reservation_expires_at", value: walletReservation.expiresAt.toISOString() },
+        ]
+      : [];
+
     const attributeResult = await updateCartAttributes({
       cartId: resolvedCartId,
-      attributes: verificationAttributes,
+      attributes: [...verificationAttributes, ...walletAttributes],
     });
 
     console.log("[Megaska Buyer Identity] update completed", {
@@ -195,7 +227,7 @@ export async function POST(req: NextRequest) {
     console.log("[Megaska Verified Phone] cart verification metadata applied", {
       cartId: attributeResult.cartId || resolvedCartId,
       ok: attributeResult.ok,
-      keysWritten: verificationAttributes.map((item) => item.key),
+      keysWritten: [...verificationAttributes, ...walletAttributes].map((item) => item.key),
       trustedPhoneSource: "cart.attribute.megaska_verified_phone",
       userErrors: attributeResult.userErrors,
       apiErrors: attributeResult.apiErrors.map((err) => err.message || "unknown"),
@@ -218,6 +250,15 @@ export async function POST(req: NextRequest) {
         buyerIdentity: updateResult.buyerIdentity || null,
         userErrors: [...updateResult.userErrors, ...attributeResult.userErrors],
         apiErrors: [...updateResult.apiErrors, ...attributeResult.apiErrors],
+        wallet: walletReservation
+          ? {
+              applied: true,
+              reservationId: walletReservation.reservationId,
+              amount: walletReservation.amountMinor,
+              currency: walletReservation.currency,
+              expiresAt: walletReservation.expiresAt.toISOString(),
+            }
+          : { applied: false },
       })
     );
   } catch (error) {
