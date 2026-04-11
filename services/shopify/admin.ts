@@ -716,6 +716,45 @@ export async function createWalletReservationDiscountCode(input: {
 }) {
   const amount = (Math.max(0, input.amountMinor) / 100).toFixed(2);
   const code = `MWR-${input.reservationId.slice(0, 8).toUpperCase()}`;
+  const startsAt = new Date().toISOString();
+  const basicCodeDiscount = {
+    title: `Megaska Wallet ${input.reservationId}`,
+    code,
+    startsAt,
+    endsAt: input.endsAt.toISOString(),
+    context: {
+      all: true,
+    },
+    customerGets: {
+      value: {
+        discountAmount: {
+          amount,
+          appliesOnEachItem: false,
+        },
+      },
+      items: {
+        all: true,
+      },
+    },
+    appliesOncePerCustomer: true,
+    usageLimit: 1,
+    combinesWith: {
+      orderDiscounts: true,
+      productDiscounts: true,
+      shippingDiscounts: false,
+    },
+  };
+
+  console.log("[SHOPIFY ADMIN] wallet discount create input", {
+    reservationId: input.reservationId,
+    customerProfileId: input.customerProfileId,
+    amountMinor: input.amountMinor,
+    currency: input.currency,
+    code,
+    startsAt,
+    endsAt: input.endsAt.toISOString(),
+    context: "all",
+  });
 
   const data = await adminGraphql<{
     discountCodeBasicCreate: {
@@ -737,36 +776,14 @@ export async function createWalletReservationDiscountCode(input: {
       }
     `,
     {
-      basicCodeDiscount: {
-        title: `Megaska Wallet ${input.reservationId}`,
-        code,
-        startsAt: new Date().toISOString(),
-        endsAt: input.endsAt.toISOString(),
-        customerGets: {
-          value: {
-            discountAmount: {
-              amount,
-              appliesOnEachItem: false,
-            },
-          },
-          items: {
-            all: true,
-          },
-        },
-        appliesOncePerCustomer: true,
-        usageLimit: 1,
-        combinesWith: {
-          orderDiscounts: true,
-          productDiscounts: true,
-          shippingDiscounts: false,
-        },
-      },
+      basicCodeDiscount,
     }
   );
 
   if (data.discountCodeBasicCreate.userErrors.length) {
     console.error("[SHOPIFY ADMIN] wallet discount create userErrors", {
       reservationId: input.reservationId,
+      code,
       userErrors: data.discountCodeBasicCreate.userErrors,
     });
   }
@@ -776,6 +793,12 @@ export async function createWalletReservationDiscountCode(input: {
 
   const nodeId = String(data.discountCodeBasicCreate.codeDiscountNode?.id || "").trim();
   if (!nodeId) throw new Error("Shopify wallet discount creation failed");
+
+  console.log("[SHOPIFY ADMIN] wallet discount create success", {
+    reservationId: input.reservationId,
+    discountNodeId: nodeId,
+    code,
+  });
 
   return {
     code,
