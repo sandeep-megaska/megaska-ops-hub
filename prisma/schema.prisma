@@ -31,6 +31,7 @@ model CustomerProfile {
   orderActionRequests OrderActionRequest[]
   walletAccounts      WalletAccount[]
   walletTransactions  WalletTransaction[]
+  walletReservations  WalletReservation[]
 }
 
 model AuthSession {
@@ -234,11 +235,13 @@ enum WalletTransactionType {
   MANUAL_DEBIT
   ADJUSTMENT
   GOODWILL_CREDIT
+  CHECKOUT_REDEMPTION
 }
 
 enum WalletSourceType {
   ISSUE_REQUEST
   ADMIN_MANUAL
+  WALLET_RESERVATION
 }
 
 enum WalletActorType {
@@ -256,6 +259,7 @@ model WalletAccount {
 
   customer          CustomerProfile     @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
   transactions      WalletTransaction[]
+  reservations      WalletReservation[]
 
   @@unique([customerProfileId, currency])
   @@index([customerProfileId])
@@ -286,4 +290,46 @@ model WalletTransaction {
   @@index([walletAccountId, createdAt])
   @@index([sourceType, sourceId])
   @@unique([sourceType, sourceId, transactionType])
+}
+
+
+enum WalletReservationStatus {
+  ACTIVE
+  CONSUMED
+  RELEASED
+  EXPIRED
+}
+
+enum WalletReservationSourceFlow {
+  CHECKOUT
+  BUY_NOW
+}
+
+model WalletReservation {
+  id                String                      @id @default(uuid())
+  walletAccountId   String
+  customerProfileId String
+  reservedAmount    Int
+  currency          String                      @default("INR")
+  status            WalletReservationStatus     @default(ACTIVE)
+  discountCode      String?
+  shopifyDiscountId String?
+  sourceFlow        WalletReservationSourceFlow @default(CHECKOUT)
+  cartReference     String?
+  checkoutReference String?
+  sessionReference  String?
+  orderNumber       String?
+  shopifyOrderId    String?
+  releaseReason     String?
+  expiresAt         DateTime
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+
+  walletAccount     WalletAccount               @relation(fields: [walletAccountId], references: [id], onDelete: Cascade)
+  customer          CustomerProfile             @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+
+  @@index([customerProfileId, status, expiresAt])
+  @@index([walletAccountId, status, expiresAt])
+  @@index([discountCode])
+  @@index([shopifyOrderId])
 }

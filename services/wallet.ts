@@ -3,8 +3,8 @@ import { prisma } from "./db/prisma";
 import { randomUUID } from "crypto";
 
 type WalletDirection = "CREDIT" | "DEBIT";
-type WalletTransactionType = "COD_REFUND_CREDIT" | "MANUAL_CREDIT" | "MANUAL_DEBIT" | "ADJUSTMENT" | "GOODWILL_CREDIT";
-type WalletSourceType = "ISSUE_REQUEST" | "ADMIN_MANUAL";
+type WalletTransactionType = "COD_REFUND_CREDIT" | "MANUAL_CREDIT" | "MANUAL_DEBIT" | "ADJUSTMENT" | "GOODWILL_CREDIT" | "CHECKOUT_REDEMPTION";
+type WalletSourceType = "ISSUE_REQUEST" | "ADMIN_MANUAL" | "WALLET_RESERVATION";
 type WalletActorType = "SYSTEM" | "ADMIN";
 
 export type WalletAccountRow = {

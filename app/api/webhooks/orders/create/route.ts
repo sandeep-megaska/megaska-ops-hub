@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { compareMegaskaPhoneIdentity, normalizeIndianPhone } from "../../../../../services/phone";
 import { prisma } from "../../../../../services/db/prisma";
+import { consumeWalletReservationOnOrder } from "../../../../../services/wallet-reservation";
 import {
   isShopifyAdminConfigured,
   normalizeIndianPhoneToE164,
@@ -27,6 +28,7 @@ type ShopifyOrderWebhookPayload = {
     phone?: string;
   };
   note_attributes?: Array<{ name?: string; value?: string }>;
+  name?: string;
 };
 
 export const runtime = "nodejs";
@@ -210,6 +212,9 @@ export async function POST(req: NextRequest) {
   const shopifyCustomerId = String(attributes.megaska_shopify_customer_id || "").trim();
   const verificationCompletedAt = String(attributes.megaska_auth_verified_at || "").trim();
 
+  const walletReservationId = String(attributes.megaska_wallet_reservation_id || "").trim();
+  const walletDiscountCode = String(attributes.megaska_wallet_discount_code || "").trim();
+
   const orderContactPhone = resolveOrderContactPhone(payload);
   const orderContactEmail = resolveCheckoutContactEmail(payload);
 
@@ -346,6 +351,14 @@ export async function POST(req: NextRequest) {
       phoneCorrected,
     });
 
+    const walletResult = await consumeWalletReservationOnOrder({
+      reservationId: walletReservationId,
+      discountCode: walletDiscountCode,
+      customerProfileId,
+      shopifyOrderId: orderId,
+      orderNumber: String(payload.name || "").trim() || undefined,
+    });
+
     return NextResponse.json({
       ok: true,
       orderId,
@@ -356,6 +369,7 @@ export async function POST(req: NextRequest) {
       metafieldsWritten: result.metafields.length,
       tagsWritten: result.tags,
       userErrors: result.userErrors,
+      wallet: walletResult,
     });
   } catch (error) {
     console.error("[Megaska Order Identity] order enrichment failed", {

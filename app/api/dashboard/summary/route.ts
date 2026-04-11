@@ -227,6 +227,15 @@ export async function GET(req: NextRequest) {
     const walletAccount = await getOrCreateWalletAccount(customer.id, "INR");
     const walletTransactions = await listWalletTransactions(customer.id, "INR", 15);
 
+    const walletReservedRows = await prisma.$queryRaw<Array<{ total: number }>>`
+      SELECT COALESCE(SUM("reservedAmount"), 0)::int AS total
+      FROM "WalletReservation"
+      WHERE "customerProfileId" = ${customer.id}
+        AND "status" = 'ACTIVE'::"WalletReservationStatus"
+        AND "expiresAt" > NOW()
+    `;
+    const activeWalletReserved = Number(walletReservedRows[0]?.total || 0);
+
     const response = {
       customer: {
         firstName: customer.firstName,
@@ -239,6 +248,8 @@ export async function GET(req: NextRequest) {
         balance: walletAccount?.currentBalance || 0,
         currency: walletAccount?.currency || "INR",
         pendingRefund: 0,
+        reserved: activeWalletReserved,
+        availableToRedeem: Math.max((walletAccount?.currentBalance || 0) - activeWalletReserved, 0),
         transactions: walletTransactions,
       },
       stats: {

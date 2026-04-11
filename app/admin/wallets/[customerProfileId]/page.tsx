@@ -1,5 +1,6 @@
 import { prisma } from "../../../../services/db/prisma";
 import { getOrCreateWalletAccount, listWalletTransactions } from "../../../../services/wallet";
+import { listWalletReservationsForAdmin } from "../../../../services/wallet-reservation";
 import WalletOpsControls from "./WalletOpsControls";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,7 @@ export default async function AdminWalletDetailPage({ params }: { params: Promis
 
   const wallet = await getOrCreateWalletAccount(customer.id, "INR");
   const transactions = await listWalletTransactions(customer.id, "INR", 200);
+  const reservations = await listWalletReservationsForAdmin(customer.id);
 
   return (
     <main style={{ padding: 24, display: "grid", gap: 14 }}>
@@ -42,6 +44,41 @@ export default async function AdminWalletDetailPage({ params }: { params: Promis
       </section>
 
       <WalletOpsControls customerProfileId={customer.id} />
+
+
+      <section>
+        <h3>Wallet Reservations</h3>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              {["Created", "Status", "Amount", "Code", "Expires", "Order"].map((head) => (
+                <th key={head} style={{ textAlign: "left", borderBottom: "1px solid #ccc", padding: 8 }}>
+                  {head}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {reservations.map((row) => (
+              <tr key={row.id}>
+                <td style={{ padding: 8 }}>{row.createdAt.toISOString().slice(0, 19).replace("T", " ")}</td>
+                <td style={{ padding: 8 }}>{row.status}</td>
+                <td style={{ padding: 8 }}>{row.currency} {(row.reservedAmount / 100).toFixed(2)}</td>
+                <td style={{ padding: 8 }}>{row.discountCode || "-"}</td>
+                <td style={{ padding: 8 }}>{row.expiresAt.toISOString().slice(0, 19).replace("T", " ")}</td>
+                <td style={{ padding: 8 }}>{row.orderNumber || row.shopifyOrderId || "-"}</td>
+              </tr>
+            ))}
+            {!reservations.length ? (
+              <tr>
+                <td style={{ padding: 8 }} colSpan={6}>
+                  No reservations yet.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </section>
 
       <section>
         <h3>Wallet Ledger</h3>

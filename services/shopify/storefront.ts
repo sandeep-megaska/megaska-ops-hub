@@ -282,3 +282,144 @@ export async function updateCartAttributes(input: {
     apiErrors: response.errors || [],
   };
 }
+
+
+export type CartPricingSnapshot = {
+  ok: boolean;
+  cartId?: string;
+  currencyCode: string;
+  subtotalAmount: number;
+  totalAmount: number;
+  checkoutUrl?: string;
+  error?: string;
+};
+
+export async function getCartPricingSnapshot(cartId: string): Promise<CartPricingSnapshot> {
+  const resolvedCartId = resolveCartId({ cartId });
+  if (!resolvedCartId) {
+    return {
+      ok: false,
+      currencyCode: "INR",
+      subtotalAmount: 0,
+      totalAmount: 0,
+      error: "Missing cart id",
+    };
+  }
+
+  const response = await storefrontGraphql<{
+    cart?: {
+      id: string;
+      checkoutUrl?: string | null;
+      cost?: {
+        subtotalAmount?: { amount: string; currencyCode: string } | null;
+        totalAmount?: { amount: string; currencyCode: string } | null;
+      } | null;
+    } | null;
+  }>(
+    `
+      query MegaskaCartPricing($cartId: ID!) {
+        cart(id: $cartId) {
+          id
+          checkoutUrl
+          cost {
+            subtotalAmount {
+              amount
+              currencyCode
+            }
+            totalAmount {
+              amount
+              currencyCode
+            }
+          }
+        }
+      }
+    `,
+    { cartId: resolvedCartId }
+  );
+
+  const cart = response.data?.cart;
+  if (!cart?.id) {
+    return {
+      ok: false,
+      currencyCode: "INR",
+      subtotalAmount: 0,
+      totalAmount: 0,
+      error: response.errors?.[0]?.message || "Cart not found",
+    };
+  }
+
+  const subtotal = Number.parseFloat(String(cart.cost?.subtotalAmount?.amount || "0"));
+  const total = Number.parseFloat(String(cart.cost?.totalAmount?.amount || "0"));
+  const currencyCode = String(cart.cost?.subtotalAmount?.currencyCode || cart.cost?.totalAmount?.currencyCode || "INR");
+
+  return {
+    ok: true,
+    cartId: cart.id,
+    checkoutUrl: cart.checkoutUrl || undefined,
+    currencyCode,
+    subtotalAmount: Math.max(0, Math.round(subtotal * 100)),
+    totalAmount: Math.max(0, Math.round(total * 100)),
+  };
+}
+
+export async function attachCartDiscountCodes(input: {
+  cartId?: string | null;
+  cartToken?: string | null;
+  discountCodes: string[];
+}): Promise<CartAttributeUpdateResult> {
+  const resolvedCartId = resolveCartId({
+    cartId: input.cartId,
+    cartToken: input.cartToken,
+  });
+
+  if (!resolvedCartId) {
+    return {
+      ok: false,
+      userErrors: [{ message: "Missing cart id/token for discount update" }],
+      apiErrors: [],
+    };
+  }
+
+  const discountCodes = (input.discountCodes || []).map((code) => String(code || "").trim()).filter(Boolean);
+
+  const response = await storefrontGraphql<{
+    cartDiscountCodesUpdate?: {
+      cart?: {
+        id: string;
+        checkoutUrl?: string | null;
+      } | null;
+      userErrors: Array<{ field?: string[] | null; message: string }>;
+    };
+  }>(
+    `
+      mutation MegaskaCartDiscountCodesUpdate($cartId: ID!, $discountCodes: [String!]) {
+        cartDiscountCodesUpdate(cartId: $cartId, discountCodes: $discountCodes) {
+          cart {
+            id
+            checkoutUrl
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+    {
+      cartId: resolvedCartId,
+      discountCodes,
+    }
+  );
+
+  return {
+    ok: Boolean(
+      response.data?.cartDiscountCodesUpdate?.cart?.id &&
+      !(response.data?.cartDiscountCodesUpdate?.userErrors?.length || 0) &&
+      !(response.errors?.length || 0)
+    ),
+    cartId: response.data?.cartDiscountCodesUpdate?.cart?.id || resolvedCartId,
+    checkoutUrl: response.data?.cartDiscountCodesUpdate?.cart?.checkoutUrl || undefined,
+    userErrors: response.data?.cartDiscountCodesUpdate?.userErrors || [],
+    apiErrors: response.errors || [],
+  };
+}
