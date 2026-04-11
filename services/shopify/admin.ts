@@ -87,28 +87,11 @@ export type ShopifyCustomerDashboardData = {
   recentOrders: ShopifyRecentOrder[];
 };
 
-let cachedAccessToken: string | null = null;
-let cachedAccessTokenExpiresAt = 0;
-
-type ShopifyClientCredentialsTokenResponse = {
-  access_token?: string;
-  scope?: string;
-  expires_in?: number;
-};
-
 function getShopDomain() {
   return (process.env.SHOPIFY_STORE_DOMAIN || "")
     .trim()
     .replace(/^https?:\/\//, "")
     .replace(/\/$/, "");
-}
-
-function getShopifyClientId() {
-  return (process.env.SHOPIFY_API_KEY || "").trim();
-}
-
-function getShopifyClientSecret() {
-  return (process.env.SHOPIFY_API_SECRET || "").trim();
 }
 
 
@@ -170,81 +153,29 @@ export function normalizeIndianPhoneToE164(input: string | null | undefined) {
   return null;
 }
 
-async function getAdminAccessToken(): Promise<string> {
-  const now = Date.now();
-
-  if (cachedAccessToken && cachedAccessTokenExpiresAt - 60_000 > now) {
-    return cachedAccessToken;
-  }
-
-  const shopDomain = getShopDomain();
-  const clientId = getShopifyClientId();
-  const clientSecret = getShopifyClientSecret();
-
-  if (!shopDomain || !clientId || !clientSecret) {
-    throw new Error("Shopify client credentials are not configured");
-  }
-
-  console.log("[SHOPIFY AUTH SERVER] requesting client-credentials token", {
-    shopDomain,
-    hasClientId: Boolean(clientId),
-    hasClientSecret: Boolean(clientSecret),
-  });
-
-  const response = await fetch(`https://${shopDomain}/admin/oauth/access_token`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      grant_type: "client_credentials",
-      client_id: clientId,
-      client_secret: clientSecret,
-    }).toString(),
-  });
-
-  const rawText = await response.text().catch(() => "");
-
-  if (!response.ok) {
-    throw new Error(`Shopify token request failed (${response.status}) ${rawText || ""}`.trim());
-  }
-
-  let payload: ShopifyClientCredentialsTokenResponse | null = null;
-
-  try {
-    payload = rawText ? (JSON.parse(rawText) as ShopifyClientCredentialsTokenResponse) : null;
-  } catch {
-    payload = null;
-  }
-
-  const accessToken = String(payload?.access_token || "").trim();
-  const expiresIn = Number(payload?.expires_in || 0);
-
-  if (!accessToken) {
-    throw new Error(`Shopify token response missing access_token ${rawText || ""}`.trim());
-  }
-
-  cachedAccessToken = accessToken;
-  cachedAccessTokenExpiresAt = now + (expiresIn > 0 ? expiresIn * 1000 : 23 * 60 * 60 * 1000);
-
-  console.log("[SHOPIFY AUTH SERVER] token acquired", {
-    expiresIn,
-    hasAccessToken: Boolean(accessToken),
-  });
-
-  return accessToken;
+function maskToken(token: string) {
+  const trimmed = String(token || "").trim();
+  if (!trimmed) return "";
+  if (trimmed.length <= 8) return `${"*".repeat(trimmed.length)}`;
+  return `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`;
 }
+
+function getAdminAccessToken(): string {
+  return String(process.env.SHOPIFY_ADMIN_ACCESS_TOKEN || "").trim();
+}
+
 async function adminGraphql<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
   const shopDomain = getShopDomain();
-  const token = await getAdminAccessToken();
+  const token = getAdminAccessToken();
 
   if (!shopDomain || !token) {
-    throw new Error("Shopify admin sync is not configured");
+    throw new Error("Shopify admin sync is not configured (missing store domain or admin access token)");
   }
 
   console.log("[SHOPIFY AUTH SERVER] calling admin graphql", {
     shopDomain,
-    hasToken: Boolean(token),
+    tokenSource: "env.SHOPIFY_ADMIN_ACCESS_TOKEN",
+    tokenMasked: maskToken(token),
   });
 
   const response = await fetch(`https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`, {
@@ -290,7 +221,7 @@ async function adminGraphql<T>(query: string, variables?: Record<string, unknown
 }
 
 export function isShopifyAdminConfigured() {
-  return Boolean(getShopDomain() && getShopifyClientId() && getShopifyClientSecret());
+  return Boolean(getShopDomain() && getAdminAccessToken());
 }
 async function findCustomerByQuery(query: string): Promise<ShopifyCustomerNode | null> {
   const data = await adminGraphql<{
@@ -833,6 +764,13 @@ export async function createWalletReservationDiscountCode(input: {
     }
   );
 
+  if (data.discountCodeBasicCreate.userErrors.length) {
+    console.error("[SHOPIFY ADMIN] wallet discount create userErrors", {
+      reservationId: input.reservationId,
+      userErrors: data.discountCodeBasicCreate.userErrors,
+    });
+  }
+
   const error = data.discountCodeBasicCreate.userErrors[0]?.message;
   if (error) throw new Error(error);
 
@@ -870,6 +808,13 @@ export async function disableWalletReservationDiscountCode(discountNodeId: strin
     `,
     { id }
   );
+
+  if (data.discountCodeDeactivate.userErrors.length) {
+    console.error("[SHOPIFY ADMIN] wallet discount deactivate userErrors", {
+      discountNodeId: id,
+      userErrors: data.discountCodeDeactivate.userErrors,
+    });
+  }
 
   const error = data.discountCodeDeactivate.userErrors[0]?.message;
   if (error) throw new Error(error);
