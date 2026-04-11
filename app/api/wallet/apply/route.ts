@@ -7,7 +7,9 @@ import { createWalletReservation } from "../../../../services/wallet-reservation
 import { resolveCartId } from "../../../../services/shopify/storefront";
 
 export async function OPTIONS(req: NextRequest) {
-  return handleOptions(req);
+  const response = handleOptions(req);
+  response.headers.set("Access-Control-Allow-Methods", "POST,OPTIONS");
+  return response;
 }
 
 export async function POST(req: NextRequest) {
