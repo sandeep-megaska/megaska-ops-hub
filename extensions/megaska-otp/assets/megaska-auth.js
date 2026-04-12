@@ -468,6 +468,7 @@
       cartId: data?.cartId || null,
       checkoutUrl: data?.checkoutUrl || payload.checkoutUrl || null,
       buyerIdentity: data?.buyerIdentity || null,
+      wallet: data?.wallet || null,
       userErrors: Array.isArray(data?.userErrors) ? data.userErrors : [],
       apiErrors: Array.isArray(data?.apiErrors) ? data.apiErrors : [],
     };

@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
       amountMinor: number;
       currency: string;
       discountCode: string;
+      discountNodeId: string;
       expiresAt: Date;
     } | null = null;
     const cartSource = String(body?.cartId || "").trim()
@@ -256,6 +257,8 @@ export async function POST(req: NextRequest) {
               reservationId: walletReservation.reservationId,
               amount: walletReservation.amountMinor,
               currency: walletReservation.currency,
+              code: walletReservation.discountCode,
+              discountNodeId: walletReservation.discountNodeId,
               expiresAt: walletReservation.expiresAt.toISOString(),
             }
           : { applied: false },
