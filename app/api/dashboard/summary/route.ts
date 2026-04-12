@@ -3,6 +3,7 @@ import { withCors, handleOptions } from "../../_lib/cors";
 import { prisma } from "../../../../services/db/prisma";
 import { hashSessionToken } from "../../../../services/auth/session";
 import {
+  debugShopifyAdminAuth,
   findShopifyCustomerIdByIdentity,
   getShopifyCustomerDashboardData,
   isShopifyAdminConfigured,
@@ -70,6 +71,18 @@ export async function GET(req: NextRequest) {
 
     if (isShopifyAdminConfigured()) {
       try {
+        try {
+          const authProbe = await debugShopifyAdminAuth();
+          console.log("[SHOPIFY AUTH PROBE] success", {
+            shopName: authProbe?.shop?.name || null,
+            myshopifyDomain: authProbe?.shop?.myshopifyDomain || null,
+          });
+        } catch (error) {
+          console.error("[SHOPIFY AUTH PROBE] failed", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+
         if (!resolvedShopifyCustomerId) {
           console.log("[DASHBOARD SUMMARY] resolving Shopify customer identity", {
             email: customer.email || null,
