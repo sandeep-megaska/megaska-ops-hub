@@ -1,26 +1,57 @@
 (function () {
+  const root = document.getElementById("megaska-bag-root");
+  if (!root) return;
+
   const MEGASKA_FALLBACK_API_BASE = "https://megaska-ops-hub-exs1.vercel.app/api";
+
+  const state = {
+    pageStatus: "loading",
+    cart: null,
+    customer: {
+      sessionActive: false,
+      profile: null,
+      dashboard: null,
+    },
+    wallet: {
+      visible: false,
+      balance: 0,
+      currency: "INR",
+      pendingRefund: 0,
+      status: "hidden",
+      appliedCode: null,
+      appliedAmount: 0,
+      reservationId: null,
+      message: null,
+    },
+    ui: {
+      busyLineKey: null,
+      busyAction: null,
+      errorMessage: null,
+    },
+  };
 
   function getMegaskaApiBase() {
     const configuredBase = String(window?.MegaskaAuth?.API_BASE || "").trim();
     return configuredBase || MEGASKA_FALLBACK_API_BASE;
   }
 
-  async function getMegaskaSessionTokenForApi() {
-    const getSessionToken = window?.MegaskaAuth?.getSessionToken;
-
-    if (typeof getSessionToken === "function") {
-      try {
-        const token = await getSessionToken();
-        return String(token || "").trim();
-      } catch (error) {
-        console.warn("[WALLET CART UI] async getSessionToken failed", error);
+  async function getSessionToken() {
+    try {
+      if (window.MegaskaAuth) {
+        if (typeof window.MegaskaAuth.getSessionToken === "function") {
+          const token = await window.MegaskaAuth.getSessionToken();
+          if (token) return String(token).trim();
+        }
+        if (typeof window.MegaskaAuth.getToken === "function") {
+          const token = await window.MegaskaAuth.getToken();
+          if (token) return String(token).trim();
+        }
       }
-    }
+    } catch (_error) {}
 
     try {
-      return String(window?.localStorage?.getItem("megaska_session_token") || "").trim();
-    } catch {
+      return String(window.localStorage.getItem("megaska_session_token") || "").trim();
+    } catch (_error) {
       return "";
     }
   }
@@ -30,7 +61,7 @@
       ? String(path || "").trim()
       : `/${String(path || "").trim()}`;
 
-    const token = await getMegaskaSessionTokenForApi();
+    const token = await getSessionToken();
     const baseHeaders = {
       Accept: "application/json",
     };
@@ -42,94 +73,476 @@
     const incomingHeaders = options?.headers || {};
     const mergedHeaders = Object.assign({}, baseHeaders, incomingHeaders);
 
-    const response = await fetch(`${getMegaskaApiBase()}${normalizedPath}`, Object.assign({}, options || {}, {
-      headers: mergedHeaders,
-    }));
-
-    return response;
+    return fetch(
+      `${getMegaskaApiBase()}${normalizedPath}`,
+      Object.assign({}, options || {}, {
+        headers: mergedHeaders,
+      })
+    );
   }
 
-  async function fetchDashboardSummaryForCartWallet() {
-    const response = await megaskaApiFetch("/dashboard/summary", {
+  function formatMoneyFromMinor(amountMinor, currency) {
+    const amount = Number(amountMinor || 0) / 100;
+    try {
+      return new Intl.NumberFormat("en-IN", {
+        style: "currency",
+        currency: currency || "INR",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(amount);
+    } catch (_error) {
+      return `₹${amount.toFixed(2)}`;
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  async function fetchCart() {
+    const res = await fetch("/cart.js", {
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) throw new Error(`Unable to load cart (${res.status})`);
+    return res.json();
+  }
+
+  async function changeLineQuantity(lineKey, quantity) {
+    return fetch("/cart/change.js", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ id: lineKey, quantity }),
+    }).then(async (res) => {
+      if (!res.ok) throw new Error(`Unable to update quantity (${res.status})`);
+      return res.json();
+    });
+  }
+
+  function removeLine(lineKey) {
+    return changeLineQuantity(lineKey, 0);
+  }
+
+  async function fetchDashboardSummary() {
+    const res = await megaskaApiFetch("/dashboard/summary", {
       method: "GET",
     });
-
-    if (!response.ok) {
-      throw new Error(`Dashboard summary failed (${response.status})`);
-    }
-
-    return response.json();
+    if (!res.ok) throw new Error(`Dashboard summary unavailable (${res.status})`);
+    return res.json();
   }
 
-  async function applyWalletFromCartButton(button, availableToRedeem) {
-    if (!button || button.dataset.megaskaApplying === "1") return;
-    if (availableToRedeem <= 0) return;
+  async function detectCustomerSession() {
+    const token = await getSessionToken();
+    if (!token) {
+      state.customer.sessionActive = false;
+      state.wallet.status = "login_required";
+      state.wallet.visible = true;
+      return;
+    }
 
-    button.dataset.megaskaApplying = "1";
-    const originalLabel = button.textContent || "Apply Wallet";
-    button.disabled = true;
-    button.textContent = "Applying...";
+    state.customer.sessionActive = true;
+    state.wallet.visible = true;
+    try {
+      const summary = await fetchDashboardSummary();
+      state.customer.dashboard = summary || null;
+      state.customer.profile = summary?.customer || null;
 
-    const cartContext = await readCartContext();
-    const cartToken = cartContext?.cartToken || "";
-    const cartId = cartContext?.cartId || "";
+      const wallet = summary?.wallet || {};
+      state.wallet.balance = Number(wallet.availableToRedeem || wallet.balance || 0);
+      state.wallet.currency = String(wallet.currency || "INR");
+      state.wallet.pendingRefund = Number(wallet.pendingRefund || 0);
+      state.wallet.status = state.wallet.balance > 0 ? "available" : "unavailable";
+      state.wallet.message = null;
+    } catch (_error) {
+      state.wallet.status = "unavailable";
+      state.wallet.message = "Wallet data is unavailable right now. You can still checkout.";
+    }
+  }
 
-    console.log("[WALLET CART UI] apply click", {
-      availableToRedeem,
-      cartTokenPresent: Boolean(cartToken),
-      cartIdPresent: Boolean(cartId),
-    });
+  function lineVariantText(item) {
+    return item?.variant_title && item.variant_title !== "Default Title" ? item.variant_title : "";
+  }
+
+  function getComputedTotals() {
+    const subtotalMinor = Number(state.cart?.items_subtotal_price || 0);
+    const cartDiscountMinor = Number(state.cart?.total_discount || 0);
+    const walletMinor = Number(state.wallet.appliedAmount || 0);
+    const estimatedTotalMinor = Math.max(subtotalMinor - cartDiscountMinor - walletMinor, 0);
+
+    return { subtotalMinor, cartDiscountMinor, walletMinor, estimatedTotalMinor };
+  }
+
+  function getCheckoutRedirectUrl() {
+    if (state.wallet.appliedCode && state.wallet.status === "applied") {
+      return `/discount/${encodeURIComponent(state.wallet.appliedCode)}?redirect=/checkout`;
+    }
+    return "/checkout";
+  }
+
+  function renderLoading() {
+    root.innerHTML = '<div id="megaska-bag-loading" class="megaska-bag-loading">Loading your bag...</div>';
+  }
+
+  function renderError(message) {
+    root.innerHTML = `
+      <section class="megaska-bag-card">
+        <h2>Unable to load your bag</h2>
+        <p class="megaska-bag-muted">${escapeHtml(message || "Please try again.")}</p>
+        <button class="megaska-bag-btn megaska-bag-btn--primary" data-bag-action="retry-load" type="button">Retry</button>
+      </section>
+    `;
+  }
+
+  function renderItemsSection() {
+    const items = Array.isArray(state.cart?.items) ? state.cart.items : [];
+    const itemsMarkup = items
+      .map((item) => {
+        const variant = lineVariantText(item);
+        const lineBusy = state.ui.busyLineKey === item.key;
+        return `
+          <article class="megaska-bag-line" data-line-key="${escapeHtml(item.key)}">
+            <img class="megaska-bag-line__image" src="${escapeHtml(item.image || "")}" alt="${escapeHtml(item.product_title)}" loading="lazy" />
+            <div>
+              <h3 class="megaska-bag-line__title">${escapeHtml(item.product_title)}</h3>
+              ${variant ? `<p class="megaska-bag-line__variant">${escapeHtml(variant)}</p>` : ""}
+              <p class="megaska-bag-line__unit">Unit: ${formatMoneyFromMinor(item.price, state.cart.currency)}</p>
+              <div class="megaska-bag-line__meta">
+                <div class="megaska-bag-qty">
+                  <button class="megaska-bag-btn megaska-bag-btn--tiny" type="button" data-bag-action="decrease-qty" ${lineBusy ? "disabled" : ""}>−</button>
+                  <span>${Number(item.quantity || 0)}</span>
+                  <button class="megaska-bag-btn megaska-bag-btn--tiny" type="button" data-bag-action="increase-qty" ${lineBusy ? "disabled" : ""}>+</button>
+                </div>
+                <strong>${formatMoneyFromMinor(item.final_line_price || item.line_price, state.cart.currency)}</strong>
+              </div>
+              <button class="megaska-bag-btn megaska-bag-btn--link" type="button" data-bag-action="remove-line" ${lineBusy ? "disabled" : ""}>Remove</button>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+
+    return `
+      <section id="bag-items-section" class="megaska-bag-card">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+          <h2 style="margin:0;">Items (${items.length})</h2>
+          <button class="megaska-bag-btn" type="button" data-bag-action="refresh-bag">Refresh</button>
+        </div>
+        <div class="megaska-bag-line-list" style="margin-top:12px;">
+          ${itemsMarkup}
+        </div>
+      </section>
+      <section class="megaska-bag-reco-placeholder" hidden aria-hidden="true"></section>
+    `;
+  }
+
+  function renderWalletSection() {
+    const wallet = state.wallet;
+    const canApply = wallet.status === "available" && wallet.balance > 0;
+    const walletSavings = wallet.appliedAmount > 0 ? formatMoneyFromMinor(wallet.appliedAmount, wallet.currency) : null;
+
+    let body = "";
+    if (!state.customer.sessionActive) {
+      body = `
+        <p class="megaska-bag-muted">Login to view and apply your Megaska wallet balance.</p>
+        <button class="megaska-bag-btn" data-bag-action="wallet-login" type="button">Login to Use Wallet</button>
+      `;
+    } else if (wallet.status === "applying") {
+      body = `<p>Applying wallet...</p>`;
+    } else {
+      body = `
+        <div class="megaska-bag-row"><span>Available balance</span><strong>${formatMoneyFromMinor(wallet.balance, wallet.currency)}</strong></div>
+        ${walletSavings ? `<p class="megaska-bag-success">Wallet applied for checkout: ${walletSavings}</p>` : ""}
+        <button class="megaska-bag-btn ${canApply ? "megaska-bag-btn--primary" : ""}" data-bag-action="apply-wallet" type="button" ${canApply ? "" : "disabled"}>
+          ${wallet.status === "applied" ? "Wallet Applied" : canApply ? "Apply Wallet" : "Wallet Unavailable"}
+        </button>
+      `;
+    }
+
+    return `
+      <section id="bag-wallet-section" class="megaska-bag-card">
+        <h2 style="margin:0 0 8px;">Megaska Wallet</h2>
+        ${body}
+        ${wallet.message ? `<p class="megaska-bag-error">${escapeHtml(wallet.message)}</p>` : ""}
+      </section>
+    `;
+  }
+
+  function renderSummarySection() {
+    const totals = getComputedTotals();
+    return `
+      <section id="bag-summary-section" class="megaska-bag-card">
+        <h2 style="margin:0 0 8px;">Order Summary</h2>
+        <div class="megaska-bag-row"><span>Subtotal</span><strong>${formatMoneyFromMinor(totals.subtotalMinor, state.cart.currency)}</strong></div>
+        ${totals.cartDiscountMinor > 0 ? `<div class="megaska-bag-row"><span>Discounts</span><strong>- ${formatMoneyFromMinor(totals.cartDiscountMinor, state.cart.currency)}</strong></div>` : ""}
+        ${totals.walletMinor > 0 ? `<div class="megaska-bag-row"><span>Wallet savings</span><strong>- ${formatMoneyFromMinor(totals.walletMinor, state.wallet.currency)}</strong></div>` : ""}
+        <div class="megaska-bag-row megaska-bag-row--total"><span>Estimated total</span><strong>${formatMoneyFromMinor(totals.estimatedTotalMinor, state.cart.currency)}</strong></div>
+        <p class="megaska-bag-note">Shipping and taxes finalize at checkout.</p>
+        <button class="megaska-bag-btn megaska-bag-btn--primary" data-bag-action="checkout" type="button" style="width:100%;margin-top:10px;">Proceed to Checkout</button>
+      </section>
+    `;
+  }
+
+  function renderTrustSection() {
+    return `
+      <section id="bag-trust-section" class="megaska-bag-card">
+        <h3 style="margin:0;">Why checkout with confidence</h3>
+        <ul class="megaska-bag-trust-list">
+          <li>Secure payment and order processing through Shopify checkout.</li>
+          <li>Support for eligible exchanges through your Megaska dashboard.</li>
+          <li>Built for a better coverage and comfort shopping experience.</li>
+        </ul>
+      </section>
+    `;
+  }
+
+  function renderStickyFooter() {
+    const totals = getComputedTotals();
+    return `
+      <section id="bag-sticky-footer">
+        <div class="megaska-bag-sticky__inner">
+          <div>
+            <p class="megaska-bag-muted" style="margin:0;font-size:11px;">Total</p>
+            <p class="megaska-bag-sticky__amount" style="margin:0;">${formatMoneyFromMinor(totals.estimatedTotalMinor, state.cart.currency)}</p>
+          </div>
+          <button class="megaska-bag-btn megaska-bag-btn--primary" data-bag-action="checkout" type="button">Checkout</button>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderBagLayout() {
+    root.innerHTML = `
+      <div class="megaska-bag-layout">
+        <div class="megaska-bag-main">
+          ${renderItemsSection()}
+        </div>
+        <aside class="megaska-bag-sidebar">
+          ${renderWalletSection()}
+          ${renderSummarySection()}
+          ${renderTrustSection()}
+        </aside>
+      </div>
+      ${renderStickyFooter()}
+    `;
+  }
+
+  function renderEmptyState() {
+    root.innerHTML = `
+      <section class="megaska-bag-card megaska-bag-empty">
+        <h2>Your bag is empty</h2>
+        <p class="megaska-bag-muted">Looks like you haven't added anything yet.</p>
+        <button class="megaska-bag-btn megaska-bag-btn--primary" data-bag-action="continue-shopping" type="button">Continue Shopping</button>
+      </section>
+    `;
+  }
+
+  function render() {
+    if (state.pageStatus === "loading") return renderLoading();
+    if (state.pageStatus === "error") return renderError(state.ui.errorMessage || "Please try again.");
+    if (state.pageStatus === "empty") return renderEmptyState();
+    return renderBagLayout();
+  }
+
+  async function applyWallet() {
+    if (!state.customer.sessionActive) {
+      state.wallet.status = "login_required";
+      state.wallet.message = "Please login to apply wallet.";
+      render();
+      return;
+    }
+
+    const token = await getSessionToken();
+    if (!token) {
+      state.wallet.status = "login_required";
+      state.wallet.message = "Your session expired. Please login again.";
+      render();
+      return;
+    }
+
+    const subtotalMinor = Number(state.cart?.items_subtotal_price || 0);
+    const eligibleMinor = Math.min(subtotalMinor, Number(state.wallet.balance || 0));
+    if (eligibleMinor <= 0) {
+      state.wallet.status = "unavailable";
+      state.wallet.message = "No wallet amount available for this order.";
+      render();
+      return;
+    }
+
+    state.wallet.status = "applying";
+    state.wallet.message = null;
+    render();
 
     try {
-      const walletAmount = Number((availableToRedeem / 100).toFixed(2));
       const response = await megaskaApiFetch("/wallet/apply", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          walletAmount,
-          cartToken: cartToken || undefined,
-          cartId: cartId || undefined,
-          sourceFlow: "CHECKOUT",
+          walletAmount: Number((eligibleMinor / 100).toFixed(2)),
+          cartToken: String(state.cart?.token || "").trim() || undefined,
+          sourceFlow: window?.MegaskaAuth?.WALLET_SOURCE_FLOW || "CHECKOUT",
         }),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok || !data?.ok || !data?.code) {
         throw new Error(data?.error || `Wallet apply failed (${response.status})`);
       }
 
-      console.log("[WALLET CART UI] apply success", {
-        reservationId: data?.reservationId || null,
-        code: data?.code || null,
-        discountNodeId: data?.discountNodeId || null,
-        amountMinor: data?.amountMinor || null,
-      });
-
-      const code = String(data.code || "").trim();
-      const targetUrl = `/discount/${encodeURIComponent(code)}?redirect=/cart`;
-      console.log("[WALLET CART UI] redirecting to wallet discount attach", {
-        code,
-        targetUrl,
-      });
-
-      window.location.assign(targetUrl);
+      state.wallet.appliedCode = String(data.code || "").trim();
+      state.wallet.appliedAmount = Number(data.amountMinor || 0);
+      state.wallet.reservationId = String(data.reservationId || "").trim() || null;
+      state.wallet.status = "applied";
+      state.wallet.message = "Wallet is applied for checkout. Final debit happens after order confirmation.";
+      render();
     } catch (error) {
-      console.error("[WALLET CART UI] apply failed", {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      button.disabled = false;
-      button.textContent = originalLabel;
-      button.dataset.megaskaApplying = "0";
+      state.wallet.status = "error";
+      state.wallet.message = error instanceof Error ? error.message : "Could not apply wallet.";
+      render();
     }
   }
 
-  window.MegaskaBag = Object.assign({}, window.MegaskaBag || {}, {
-    getMegaskaApiBase,
-    getMegaskaSessionTokenForApi,
-    megaskaApiFetch,
-    fetchDashboardSummaryForCartWallet,
-    applyWalletFromCartButton,
+  function triggerWalletLoginFlow() {
+    if (window.MegaskaAuth && typeof window.MegaskaAuth.openOtpModal === "function") {
+      window.MegaskaAuth.openOtpModal({ returnTo: "/pages/bag" });
+      return;
+    }
+    if (window.MegaskaAuth && typeof window.MegaskaAuth.openAuthModal === "function") {
+      window.MegaskaAuth.openAuthModal({ returnTo: "/pages/bag" });
+      return;
+    }
+    window.location.assign(`/account/login?return_url=${encodeURIComponent("/pages/bag")}`);
+  }
+
+  async function reloadCartView() {
+    const cart = await fetchCart();
+    state.cart = cart;
+    state.pageStatus = Array.isArray(cart?.items) && cart.items.length ? "ready" : "empty";
+  }
+
+  async function handleLineMutation(lineKey, nextQty, action) {
+    if (!lineKey || state.ui.busyLineKey) return;
+    state.ui.busyLineKey = lineKey;
+    state.ui.busyAction = action;
+    render();
+    try {
+      if (action === "remove") {
+        await removeLine(lineKey);
+      } else {
+        await changeLineQuantity(lineKey, nextQty);
+      }
+      await reloadCartView();
+    } catch (error) {
+      state.wallet.message = error instanceof Error ? error.message : "Unable to update bag item.";
+    } finally {
+      state.ui.busyLineKey = null;
+      state.ui.busyAction = null;
+      render();
+    }
+  }
+
+  async function handleAction(action, trigger) {
+    if (!action) return;
+
+    if (action === "retry-load") {
+      await init();
+      return;
+    }
+
+    if (action === "continue-shopping") {
+      window.location.assign("/collections/all");
+      return;
+    }
+
+    if (action === "refresh-bag") {
+      try {
+        await reloadCartView();
+        render();
+      } catch (error) {
+        state.pageStatus = "error";
+        state.ui.errorMessage = error instanceof Error ? error.message : "Unable to refresh bag.";
+        render();
+      }
+      return;
+    }
+
+    if (action === "checkout") {
+      window.location.assign(getCheckoutRedirectUrl());
+      return;
+    }
+
+    if (action === "wallet-login") {
+      triggerWalletLoginFlow();
+      return;
+    }
+
+    if (action === "apply-wallet") {
+      await applyWallet();
+      return;
+    }
+
+    const lineNode = trigger && trigger.closest ? trigger.closest("[data-line-key]") : null;
+    const lineKey = lineNode ? String(lineNode.getAttribute("data-line-key") || "").trim() : "";
+    const item = (state.cart?.items || []).find((entry) => String(entry.key) === lineKey);
+    if (!item) return;
+
+    if (action === "decrease-qty") {
+      const nextQty = Math.max(Number(item.quantity || 0) - 1, 0);
+      await handleLineMutation(lineKey, nextQty, nextQty <= 0 ? "remove" : "decrease");
+      return;
+    }
+
+    if (action === "increase-qty") {
+      await handleLineMutation(lineKey, Number(item.quantity || 0) + 1, "increase");
+      return;
+    }
+
+    if (action === "remove-line") {
+      await handleLineMutation(lineKey, 0, "remove");
+    }
+  }
+
+  root.addEventListener("click", function (event) {
+    const target = event.target instanceof Element ? event.target.closest("[data-bag-action]") : null;
+    if (!target) return;
+    const action = String(target.getAttribute("data-bag-action") || "").trim();
+    if (!action) return;
+    event.preventDefault();
+    handleAction(action, target);
   });
+
+  async function init() {
+    state.pageStatus = "loading";
+    state.ui.errorMessage = null;
+    render();
+
+    try {
+      await Promise.all([reloadCartView(), detectCustomerSession()]);
+      render();
+    } catch (error) {
+      state.pageStatus = "error";
+      state.ui.errorMessage = error instanceof Error ? error.message : "Unable to load bag.";
+      render();
+    }
+  }
+
+  window.MegaskaBag = {
+    state,
+    init,
+    fetchCart,
+    changeLineQuantity,
+    removeLine,
+    getCheckoutRedirectUrl,
+    getMegaskaApiBase,
+    megaskaApiFetch,
+  };
+
+  init();
 })();
