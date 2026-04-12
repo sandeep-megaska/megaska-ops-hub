@@ -541,32 +541,36 @@ export async function getShopifyCustomerDashboardData(
       ? totalOrderCountRaw
       : Number.parseInt(String(totalOrderCountRaw || "0"), 10) || 0;
 
+  const mappedRecentOrders = (customer.orders?.nodes || []).map((order) => {
+    return {
+      id: order.id,
+      shopifyOrderId: order.id,
+      name: String(order.name || "").trim(),
+      processedAt: order.processedAt || null,
+      totalAmount: order.currentTotalPriceSet?.shopMoney?.amount || null,
+      currencyCode: order.currentTotalPriceSet?.shopMoney?.currencyCode || null,
+      financialStatus: order.displayFinancialStatus || null,
+      fulfillmentStatus: order.displayFulfillmentStatus || null,
+      deliveredAt: order.processedAt || null,
+      statusPageUrl: order.statusPageUrl || null,
+      displayTitle: String(order.name || "Order").trim() || "Order",
+      displayImage: null,
+      itemsCount: null,
+      firstLineItemId: null,
+      firstLineItemTitle: null,
+      firstLineItemVariantTitle: null,
+      firstLineItemSku: null,
+    };
+  });
+
+  console.log("[DEBUG ORDERS RAW]", JSON.stringify(mappedRecentOrders, null, 2));
+
   return {
     email: customer.email || null,
     phone: customer.phone || null,
     defaultAddress: customer.defaultAddress || null,
     totalOrderCount,
-    recentOrders: (customer.orders?.nodes || []).map((order) => {
-      return {
-        id: order.id,
-        shopifyOrderId: order.id,
-        name: String(order.name || "").trim(),
-        processedAt: order.processedAt || null,
-        totalAmount: order.currentTotalPriceSet?.shopMoney?.amount || null,
-        currencyCode: order.currentTotalPriceSet?.shopMoney?.currencyCode || null,
-        financialStatus: order.displayFinancialStatus || null,
-        fulfillmentStatus: order.displayFulfillmentStatus || null,
-        deliveredAt: order.processedAt || null,
-        statusPageUrl: order.statusPageUrl || null,
-        displayTitle: String(order.name || "Order").trim() || "Order",
-        displayImage: null,
-        itemsCount: null,
-        firstLineItemId: null,
-        firstLineItemTitle: null,
-        firstLineItemVariantTitle: null,
-        firstLineItemSku: null,
-      };
-    }),
+    recentOrders: mappedRecentOrders,
   };
 }
 
