@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withCors, handleOptions } from "../../_lib/cors";
 import { hashSessionToken } from "../../../../services/auth/session";
 import { prisma } from "../../../../services/db/prisma";
-import { parseAmountToMinorUnits } from "../../../../services/wallet";
+import { getOrCreateWalletAccount, parseAmountToMinorUnits } from "../../../../services/wallet";
 import { createWalletReservation } from "../../../../services/wallet-reservation";
 import { resolveCartId } from "../../../../services/shopify/storefront";
 
@@ -13,18 +13,41 @@ export async function OPTIONS(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  let customerProfileId = "";
   try {
     const authHeader = req.headers.get("authorization");
     const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    const queryToken = req.nextUrl.searchParams.get("token")?.trim() ?? "";
+    const sessionToken = bearerToken || queryToken;
+    const body = (await req.json().catch(() => ({}))) as {
+      cartId?: string;
+      cartToken?: string;
+      walletAmount?: number | string;
+      sourceFlow?: "CHECKOUT" | "BUY_NOW";
+    };
+    const requestedAmountMinor = parseAmountToMinorUnits(body.walletAmount || "");
+    const cartId = resolveCartId({ cartId: body.cartId, cartToken: body.cartToken });
 
-    if (!bearerToken) {
+    console.log("[WALLET APPLY] start", {
+      hasAuthorizationHeader: Boolean(authHeader),
+      hasBearerToken: Boolean(bearerToken),
+      customerProfileId: customerProfileId || null,
+      requestedAmountMinor,
+      cartTokenPresent: Boolean(String(body.cartToken || "").trim()),
+    });
+
+    if (!sessionToken) {
+      console.error("[WALLET APPLY] failed", {
+        customerProfileId: customerProfileId || null,
+        error: "Session token required",
+      });
       return withCors(req, NextResponse.json({ ok: false, error: "Session token required" }, { status: 401 }));
     }
 
     const now = new Date();
     const session = await prisma.authSession.findFirst({
       where: {
-        sessionTokenHash: hashSessionToken(bearerToken),
+        sessionTokenHash: hashSessionToken(sessionToken),
         revokedAt: null,
         expiresAt: { gt: now },
       },
@@ -37,40 +60,114 @@ export async function POST(req: NextRequest) {
     });
 
     if (!session?.customer) {
+      console.error("[WALLET APPLY] failed", {
+        customerProfileId: customerProfileId || null,
+        error: "Invalid or expired session",
+      });
       return withCors(req, NextResponse.json({ ok: false, error: "Invalid or expired session" }, { status: 401 }));
     }
-
-    const body = (await req.json().catch(() => ({}))) as {
-      cartId?: string;
-      cartToken?: string;
-      walletAmount?: number | string;
-      sourceFlow?: "CHECKOUT" | "BUY_NOW";
-    };
-
-    const cartId = resolveCartId({ cartId: body.cartId, cartToken: body.cartToken });
-    const amountMinor = parseAmountToMinorUnits(body.walletAmount || "");
+    customerProfileId = session.customer.id;
 
     if (!cartId) {
+      console.error("[WALLET APPLY] failed", {
+        customerProfileId,
+        error: "cartId/cartToken required",
+      });
       return withCors(req, NextResponse.json({ ok: false, error: "cartId/cartToken required" }, { status: 400 }));
     }
 
-    if (amountMinor <= 0) {
+    if (requestedAmountMinor <= 0) {
+      console.error("[WALLET APPLY] failed", {
+        customerProfileId,
+        error: "walletAmount must be greater than 0",
+      });
       return withCors(req, NextResponse.json({ ok: false, error: "walletAmount must be greater than 0" }, { status: 400 }));
     }
 
+    const walletAccount = await getOrCreateWalletAccount(customerProfileId, "INR");
+    const activeReservations = await prisma.$queryRaw<Array<{ total: number }>>`
+      SELECT COALESCE(SUM("reservedAmount"), 0)::int AS total
+      FROM "WalletReservation"
+      WHERE "walletAccountId" = ${walletAccount.id}
+        AND "currency" = 'INR'
+        AND "status" = 'ACTIVE'::"WalletReservationStatus"
+        AND "expiresAt" > NOW()
+    `;
+    const availableBalanceMinor = Math.max(
+      0,
+      Number(walletAccount.currentBalance || 0) - Number(activeReservations[0]?.total || 0)
+    );
+    const approvedAmountMinor = Math.min(requestedAmountMinor, availableBalanceMinor);
+
+    console.log("[WALLET APPLY] eligibility", {
+      customerProfileId,
+      availableBalanceMinor,
+      requestedAmountMinor,
+      approvedAmountMinor,
+    });
+
+    if (approvedAmountMinor <= 0) {
+      console.error("[WALLET APPLY] failed", {
+        customerProfileId,
+        error: "Insufficient available wallet balance",
+      });
+      return withCors(
+        req,
+        NextResponse.json({ ok: false, error: "Insufficient available wallet balance" }, { status: 400 })
+      );
+    }
+
+    console.log("[WALLET APPLY] creating reservation", {
+      customerProfileId,
+      approvedAmountMinor,
+    });
+
     const reservation = await createWalletReservation({
-      customerProfileId: session.customer.id,
+      customerProfileId,
       cartId,
-      amountMinor,
+      amountMinor: approvedAmountMinor,
       sourceFlow: body.sourceFlow || "CHECKOUT",
       sessionReference: session.id,
     });
 
-    return withCors(req, NextResponse.json({ ok: true, reservation }));
-  } catch (error) {
+    const amountMinor = reservation.amountMinor;
+    const amount = Number((amountMinor / 100).toFixed(2));
+
+    console.log("[WALLET APPLY] success", {
+      customerProfileId,
+      reservationId: reservation.reservationId,
+      code: reservation.discountCode,
+      discountNodeId: reservation.discountNodeId,
+    });
+    console.log("[WALLET APPLY] outcome snapshot", {
+      customerProfileId,
+      reservationId: reservation.reservationId,
+      code: reservation.discountCode,
+      discountNodeId: reservation.discountNodeId,
+      ok: true,
+    });
+
     return withCors(
       req,
-      NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Failed" }, { status: 500 })
+      NextResponse.json({
+        ok: true,
+        reservationId: reservation.reservationId,
+        code: reservation.discountCode,
+        discountNodeId: reservation.discountNodeId,
+        amountMinor,
+        amount,
+        currency: reservation.currency,
+      })
+    );
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Failed";
+    console.error("[WALLET APPLY] failed", {
+      customerProfileId: customerProfileId || null,
+      error: errorMessage,
+    });
+    return withCors(
+      req,
+      NextResponse.json({ ok: false, error: errorMessage }, { status: 500 })
     );
   }
 }

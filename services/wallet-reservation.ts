@@ -30,6 +30,13 @@ export async function createWalletReservation(input: CreateWalletReservationInpu
 
   const currency = String(input.currency || "INR").trim() || "INR";
   const sourceFlow = input.sourceFlow || "CHECKOUT";
+  let reservationId: string | null = null;
+  console.log("[WALLET RESERVATION] create start", {
+    customerProfileId: input.customerProfileId,
+    amountMinor: input.amountMinor,
+    status: "ACTIVE",
+    currency,
+  });
   await expireWalletReservations();
 
   const pricing = await getCartPricingSnapshot(input.cartId);
@@ -46,7 +53,8 @@ export async function createWalletReservation(input: CreateWalletReservationInpu
     throw new Error("Wallet amount cannot exceed current order subtotal");
   }
 
-  const reservation = await prisma.$transaction(async (tx) => {
+  try {
+    const reservation = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`
       UPDATE "WalletReservation"
       SET "status" = 'EXPIRED'::"WalletReservationStatus", "updatedAt" = NOW()
@@ -100,45 +108,84 @@ export async function createWalletReservation(input: CreateWalletReservationInpu
       throw new Error("Failed to create wallet reservation");
     }
 
-    return { id: rows[0].id, walletAccountId: rows[0].walletAccountId, expiresAt: rows[0].expiresAt };
-  });
+      return { id: rows[0].id, walletAccountId: rows[0].walletAccountId, expiresAt: rows[0].expiresAt };
+    });
+    reservationId = reservation.id;
 
-  const discount = await createWalletReservationDiscountCode({
-    reservationId: reservation.id,
-    amountMinor: input.amountMinor,
-    currency,
-    customerProfileId: input.customerProfileId,
-    endsAt: reservation.expiresAt,
-  });
+    let discount: { code: string; discountNodeId: string };
+    try {
+      discount = await createWalletReservationDiscountCode({
+        reservationId: reservation.id,
+        amountMinor: input.amountMinor,
+        currency,
+        customerProfileId: input.customerProfileId,
+        endsAt: reservation.expiresAt,
+      });
+    } catch (error) {
+      await prisma.$executeRaw`
+        UPDATE "WalletReservation"
+        SET "status" = 'RELEASED'::"WalletReservationStatus",
+            "releaseReason" = ${"shopify-discount-create-failed"},
+            "updatedAt" = NOW()
+        WHERE "id" = ${reservation.id}
+      `;
+      console.error("[WALLET RESERVATION] create failed", {
+        customerProfileId: input.customerProfileId,
+        reservationId: reservation.id,
+        amountMinor: input.amountMinor,
+        status: "RELEASED",
+        currency,
+      });
+      throw error;
+    }
 
-  await prisma.$executeRaw`
-    UPDATE "WalletReservation"
-    SET "discountCode" = ${discount.code}, "shopifyDiscountId" = ${discount.discountNodeId}, "updatedAt" = NOW()
-    WHERE "id" = ${reservation.id}
-  `;
+    await prisma.$executeRaw`
+      UPDATE "WalletReservation"
+      SET "discountCode" = ${discount.code}, "shopifyDiscountId" = ${discount.discountNodeId}, "updatedAt" = NOW()
+      WHERE "id" = ${reservation.id}
+    `;
 
-  await updateCartAttributes({
-    cartId: input.cartId,
-    attributes: [
-      { key: "megaska_wallet_reservation_id", value: reservation.id },
-      { key: "megaska_wallet_discount_code", value: discount.code },
-      { key: "megaska_wallet_reserved_amount", value: String(input.amountMinor) },
-    ],
-  });
+    await updateCartAttributes({
+      cartId: input.cartId,
+      attributes: [
+        { key: "megaska_wallet_reservation_id", value: reservation.id },
+        { key: "megaska_wallet_discount_code", value: discount.code },
+        { key: "megaska_wallet_reserved_amount", value: String(input.amountMinor) },
+      ],
+    });
 
-  await attachCartDiscountCodes({
-    cartId: input.cartId,
-    discountCodes: [discount.code],
-  });
+    await attachCartDiscountCodes({
+      cartId: input.cartId,
+      discountCodes: [discount.code],
+    });
 
-  return {
-    reservationId: reservation.id,
-    discountCode: discount.code,
-    expiresAt: reservation.expiresAt,
-    amountMinor: input.amountMinor,
-    currency,
-    cartPricing: pricing,
-  };
+    console.log("[WALLET RESERVATION] create success", {
+      customerProfileId: input.customerProfileId,
+      reservationId: reservation.id,
+      amountMinor: input.amountMinor,
+      status: "ACTIVE",
+      currency,
+    });
+
+    return {
+      reservationId: reservation.id,
+      discountCode: discount.code,
+      discountNodeId: discount.discountNodeId,
+      expiresAt: reservation.expiresAt,
+      amountMinor: input.amountMinor,
+      currency,
+      cartPricing: pricing,
+    };
+  } catch (error) {
+    console.error("[WALLET RESERVATION] create failed", {
+      customerProfileId: input.customerProfileId,
+      reservationId,
+      amountMinor: input.amountMinor,
+      status: reservationId ? "ACTIVE_OR_RELEASED" : null,
+      currency,
+    });
+    throw error;
+  }
 }
 
 export async function consumeWalletReservationOnOrder(input: {
