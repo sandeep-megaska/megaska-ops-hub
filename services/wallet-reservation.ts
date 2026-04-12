@@ -385,10 +385,16 @@ export async function consumeWalletReservationOnOrder(input: {
   const reservationId = String(input.reservationId || "").trim();
   const discountCode = String(input.discountCode || "").trim();
   if (!reservationId && !discountCode) {
+    console.log("[WALLET WEBHOOK] idempotent skip", {
+      orderId: input.shopifyOrderId,
+      reservationId: null,
+      reason: "missing-reservation-reference",
+    });
     return { ok: true, skipped: true, reason: "missing-reservation-reference" };
   }
 
-  return prisma.$transaction(async (tx) => {
+  try {
+    return await prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<Array<{
       id: string;
       walletAccountId: string;
@@ -414,14 +420,36 @@ export async function consumeWalletReservationOnOrder(input: {
 
     const reservation = rows[0];
     if (!reservation) {
+      console.log("[WALLET WEBHOOK] idempotent skip", {
+        orderId: input.shopifyOrderId,
+        reservationId: null,
+        reason: "reservation-not-found",
+      });
       return { ok: true, skipped: true, reason: "reservation-not-found" };
     }
 
+    console.log("[WALLET WEBHOOK] reservation matched", {
+      orderId: input.shopifyOrderId,
+      reservationId: reservation.id,
+      customerProfileId: reservation.customerProfileId,
+      amountMinor: reservation.reservedAmount,
+    });
+
     if (input.customerProfileId && reservation.customerProfileId !== input.customerProfileId) {
+      console.log("[WALLET WEBHOOK] idempotent skip", {
+        orderId: input.shopifyOrderId,
+        reservationId: reservation.id,
+        reason: "reservation-customer-mismatch",
+      });
       return { ok: true, skipped: true, reason: "reservation-customer-mismatch" };
     }
 
     if (reservation.status === "CONSUMED") {
+      console.log("[WALLET WEBHOOK] idempotent skip", {
+        orderId: input.shopifyOrderId,
+        reservationId: reservation.id,
+        reason: "already-consumed",
+      });
       return {
         ok: true,
         skipped: true,
@@ -432,6 +460,11 @@ export async function consumeWalletReservationOnOrder(input: {
     }
 
     if (reservation.status !== "ACTIVE") {
+      console.log("[WALLET WEBHOOK] idempotent skip", {
+        orderId: input.shopifyOrderId,
+        reservationId: reservation.id,
+        reason: `reservation-${reservation.status.toLowerCase()}`,
+      });
       return { ok: true, skipped: true, reason: `reservation-${reservation.status.toLowerCase()}` };
     }
 
@@ -467,7 +500,7 @@ export async function consumeWalletReservationOnOrder(input: {
       WHERE "id" = ${wallet.id}
     `;
 
-    await tx.$executeRaw`
+    const transactionRows = await tx.$queryRaw<Array<{ id: string }>>`
       INSERT INTO "WalletTransaction" (
         "id", "walletAccountId", "customerProfileId", "direction", "transactionType", "amount", "currency",
         "sourceType", "sourceId", "sourceReference", "orderNumber", "reason", "adminNote", "createdByType", "createdById", "createdAt"
@@ -478,7 +511,21 @@ export async function consumeWalletReservationOnOrder(input: {
         ${`Wallet reservation ${reservation.id} consumed after order placement`}, 'SYSTEM'::"WalletActorType", 'shopify-webhook-orders-create', NOW()
       )
       ON CONFLICT ("sourceType", "sourceId", "transactionType") DO NOTHING
+      RETURNING "id"
     `;
+    const walletTransactionId = transactionRows[0]?.id || null;
+
+    console.log("[WALLET WEBHOOK] debit success", {
+      orderId: input.shopifyOrderId,
+      reservationId: reservation.id,
+      walletTransactionId,
+    });
+
+    console.log("[WALLET WEBHOOK] reservation finalize success", {
+      orderId: input.shopifyOrderId,
+      reservationId: reservation.id,
+      newStatus: "CONSUMED",
+    });
 
     await tx.auditEvent.create({
       data: {
@@ -516,8 +563,17 @@ export async function consumeWalletReservationOnOrder(input: {
       reservationId: reservation.id,
       consumedAmount: reservation.reservedAmount,
       transactionSourceId: reservation.id,
+      walletTransactionId,
     };
-  });
+    });
+  } catch (error) {
+    console.error("[WALLET WEBHOOK] finalize failed", {
+      orderId: input.shopifyOrderId,
+      reservationId: reservationId || null,
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    throw error;
+  }
 }
 
 export async function releaseWalletReservation(input: { reservationId: string; reason?: string }) {

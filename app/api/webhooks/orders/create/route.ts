@@ -28,6 +28,11 @@ type ShopifyOrderWebhookPayload = {
     phone?: string;
   };
   note_attributes?: Array<{ name?: string; value?: string }>;
+  discount_codes?: Array<{ code?: string }>;
+  discount_applications?: Array<{
+    code?: string;
+    title?: string;
+  }>;
   name?: string;
 };
 
@@ -74,6 +79,28 @@ function toAttributeMap(noteAttributes: ShopifyOrderWebhookPayload["note_attribu
   });
 
   return map;
+}
+
+function extractOrderDiscountCodes(payload: ShopifyOrderWebhookPayload) {
+  const codes = new Set<string>();
+
+  (payload.discount_codes || []).forEach((entry) => {
+    const code = String(entry?.code || "").trim();
+    if (code) codes.add(code);
+  });
+
+  (payload.discount_applications || []).forEach((entry) => {
+    const code = String(entry?.code || entry?.title || "").trim();
+    if (code) codes.add(code);
+  });
+
+  return Array.from(codes);
+}
+
+function detectWalletDiscountCode(codes: string[]) {
+  return (
+    codes.find((code) => /^MWR-[A-Z0-9]+$/i.test(String(code || "").trim())) || ""
+  );
 }
 
 function getShopifyWebhookSecret() {
@@ -214,6 +241,12 @@ export async function POST(req: NextRequest) {
 
   const walletReservationId = String(attributes.megaska_wallet_reservation_id || "").trim();
   const walletDiscountCode = String(attributes.megaska_wallet_discount_code || "").trim();
+  const discountCodes = extractOrderDiscountCodes(payload);
+  const discountApplicationsCount = Array.isArray(payload.discount_applications)
+    ? payload.discount_applications.length
+    : 0;
+  const detectedWalletCode = detectWalletDiscountCode(discountCodes);
+  const resolvedWalletDiscountCode = detectedWalletCode || walletDiscountCode;
 
   const orderContactPhone = resolveOrderContactPhone(payload);
   const orderContactEmail = resolveCheckoutContactEmail(payload);
@@ -258,6 +291,20 @@ export async function POST(req: NextRequest) {
 
   if (!orderId) {
     return NextResponse.json({ ok: false, skipped: true, reason: "missing-order-id" });
+  }
+
+  console.log("[WALLET WEBHOOK] order create received", {
+    orderId,
+    orderName: String(payload.name || "").trim() || null,
+    discountCodes,
+    discountApplicationsCount,
+  });
+
+  if (resolvedWalletDiscountCode) {
+    console.log("[WALLET WEBHOOK] wallet code detected", {
+      orderId,
+      walletCode: resolvedWalletDiscountCode,
+    });
   }
 
   if (!verifiedPhone || !phoneVerified) {
@@ -353,7 +400,7 @@ export async function POST(req: NextRequest) {
 
     const walletResult = await consumeWalletReservationOnOrder({
       reservationId: walletReservationId,
-      discountCode: walletDiscountCode,
+      discountCode: resolvedWalletDiscountCode,
       customerProfileId,
       shopifyOrderId: orderId,
       orderNumber: String(payload.name || "").trim() || undefined,
