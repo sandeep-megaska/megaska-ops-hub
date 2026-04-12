@@ -481,6 +481,16 @@ export async function getShopifyCustomerDashboardData(
           currentTotalPriceSet?: {
             shopMoney?: ShopifyMoney | null;
           } | null;
+          lineItems?: {
+            nodes?: Array<{
+              title?: string | null;
+              variant?: {
+                image?: {
+                  url?: string | null;
+                } | null;
+              } | null;
+            }>;
+          } | null;
         }>;
       };
     } | null;
@@ -516,6 +526,16 @@ export async function getShopifyCustomerDashboardData(
                   currencyCode
                 }
               }
+              lineItems(first: 1) {
+                nodes {
+                  title
+                  variant {
+                    image {
+                      url
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -547,6 +567,7 @@ export async function getShopifyCustomerDashboardData(
     defaultAddress: customer.defaultAddress || null,
     totalOrderCount,
     recentOrders: (customer.orders?.nodes || []).map((order) => {
+      const firstItem = order.lineItems?.nodes?.[0];
       return {
         id: order.id,
         shopifyOrderId: order.id,
@@ -558,11 +579,11 @@ export async function getShopifyCustomerDashboardData(
         fulfillmentStatus: order.displayFulfillmentStatus || null,
         deliveredAt: order.processedAt || null,
         statusPageUrl: order.statusPageUrl || null,
-        displayTitle: String(order.name || "Order").trim() || "Order",
-        displayImage: null,
+        displayTitle: String(firstItem?.title || order.name || "Order").trim() || "Order",
+        displayImage: firstItem?.variant?.image?.url || null,
         itemsCount: null,
         firstLineItemId: null,
-        firstLineItemTitle: null,
+        firstLineItemTitle: String(firstItem?.title || "").trim() || null,
         firstLineItemVariantTitle: null,
         firstLineItemSku: null,
       };
