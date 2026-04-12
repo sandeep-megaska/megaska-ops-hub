@@ -688,6 +688,49 @@
     });
   }
 
+  function renderWalletSectionIntoLiveContainer(container, summary, containerSelector) {
+    const availableToRedeem = Number(summary?.wallet?.availableToRedeem || 0);
+    console.log("[WALLET UI] render attempt", {
+      availableToRedeem,
+      hasContainer: Boolean(container),
+      containerSelector: String(containerSelector || ""),
+    });
+
+    if (!container) return;
+
+    const existing = container.querySelector("[data-megaska-wallet-ui='true']");
+    if (existing) {
+      existing.remove();
+    }
+
+    const walletSection = document.createElement("section");
+    walletSection.className = "megaska-dashboard-card";
+    walletSection.setAttribute("data-megaska-wallet-ui", "true");
+    walletSection.innerHTML = `
+      <h3>Wallet Balance</h3>
+      <p>${escHtml(formatInrFromMinor(availableToRedeem))}</p>
+      <div class="megaska-dashboard-actions">
+        <button
+          type="button"
+          data-megaska-wallet-apply
+          data-wallet-available="${escHtml(String(availableToRedeem))}"
+          class="megaska-dashboard-btn"
+          ${availableToRedeem > 0 ? "" : "disabled"}
+        >
+          ${availableToRedeem > 0 ? "Apply Wallet" : "No Wallet Balance"}
+        </button>
+      </div>
+    `;
+
+    container.appendChild(walletSection);
+    bindWalletApplyButtons(container);
+
+    console.log("[WALLET UI] render success", {
+      mounted: true,
+      availableToRedeem,
+    });
+  }
+
   function normalizeStatus(value) {
     return String(value || "").trim().toLowerCase();
   }
@@ -761,7 +804,7 @@
     return pills;
   }
 
-  function renderDashboardSummary(container, summary) {
+  function renderDashboardSummary(container, summary, containerSelector) {
     const profileName =
       [summary?.customer?.firstName, summary?.customer?.lastName].filter(Boolean).join(" ") ||
       "Megaska Customer";
@@ -772,16 +815,11 @@
     const openRequests = Number(summary?.stats?.openRequests || 0);
     const savedAddresses = Number(summary?.stats?.savedAddresses || 0);
     const storeCredit = Number(summary?.wallet?.balance || 0);
-    const availableToRedeem = Number(summary?.wallet?.availableToRedeem || 0);
     const currency = summary?.wallet?.currency || "INR";
     const walletTransactions = Array.isArray(summary?.wallet?.transactions) ? summary.wallet.transactions : [];
     const addressHtml = formatAddress(summary?.address);
     const orders = Array.isArray(summary?.orders) ? summary.orders : [];
 
-    console.log("[WALLET UI] rendering wallet section", {
-      availableToRedeem,
-      mounted: true,
-    });
     const walletHistoryHtml = walletTransactions.length
       ? walletTransactions
           .map((txn) => {
@@ -869,21 +907,6 @@
         <article class="megaska-dashboard-card"><h3>Saved addresses</h3><p>${savedAddresses}</p></article>
         <article class="megaska-dashboard-card"><h3>Wallet balance</h3><p>${formatMinorCurrency(storeCredit, currency)}</p></article>
       </section>
-      <section class="megaska-dashboard-card" data-megaska-wallet-ui="true">
-        <h3>Wallet Balance</h3>
-        <p>${escHtml(formatInrFromMinor(availableToRedeem))}</p>
-        <div class="megaska-dashboard-actions">
-          <button
-            type="button"
-            data-megaska-wallet-apply
-            data-wallet-available="${escHtml(String(availableToRedeem))}"
-            class="megaska-dashboard-btn"
-            ${availableToRedeem > 0 ? "" : "disabled"}
-          >
-            ${availableToRedeem > 0 ? "Apply Wallet" : "No Wallet Balance"}
-          </button>
-        </div>
-      </section>
       <section class="megaska-dashboard-card">
         <h3>Wallet history</h3>
         <ul class="megaska-dashboard-list">${walletHistoryHtml}</ul>
@@ -909,17 +932,36 @@
         </div>
       </section>
     `;
+
+    renderWalletSectionIntoLiveContainer(container, summary, containerSelector);
   }
 
   async function initDashboardPage() {
     const pathname = String(window?.location?.pathname || "");
     if (!pathname.includes("/pages/megaska-account")) return;
 
-    const mountEl =
-      document.querySelector("[data-megaska-account-dashboard]") ||
-      document.getElementById("megaska-account-dashboard") ||
-      document.querySelector("main") ||
-      document.body;
+    const mountTarget =
+      [
+        {
+          selector: "[data-megaska-account-dashboard]",
+          element: document.querySelector("[data-megaska-account-dashboard]"),
+        },
+        {
+          selector: "#megaska-account-dashboard",
+          element: document.getElementById("megaska-account-dashboard"),
+        },
+        {
+          selector: "main",
+          element: document.querySelector("main"),
+        },
+        {
+          selector: "body",
+          element: document.body,
+        },
+      ].find((entry) => Boolean(entry.element)) || null;
+
+    const mountEl = mountTarget?.element || null;
+    const containerSelector = mountTarget?.selector || "";
 
     if (!mountEl) return;
 
@@ -928,9 +970,16 @@
 
     try {
       const summary = await fetchDashboardSummary();
-      renderDashboardSummary(mountEl, summary);
+      renderDashboardSummary(mountEl, summary, containerSelector);
       bindLogoutButtons();
       bindWalletApplyButtons(mountEl);
+
+      const observer = new MutationObserver(function () {
+        if (!mountEl.querySelector("[data-megaska-wallet-ui='true']")) {
+          renderWalletSectionIntoLiveContainer(mountEl, summary, containerSelector);
+        }
+      });
+      observer.observe(mountEl, { childList: true, subtree: true });
     } catch (error) {
       console.error("[Megaska Dashboard] summary fetch failed", error);
       mountEl.innerHTML =
