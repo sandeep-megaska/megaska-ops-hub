@@ -812,7 +812,7 @@ export async function createWalletReservationDiscountCode(input: {
   customerProfileId: string;
   endsAt: Date;
 }) {
-  const computedAmountString = (Math.max(0, input.amountMinor) / 100).toFixed(2);
+  const amount = (Math.max(0, input.amountMinor) / 100).toFixed(2);
   const code = `MWR-${input.reservationId.slice(0, 8).toUpperCase()}`;
   const startsAt = new Date().toISOString();
   const basicCodeDiscount = {
@@ -826,7 +826,7 @@ export async function createWalletReservationDiscountCode(input: {
     customerGets: {
       value: {
         discountAmount: {
-          amount: computedAmountString,
+          amount,
           appliesOnEachItem: false,
         },
       },
@@ -857,11 +857,23 @@ export async function createWalletReservationDiscountCode(input: {
   console.log("[SHOPIFY ADMIN] wallet discount amount semantics", {
     reservationId: input.reservationId,
     amountMinor: input.amountMinor,
-    computedAmountString,
+    computedAmountString: amount,
     currency: input.currency,
     customerGetsValueShape: "discountAmount",
     appliesOnEachItem: false,
     itemsScope: "all",
+  });
+
+  console.log("[SHOPIFY ADMIN] wallet discount payload summary", {
+    title: basicCodeDiscount.title,
+    code: basicCodeDiscount.code,
+    startsAt: basicCodeDiscount.startsAt,
+    endsAt: basicCodeDiscount.endsAt,
+    context: basicCodeDiscount.context,
+    customerGets: basicCodeDiscount.customerGets,
+    appliesOncePerCustomer: basicCodeDiscount.appliesOncePerCustomer,
+    usageLimit: basicCodeDiscount.usageLimit,
+    combinesWith: basicCodeDiscount.combinesWith,
   });
 
   const data = await adminGraphql<{
@@ -906,7 +918,7 @@ export async function createWalletReservationDiscountCode(input: {
     reservationId: input.reservationId,
     discountNodeId: nodeId,
     code,
-    computedAmountString,
+    computedAmountString: amount,
   });
 
   return {
