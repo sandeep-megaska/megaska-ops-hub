@@ -821,7 +821,7 @@ export async function createWalletReservationDiscountCode(input: {
     startsAt,
     endsAt: input.endsAt.toISOString(),
     context: {
-      all: true,
+      all: "ALL",
     },
     customerGets: {
       value: {
@@ -851,7 +851,7 @@ export async function createWalletReservationDiscountCode(input: {
     code,
     startsAt,
     endsAt: input.endsAt.toISOString(),
-    context: "all",
+    context: "ALL",
   });
 
   const data = await adminGraphql<{
