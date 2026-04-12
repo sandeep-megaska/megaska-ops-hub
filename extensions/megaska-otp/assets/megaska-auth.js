@@ -611,7 +611,7 @@
     button.dataset.megaskaApplying = "1";
     const originalLabel = button.textContent || "Apply Wallet";
     button.disabled = true;
-    button.textContent = "Applying Wallet...";
+    button.textContent = "Applying...";
 
     let cartContext = null;
     try {
@@ -777,6 +777,11 @@
     const walletTransactions = Array.isArray(summary?.wallet?.transactions) ? summary.wallet.transactions : [];
     const addressHtml = formatAddress(summary?.address);
     const orders = Array.isArray(summary?.orders) ? summary.orders : [];
+
+    console.log("[WALLET UI] rendering wallet section", {
+      availableToRedeem,
+      mounted: true,
+    });
     const walletHistoryHtml = walletTransactions.length
       ? walletTransactions
           .map((txn) => {
@@ -864,7 +869,7 @@
         <article class="megaska-dashboard-card"><h3>Saved addresses</h3><p>${savedAddresses}</p></article>
         <article class="megaska-dashboard-card"><h3>Wallet balance</h3><p>${formatMinorCurrency(storeCredit, currency)}</p></article>
       </section>
-      <section class="megaska-dashboard-card">
+      <section class="megaska-dashboard-card" data-megaska-wallet-ui="true">
         <h3>Wallet Balance</h3>
         <p>${escHtml(formatInrFromMinor(availableToRedeem))}</p>
         <div class="megaska-dashboard-actions">
