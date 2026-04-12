@@ -1609,6 +1609,38 @@ setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS)
     return handoff.blocked || handoff.reason === "missing-verified-phone";
   }
 
+  function buildWalletDiscountTarget(code) {
+    const normalizedCode = encodeURIComponent(String(code || "").trim());
+    return `/discount/${normalizedCode}?redirect=/cart`;
+  }
+
+  function tryAutoApplyWalletDiscount(handoff) {
+    const wallet = handoff?.wallet || null;
+    const code = String(wallet?.code || "").trim();
+    const reservationId = String(wallet?.reservationId || "").trim();
+    const discountNodeId = String(wallet?.discountNodeId || "").trim();
+
+    if (!handoff?.ok || !wallet?.applied || !code || !reservationId || !discountNodeId) {
+      return false;
+    }
+
+    const target = buildWalletDiscountTarget(code);
+
+    console.log("[WALLET UI] apply success", {
+      reservationId,
+      code,
+      discountNodeId,
+    });
+
+    console.log("[WALLET UI] redirecting to apply wallet discount", {
+      code,
+      target,
+    });
+
+    window.location.assign(target);
+    return true;
+  }
+
   async function applyCheckoutPrefillToForm(form, preferredCustomer) {
     const customer = await resolveMegaskaCustomer(preferredCustomer);
     if (!customer) return false;
@@ -1640,6 +1672,10 @@ setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS)
       openModal("checkout-gate-blocked");
       return;
     }
+    if (tryAutoApplyWalletDiscount(handoff)) {
+      return;
+    }
+
     const targetUrl = handoff?.checkoutUrl || prefilledUrl;
     window.__megaskaCheckoutDebug = {
       cartId: handoff?.cartId || null,
