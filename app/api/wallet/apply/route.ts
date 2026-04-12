@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
       requestedAmountMinor,
       approvedAmountMinor,
     });
-const approvedAmountMinor = Math.min(requestedAmountMinor, availableBalanceMinor);
+
     if (approvedAmountMinor <= 0) {
       console.error("[WALLET APPLY] failed", {
         customerProfileId,
