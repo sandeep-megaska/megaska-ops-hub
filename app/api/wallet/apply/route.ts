@@ -85,18 +85,26 @@ export async function POST(req: NextRequest) {
     }
 
     const walletAccount = await getOrCreateWalletAccount(customerProfileId, "INR");
-    const activeReservations = await prisma.$queryRaw<Array<{ total: number }>>`
-      SELECT COALESCE(SUM("reservedAmount"), 0)::int AS total
+    const activeReservations = await prisma.$queryRaw<Array<{ activeCount: number; total: number }>>`
+      SELECT COUNT(*)::int AS "activeCount", COALESCE(SUM("reservedAmount"), 0)::int AS total
       FROM "WalletReservation"
       WHERE "walletAccountId" = ${walletAccount.id}
         AND "currency" = 'INR'
         AND "status" = 'ACTIVE'::"WalletReservationStatus"
         AND "expiresAt" > NOW()
     `;
+    const activeReservationCount = Number(activeReservations[0]?.activeCount || 0);
+    const reservedAmountMinor = Number(activeReservations[0]?.total || 0);
     const availableBalanceMinor = Math.max(
       0,
-      Number(walletAccount.currentBalance || 0) - Number(activeReservations[0]?.total || 0)
+      Number(walletAccount.currentBalance || 0) - reservedAmountMinor
     );
+    console.log("[WALLET APPLY] reservation state snapshot", {
+      customerProfileId,
+      activeReservationCount,
+      reservedAmountMinor,
+      availableBalanceMinor,
+    });
     const approvedAmountMinor = Math.min(requestedAmountMinor, availableBalanceMinor);
 
     console.log("[WALLET APPLY] eligibility", {
