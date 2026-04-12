@@ -437,6 +437,11 @@ export async function getShopifyCustomerDashboardData(
   const customerGid = resolveCustomerGid(customerId);
   if (!customerGid) return null;
 
+  console.log("[SHOPIFY DASHBOARD] fetch customer dashboard", {
+    inputCustomerId: customerId,
+    customerGid,
+  });
+
   const data = await adminGraphql<{
     customer: {
       email?: string | null;
@@ -453,25 +458,6 @@ export async function getShopifyCustomerDashboardData(
           statusPageUrl?: string | null;
           currentTotalPriceSet?: {
             shopMoney?: ShopifyMoney | null;
-          } | null;
-          lineItems?: {
-            nodes: Array<{
-              id?: string | null;
-              title?: string | null;
-              quantity?: number | null;
-              sku?: string | null;
-              variant?: {
-                title?: string | null;
-                image?: {
-                  url?: string | null;
-                } | null;
-                product?: {
-                  featuredImage?: {
-                    url?: string | null;
-                  } | null;
-                } | null;
-              } | null;
-            }>;
           } | null;
         }>;
       };
@@ -508,25 +494,6 @@ export async function getShopifyCustomerDashboardData(
                   currencyCode
                 }
               }
-              lineItems(first: 5) {
-                nodes {
-                  id
-                  title
-                  quantity
-                  sku
-                  variant {
-                    title
-                    image {
-                      url
-                    }
-                    product {
-                      featuredImage {
-                        url
-                      }
-                    }
-                  }
-                }
-              }
             }
           }
         }
@@ -534,6 +501,14 @@ export async function getShopifyCustomerDashboardData(
     `,
     { id: customerGid }
   );
+  console.log("[SHOPIFY DASHBOARD] raw customer result", {
+    customerGid,
+    foundCustomer: Boolean(data.customer),
+    email: data.customer?.email || null,
+    phone: data.customer?.phone || null,
+    numberOfOrders: data.customer?.numberOfOrders ?? null,
+    recentOrdersCount: data.customer?.orders?.nodes?.length ?? null,
+  });
 
   const customer = data.customer;
   if (!customer) return null;
@@ -550,9 +525,6 @@ export async function getShopifyCustomerDashboardData(
     defaultAddress: customer.defaultAddress || null,
     totalOrderCount,
     recentOrders: (customer.orders?.nodes || []).map((order) => {
-      const lineItems = order.lineItems?.nodes || [];
-      const firstItem = lineItems[0];
-
       return {
         id: order.id,
         shopifyOrderId: order.id,
@@ -564,16 +536,13 @@ export async function getShopifyCustomerDashboardData(
         fulfillmentStatus: order.displayFulfillmentStatus || null,
         deliveredAt: order.processedAt || null,
         statusPageUrl: order.statusPageUrl || null,
-        displayTitle: String(firstItem?.title || "Order items").trim(),
-        displayImage:
-          firstItem?.variant?.image?.url ||
-          firstItem?.variant?.product?.featuredImage?.url ||
-          null,
-        itemsCount: lineItems.length,
-        firstLineItemId: firstItem?.id || null,
-        firstLineItemTitle: String(firstItem?.title || "").trim() || null,
-        firstLineItemVariantTitle: String(firstItem?.variant?.title || "").trim() || null,
-        firstLineItemSku: String(firstItem?.sku || "").trim() || null,
+        displayTitle: String(order.name || "Order").trim() || "Order",
+        displayImage: null,
+        itemsCount: null,
+        firstLineItemId: null,
+        firstLineItemTitle: null,
+        firstLineItemVariantTitle: null,
+        firstLineItemSku: null,
       };
     }),
   };
