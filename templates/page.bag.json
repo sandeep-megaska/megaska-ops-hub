@@ -1,0 +1,11 @@
+{
+  "sections": {
+    "main": {
+      "type": "megaska-bag-page",
+      "settings": {}
+    }
+  },
+  "order": [
+    "main"
+  ]
+}
