@@ -85,8 +85,8 @@ export async function POST(req: NextRequest) {
     }
 
     const walletAccount = await getOrCreateWalletAccount(customerProfileId, "INR");
-    const activeReservations = await prisma.$queryRaw<Array<{ total: number }>>`
-      SELECT COALESCE(SUM("reservedAmount"), 0)::int AS total
+    const activeReservations = await prisma.$queryRaw<Array<{ activeCount: number; total: number }>>`
+      SELECT COUNT(*)::int AS "activeCount", COALESCE(SUM("reservedAmount"), 0)::int AS total
       FROM "WalletReservation"
       WHERE "walletAccountId" = ${walletAccount.id}
         AND "currency" = 'INR'
@@ -98,13 +98,6 @@ export async function POST(req: NextRequest) {
       0,
       Number(walletAccount.currentBalance || 0) - reservedAmountMinor
     );
-
-    console.log("[WALLET APPLY] reservation state snapshot", {
-      customerProfileId,
-      reservedAmountMinor,
-      availableBalanceMinor,
-    });
-
     const approvedAmountMinor = Math.min(requestedAmountMinor, availableBalanceMinor);
 
     console.log("[WALLET APPLY] eligibility", {
@@ -113,7 +106,7 @@ export async function POST(req: NextRequest) {
       requestedAmountMinor,
       approvedAmountMinor,
     });
-
+const approvedAmountMinor = Math.min(requestedAmountMinor, availableBalanceMinor);
     if (approvedAmountMinor <= 0) {
       console.error("[WALLET APPLY] failed", {
         customerProfileId,

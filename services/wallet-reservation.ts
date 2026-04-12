@@ -23,6 +23,70 @@ export async function expireWalletReservations(now = new Date()) {
   `;
 }
 
+async function cleanupExistingActiveWalletReservations(customerProfileId: string) {
+  const activeReservations = await prisma.$queryRaw<Array<{
+    id: string;
+    status: WalletReservationStatus;
+    shopifyDiscountId: string | null;
+  }>>`
+    SELECT "id", "status", "shopifyDiscountId"
+    FROM "WalletReservation"
+    WHERE "customerProfileId" = ${customerProfileId}
+      AND "status" = 'ACTIVE'::"WalletReservationStatus"
+      AND "expiresAt" > NOW()
+    ORDER BY "createdAt" DESC
+  `;
+
+  console.log("[WALLET RESERVATION] cleanup existing active start", {
+    customerProfileId,
+    activeReservationCount: activeReservations.length,
+  });
+
+  for (const reservation of activeReservations) {
+    const discountNodeId = String(reservation.shopifyDiscountId || "").trim() || null;
+    const hadDiscountNodeId = Boolean(discountNodeId);
+
+    console.log("[WALLET RESERVATION] cleanup existing active item", {
+      customerProfileId,
+      reservationId: reservation.id,
+      previousStatus: reservation.status,
+      discountNodeId,
+      hadDiscountNodeId,
+    });
+
+    try {
+      if (discountNodeId) {
+        await disableWalletReservationDiscountCode(discountNodeId);
+      }
+
+      await prisma.$executeRaw`
+        UPDATE "WalletReservation"
+        SET "status" = 'RELEASED'::"WalletReservationStatus",
+            "releaseReason" = ${"superseded-by-new-apply"},
+            "updatedAt" = NOW()
+        WHERE "id" = ${reservation.id}
+      `;
+
+      console.log("[WALLET RESERVATION] cleanup existing active success", {
+        customerProfileId,
+        reservationId: reservation.id,
+        previousStatus: reservation.status,
+        discountNodeId,
+        hadDiscountNodeId,
+      });
+    } catch (error) {
+      console.error("[WALLET RESERVATION] cleanup existing active failed", {
+        customerProfileId,
+        reservationId: reservation.id,
+        previousStatus: reservation.status,
+        discountNodeId,
+        hadDiscountNodeId,
+        error: error instanceof Error ? error.message : "unknown",
+      });
+    }
+  }
+}
+
 export async function createWalletReservation(input: CreateWalletReservationInput) {
   if (!Number.isInteger(input.amountMinor) || input.amountMinor <= 0) {
     throw new Error("Wallet amount must be a positive amount");
@@ -38,6 +102,7 @@ export async function createWalletReservation(input: CreateWalletReservationInpu
     currency,
   });
   await expireWalletReservations();
+  await cleanupExistingActiveWalletReservations(input.customerProfileId);
 
   const pricing = await getCartPricingSnapshot(input.cartId);
   if (!pricing.ok) {
