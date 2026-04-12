@@ -23,6 +23,66 @@ export async function expireWalletReservations(now = new Date()) {
   `;
 }
 
+async function sanitizeStaleActiveWalletReservations(
+  customerProfileId: string,
+  db: Pick<typeof prisma, "$queryRaw" | "$executeRaw"> = prisma
+) {
+  const activeReservations = await db.$queryRaw<Array<{
+    id: string;
+    status: WalletReservationStatus;
+    reservedAmount: number | null;
+    shopifyDiscountId: string | null;
+    discountCode: string | null;
+  }>>`
+    SELECT "id", "status", "reservedAmount", "shopifyDiscountId", "discountCode"
+    FROM "WalletReservation"
+    WHERE "customerProfileId" = ${customerProfileId}
+      AND "status" = 'ACTIVE'::"WalletReservationStatus"
+      AND "expiresAt" > NOW()
+  `;
+
+  console.log("[WALLET RESERVATION] sanitize stale active start", {
+    customerProfileId,
+    activeReservationCount: activeReservations.length,
+  });
+
+  let sanitizedCount = 0;
+
+  for (const reservation of activeReservations) {
+    const amountMinor = reservation.reservedAmount;
+    const hasDiscountNodeId = Boolean(String(reservation.shopifyDiscountId || "").trim());
+    const hasCode = Boolean(String(reservation.discountCode || "").trim());
+    const isInvalid = amountMinor == null || amountMinor <= 0 || !hasDiscountNodeId || !hasCode;
+
+    if (!isInvalid) {
+      continue;
+    }
+
+    console.log("[WALLET RESERVATION] sanitize stale active item", {
+      reservationId: reservation.id,
+      previousStatus: reservation.status,
+      amountMinor,
+      hasDiscountNodeId,
+      hasCode,
+    });
+
+    await db.$executeRaw`
+      UPDATE "WalletReservation"
+      SET "status" = 'RELEASED'::"WalletReservationStatus",
+          "releaseReason" = ${"invalid-incomplete-active"},
+          "updatedAt" = NOW()
+      WHERE "id" = ${reservation.id}
+    `;
+
+    sanitizedCount += 1;
+  }
+
+  console.log("[WALLET RESERVATION] sanitize stale active success", {
+    customerProfileId,
+    sanitizedCount,
+  });
+}
+
 async function cleanupExistingActiveWalletReservations(customerProfileId: string) {
   const activeReservations = await prisma.$queryRaw<Array<{
     id: string;
@@ -102,6 +162,7 @@ export async function createWalletReservation(input: CreateWalletReservationInpu
     currency,
   });
   await expireWalletReservations();
+  await sanitizeStaleActiveWalletReservations(input.customerProfileId);
   await cleanupExistingActiveWalletReservations(input.customerProfileId);
 
   const pricing = await getCartPricingSnapshot(input.cartId);
@@ -125,6 +186,8 @@ export async function createWalletReservation(input: CreateWalletReservationInpu
       SET "status" = 'EXPIRED'::"WalletReservationStatus", "updatedAt" = NOW()
       WHERE "status" = 'ACTIVE'::"WalletReservationStatus" AND "expiresAt" <= NOW()
     `;
+
+    await sanitizeStaleActiveWalletReservations(input.customerProfileId, tx);
 
     const wallet = await getOrCreateWalletAccount(input.customerProfileId, currency);
 
