@@ -174,8 +174,11 @@ async function adminGraphql<T>(query: string, variables?: Record<string, unknown
 
   console.log("[SHOPIFY AUTH SERVER] calling admin graphql", {
     shopDomain,
+    apiVersion: SHOPIFY_API_VERSION,
     tokenSource: "env.SHOPIFY_ADMIN_ACCESS_TOKEN",
     tokenMasked: maskToken(token),
+    tokenPrefix: String(token || "").slice(0, 6),
+    queryKind: query.includes("mutation") ? "mutation" : "query",
   });
 
   const response = await fetch(`https://${shopDomain}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`, {
@@ -222,6 +225,25 @@ async function adminGraphql<T>(query: string, variables?: Record<string, unknown
 
 export function isShopifyAdminConfigured() {
   return Boolean(getShopDomain() && getAdminAccessToken());
+}
+
+
+export async function debugShopifyAdminAuth() {
+  return adminGraphql<{
+    shop: {
+      name: string;
+      myshopifyDomain: string;
+    } | null;
+  }>(
+    `
+      query DebugShopifyAdminAuth {
+        shop {
+          name
+          myshopifyDomain
+        }
+      }
+    `
+  );
 }
 async function findCustomerByQuery(query: string): Promise<ShopifyCustomerNode | null> {
   const data = await adminGraphql<{
