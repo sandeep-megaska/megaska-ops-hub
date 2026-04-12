@@ -93,10 +93,18 @@ export async function POST(req: NextRequest) {
         AND "status" = 'ACTIVE'::"WalletReservationStatus"
         AND "expiresAt" > NOW()
     `;
+    const reservedAmountMinor = Number(activeReservations[0]?.total || 0);
     const availableBalanceMinor = Math.max(
       0,
-      Number(walletAccount.currentBalance || 0) - Number(activeReservations[0]?.total || 0)
+      Number(walletAccount.currentBalance || 0) - reservedAmountMinor
     );
+
+    console.log("[WALLET APPLY] reservation state snapshot", {
+      customerProfileId,
+      reservedAmountMinor,
+      availableBalanceMinor,
+    });
+
     const approvedAmountMinor = Math.min(requestedAmountMinor, availableBalanceMinor);
 
     console.log("[WALLET APPLY] eligibility", {
