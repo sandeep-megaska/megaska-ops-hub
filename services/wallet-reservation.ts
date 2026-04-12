@@ -140,6 +140,63 @@ export async function createWalletReservation(input: CreateWalletReservationInpu
       throw new Error("Wallet account not found");
     }
 
+    const existingActiveReservations = await tx.$queryRaw<Array<{
+      id: string;
+      status: WalletReservationStatus;
+      shopifyDiscountId: string | null;
+    }>>`
+      SELECT "id", "status", "shopifyDiscountId"
+      FROM "WalletReservation"
+      WHERE "customerProfileId" = ${input.customerProfileId}
+        AND "walletAccountId" = ${wallet.id}
+        AND "currency" = ${currency}
+        AND "status" = 'ACTIVE'::"WalletReservationStatus"
+      FOR UPDATE
+    `;
+
+    console.log("[WALLET RESERVATION] cleanup existing active start", {
+      customerProfileId: input.customerProfileId,
+      activeReservationCount: existingActiveReservations.length,
+    });
+
+    let cleanedReservationCount = 0;
+    for (const existingReservation of existingActiveReservations) {
+      try {
+        if (existingReservation.shopifyDiscountId) {
+          await disableWalletReservationDiscountCode(existingReservation.shopifyDiscountId);
+        }
+
+        await tx.$executeRaw`
+          UPDATE "WalletReservation"
+          SET "status" = 'RELEASED'::"WalletReservationStatus",
+              "releaseReason" = ${"superseded-by-new-reservation"},
+              "updatedAt" = NOW()
+          WHERE "id" = ${existingReservation.id}
+        `;
+
+        cleanedReservationCount += 1;
+
+        console.log("[WALLET RESERVATION] cleanup existing active item", {
+          customerProfileId: input.customerProfileId,
+          reservationId: existingReservation.id,
+          previousStatus: existingReservation.status,
+          hadDiscountNodeId: Boolean(existingReservation.shopifyDiscountId),
+        });
+      } catch (error) {
+        console.error("[WALLET RESERVATION] cleanup existing active failed", {
+          customerProfileId: input.customerProfileId,
+          reservationId: existingReservation.id,
+          error: error instanceof Error ? error.message : "Unknown error",
+        });
+        throw error;
+      }
+    }
+
+    console.log("[WALLET RESERVATION] cleanup existing active success", {
+      customerProfileId: input.customerProfileId,
+      cleanedReservationCount,
+    });
+
     const activeReservations = await tx.$queryRaw<Array<{ total: number }>>`
       SELECT COALESCE(SUM("reservedAmount"), 0)::int AS total
       FROM "WalletReservation"
