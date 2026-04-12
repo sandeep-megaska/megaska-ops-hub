@@ -128,9 +128,14 @@ export async function GET(req: NextRequest) {
 
         if (resolvedShopifyCustomerId) {
           shopifyDashboard = await getShopifyCustomerDashboardData(resolvedShopifyCustomerId);
-          console.log("[DEBUG ORDERS RAW]", JSON.stringify(shopifyDashboard?.recentOrders, null, 2));
+          const dashboard = shopifyDashboard;
+          console.log("[DASHBOARD SUMMARY] dashboard data used", {
+            resolvedShopifyCustomerId,
+            totalOrderCount: dashboard?.totalOrderCount ?? null,
+            recentOrdersCount: dashboard?.recentOrders?.length ?? null,
+            hasDefaultAddress: Boolean(dashboard?.defaultAddress),
+          });
           console.log("[DASHBOARD SUMMARY] dashboard result", {
-            
             resolvedShopifyCustomerId,
             foundEmail: shopifyDashboard?.email || null,
             totalOrderCount: shopifyDashboard?.totalOrderCount || 0,
@@ -249,6 +254,29 @@ export async function GET(req: NextRequest) {
     `;
     const activeWalletReserved = Number(walletReservedRows[0]?.total || 0);
 
+    const stats = {
+      totalOrders,
+      openRequests,
+      savedAddresses: savedAddressCount,
+    };
+
+    const orders = (shopifyDashboard?.recentOrders || []).map((order) => {
+      const orderNumber = String(order?.name || "").trim();
+      const latestCancellation = latestCancellationByOrder.get(orderNumber);
+      const latestExchange = latestExchangeByOrder.get(orderNumber);
+      const latestIssue = latestIssueByOrder.get(orderNumber);
+
+      return {
+        ...order,
+        latestCancellationStatus: latestCancellation?.status || null,
+        latestExchangeStatus: latestExchange?.status || null,
+        latestIssueStatus: latestIssue?.status || null,
+        hasActiveExchangeRequest: ACTIVE_EXCHANGE_STATUSES.includes(
+          String(latestExchange?.status || "").trim().toUpperCase() as (typeof ACTIVE_EXCHANGE_STATUSES)[number]
+        ),
+      };
+    });
+
     const response = {
       customer: {
         firstName: customer.firstName,
@@ -265,11 +293,7 @@ export async function GET(req: NextRequest) {
         availableToRedeem: Math.max((walletAccount?.currentBalance || 0) - activeWalletReserved, 0),
         transactions: walletTransactions,
       },
-      stats: {
-        totalOrders,
-        openRequests,
-        savedAddresses: savedAddressCount,
-      },
+      stats,
       address: shopifyDashboard?.defaultAddress
         ? {
             line1: shopifyDashboard.defaultAddress.address1 || null,
@@ -289,23 +313,14 @@ export async function GET(req: NextRequest) {
               country: customer.countryRegion || null,
             }
           : null,
-      orders: (shopifyDashboard?.recentOrders || []).map((order) => {
-        const orderNumber = String(order?.name || "").trim();
-        const latestCancellation = latestCancellationByOrder.get(orderNumber);
-        const latestExchange = latestExchangeByOrder.get(orderNumber);
-        const latestIssue = latestIssueByOrder.get(orderNumber);
-
-        return {
-          ...order,
-          latestCancellationStatus: latestCancellation?.status || null,
-          latestExchangeStatus: latestExchange?.status || null,
-          latestIssueStatus: latestIssue?.status || null,
-          hasActiveExchangeRequest: ACTIVE_EXCHANGE_STATUSES.includes(
-            String(latestExchange?.status || "").trim().toUpperCase() as (typeof ACTIVE_EXCHANGE_STATUSES)[number]
-          ),
-        };
-      }),
+      orders,
     };
+
+    console.log("[DASHBOARD SUMMARY] final response shape", {
+      totalOrders: stats.totalOrders,
+      ordersLength: Array.isArray(orders) ? orders.length : null,
+      firstOrderId: Array.isArray(orders) && orders[0] ? orders[0].id : null,
+    });
 
     return withCors(req, NextResponse.json(response));
   } catch (error) {
