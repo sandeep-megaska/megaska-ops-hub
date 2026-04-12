@@ -571,6 +571,123 @@
     return `${escHtml(currency || "INR")} ${amountMajor.toFixed(2)}`;
   }
 
+  function formatInrFromMinor(amountMinor) {
+    const amountMajor = Number(amountMinor || 0) / 100;
+    try {
+      return new Intl.NumberFormat("en-IN", {
+        style: "currency",
+        currency: "INR",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(amountMajor);
+    } catch {
+      return `₹${amountMajor.toFixed(2)}`;
+    }
+  }
+
+  function sanitizeCartToken(rawValue) {
+    const trimmed = String(rawValue || "").trim();
+    if (!trimmed) return "";
+    const quotedMatch = trimmed.match(/^["'](.+)["']$/);
+    return quotedMatch ? quotedMatch[1].trim() : trimmed;
+  }
+
+  function getStoredCartToken() {
+    const storageKeys = ["cartToken", "cart_token", "shopifyCartToken"];
+    for (const key of storageKeys) {
+      const token = sanitizeCartToken(localStorage.getItem(key));
+      if (token) return token;
+    }
+    return "";
+  }
+
+  async function applyWalletDiscountCodeFromDashboard(input) {
+    const availableToRedeem = Number(input?.availableToRedeem || 0);
+    const button = input?.button || null;
+    if (!button) return;
+    if (button.dataset.megaskaApplying === "1") return;
+    if (availableToRedeem <= 0) return;
+
+    button.dataset.megaskaApplying = "1";
+    const originalLabel = button.textContent || "Apply Wallet";
+    button.disabled = true;
+    button.textContent = "Applying Wallet...";
+
+    let cartContext = null;
+    try {
+      cartContext = await fetchActiveCartContext();
+    } catch (error) {
+      console.warn("[WALLET UI] unable to fetch cart context from /cart.js", error);
+    }
+
+    const localStorageToken = getStoredCartToken();
+    const cartToken = sanitizeCartToken(cartContext?.cartToken || localStorageToken || "");
+    const cartId = cartToken.startsWith("gid://shopify/Cart/") ? cartToken : "";
+
+    console.log("[WALLET UI] apply click", {
+      availableToRedeem,
+      cartTokenPresent: Boolean(cartToken),
+      cartIdPresent: Boolean(cartId),
+    });
+
+    try {
+      const walletAmount = Number((availableToRedeem / 100).toFixed(2));
+      const data = await apiFetch("/wallet/apply", {
+        method: "POST",
+        body: JSON.stringify({
+          walletAmount,
+          cartToken: cartToken || undefined,
+          cartId: cartId || undefined,
+          sourceFlow: "CHECKOUT",
+        }),
+      });
+
+      if (!data?.ok || !data?.code) {
+        throw new Error(data?.error || "Wallet apply failed");
+      }
+
+      console.log("[WALLET UI] apply success", {
+        reservationId: data?.reservationId || null,
+        code: data?.code || null,
+        discountNodeId: data?.discountNodeId || null,
+        amountMinor: data?.amountMinor || null,
+      });
+
+      const code = String(data.code || "").trim();
+      const targetUrl = `/discount/${encodeURIComponent(code)}?redirect=/cart`;
+      console.log("[WALLET UI] redirecting to wallet discount attach", {
+        code,
+        targetUrl,
+      });
+
+      window.location.assign(targetUrl);
+    } catch (error) {
+      console.error("[WALLET UI] apply failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      button.disabled = false;
+      button.textContent = originalLabel;
+      button.dataset.megaskaApplying = "0";
+      alert("Unable to apply wallet right now. Please try again.");
+    }
+  }
+
+  function bindWalletApplyButtons(container) {
+    if (!container || typeof container.querySelectorAll !== "function") return;
+    container.querySelectorAll("[data-megaska-wallet-apply]").forEach((button) => {
+      if (button.dataset.megaskaBound === "1") return;
+      button.dataset.megaskaBound = "1";
+
+      button.addEventListener("click", function () {
+        const availableToRedeem = Number(button.getAttribute("data-wallet-available") || 0);
+        applyWalletDiscountCodeFromDashboard({
+          availableToRedeem,
+          button,
+        });
+      });
+    });
+  }
+
   function normalizeStatus(value) {
     return String(value || "").trim().toLowerCase();
   }
@@ -655,6 +772,7 @@
     const openRequests = Number(summary?.stats?.openRequests || 0);
     const savedAddresses = Number(summary?.stats?.savedAddresses || 0);
     const storeCredit = Number(summary?.wallet?.balance || 0);
+    const availableToRedeem = Number(summary?.wallet?.availableToRedeem || 0);
     const currency = summary?.wallet?.currency || "INR";
     const walletTransactions = Array.isArray(summary?.wallet?.transactions) ? summary.wallet.transactions : [];
     const addressHtml = formatAddress(summary?.address);
@@ -747,6 +865,21 @@
         <article class="megaska-dashboard-card"><h3>Wallet balance</h3><p>${formatMinorCurrency(storeCredit, currency)}</p></article>
       </section>
       <section class="megaska-dashboard-card">
+        <h3>Wallet Balance</h3>
+        <p>${escHtml(formatInrFromMinor(availableToRedeem))}</p>
+        <div class="megaska-dashboard-actions">
+          <button
+            type="button"
+            data-megaska-wallet-apply
+            data-wallet-available="${escHtml(String(availableToRedeem))}"
+            class="megaska-dashboard-btn"
+            ${availableToRedeem > 0 ? "" : "disabled"}
+          >
+            ${availableToRedeem > 0 ? "Apply Wallet" : "No Wallet Balance"}
+          </button>
+        </div>
+      </section>
+      <section class="megaska-dashboard-card">
         <h3>Wallet history</h3>
         <ul class="megaska-dashboard-list">${walletHistoryHtml}</ul>
       </section>
@@ -792,6 +925,7 @@
       const summary = await fetchDashboardSummary();
       renderDashboardSummary(mountEl, summary);
       bindLogoutButtons();
+      bindWalletApplyButtons(mountEl);
     } catch (error) {
       console.error("[Megaska Dashboard] summary fetch failed", error);
       mountEl.innerHTML =
