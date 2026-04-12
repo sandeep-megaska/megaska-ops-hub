@@ -1643,6 +1643,55 @@ setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS)
     }
   }
 
+  function getMegaskaApiBase() {
+    const authApiBase = String(window?.MegaskaAuth?.API_BASE || "").trim();
+    if (authApiBase) {
+      return authApiBase.replace(/\/$/, "");
+    }
+
+    return "https://megaska-ops-hub-exs1.vercel.app/api";
+  }
+
+  function getMegaskaSessionTokenForApi() {
+    if (window?.MegaskaAuth && typeof window.MegaskaAuth.getSessionToken === "function") {
+      try {
+        const token = String(window.MegaskaAuth.getSessionToken() || "").trim();
+        if (token) return token;
+      } catch {}
+    }
+
+    return getStoredMegaskaSessionToken();
+  }
+
+  async function megaskaApiFetch(path, options) {
+    const headers = Object.assign(
+      {
+        Accept: "application/json",
+      },
+      options?.headers || {}
+    );
+
+    const sessionToken = getMegaskaSessionTokenForApi();
+    if (sessionToken) {
+      headers.Authorization = `Bearer ${sessionToken}`;
+    }
+
+    const response = await fetch(`${getMegaskaApiBase()}${path}`, Object.assign({}, options || {}, { headers }));
+    let data = null;
+
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.error || data?.message || `Megaska API request failed (${response.status})`);
+    }
+
+    return data;
+  }
+
   function getStoredCartToken() {
     const storageKeys = ["cartToken", "cart_token", "shopifyCartToken"];
     for (const key of storageKeys) {
@@ -1692,25 +1741,10 @@ setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS)
   }
 
   async function fetchDashboardSummaryForCartWallet() {
-    const headers = {
-      Accept: "application/json",
-    };
-    const token = getStoredMegaskaSessionToken();
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    const response = await fetch("/api/dashboard/summary", {
+    return megaskaApiFetch("/dashboard/summary", {
       method: "GET",
-      credentials: "same-origin",
-      headers,
+      credentials: "omit",
     });
-
-    if (!response.ok) {
-      throw new Error(`Dashboard summary failed (${response.status})`);
-    }
-
-    return response.json();
   }
 
   async function applyWalletFromCartButton(button, availableToRedeem) {
@@ -1733,29 +1767,25 @@ setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS)
     });
 
     try {
-      const sessionToken = getStoredMegaskaSessionToken();
       const walletAmount = Number((availableToRedeem / 100).toFixed(2));
-      const response = await fetch("/api/wallet/apply", {
+      const sourceFlow = String(window?.MegaskaAuth?.WALLET_SOURCE_FLOW || "CHECKOUT").trim() || "CHECKOUT";
+      const data = await megaskaApiFetch("/wallet/apply", {
         method: "POST",
-        credentials: "same-origin",
-        headers: Object.assign(
-          {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}
-        ),
+        credentials: "omit",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         body: JSON.stringify({
           walletAmount,
           cartToken: cartToken || undefined,
           cartId: cartId || undefined,
-          sourceFlow: "CHECKOUT",
+          sourceFlow,
         }),
       });
-      const data = await response.json();
 
-      if (!response.ok || !data?.ok || !data?.code) {
-        throw new Error(data?.error || `Wallet apply failed (${response.status})`);
+      if (!data?.ok || !data?.code) {
+        throw new Error(data?.error || "Wallet apply failed");
       }
 
       console.log("[WALLET CART UI] apply success", {
