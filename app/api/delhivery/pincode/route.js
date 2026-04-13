@@ -1,13 +1,26 @@
 import { NextResponse } from "next/server";
 
+function withCors(response) {
+  response.headers.set("Access-Control-Allow-Origin", "*");
+  response.headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept");
+  return response;
+}
+
+export async function OPTIONS() {
+  return withCors(new NextResponse(null, { status: 200 }));
+}
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const pin = (searchParams.get("pin") || "").toString().trim();
 
   if (!pin || pin.length < 4) {
-    return NextResponse.json(
-      { ok: false, error: "Invalid pincode" },
-      { status: 400 }
+    return withCors(
+      NextResponse.json(
+        { ok: false, error: "Invalid pincode" },
+        { status: 400 }
+      )
     );
   }
 
@@ -22,27 +35,17 @@ export async function GET(req) {
       "https://track.delhivery.com/api/dc/expected_tat";
 
     if (!token) {
-      return NextResponse.json(
-        { ok: false, error: "Delhivery token not configured" },
-        { status: 500 }
+      return withCors(
+        NextResponse.json(
+          { ok: false, error: "Delhivery token not configured" },
+          { status: 500 }
+        )
       );
     }
 
     const svcUrl = `${baseUrl}?token=${encodeURIComponent(
       token
     )}&filter_codes=${encodeURIComponent(pin)}`;
-
-    console.log("[DELHIVERY DEBUG]", {
-      pin,
-      hasToken: !!token,
-      tokenLength: token.length,
-      tokenPrefix: token.slice(0, 4),
-      tokenSuffix: token.slice(-4),
-      baseUrl,
-      svcUrl,
-      tatBaseUrl,
-      originPin,
-    });
 
     const dlRes = await fetch(svcUrl, {
       method: "GET",
@@ -56,36 +59,36 @@ export async function GET(req) {
     const svcText = await dlRes.text();
 
     if (!dlRes.ok) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: `Delhivery HTTP ${dlRes.status}`,
-          debug: {
-            contentType: dlRes.headers.get("content-type") || "",
-            bodyPreview: svcText.slice(0, 300),
-            svcUrl,
-            hasToken: !!token,
-            tokenLength: token.length,
+      return withCors(
+        NextResponse.json(
+          {
+            ok: false,
+            error: `Delhivery HTTP ${dlRes.status}`,
+            debug: {
+              contentType: dlRes.headers.get("content-type") || "",
+              bodyPreview: svcText.slice(0, 300),
+            },
           },
-        },
-        { status: 502 }
+          { status: 502 }
+        )
       );
     }
 
     let raw;
     try {
       raw = JSON.parse(svcText);
-    } catch (e) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Unexpected response from Delhivery",
-          debug: {
-            bodyPreview: svcText.slice(0, 300),
-            svcUrl,
+    } catch (_e) {
+      return withCors(
+        NextResponse.json(
+          {
+            ok: false,
+            error: "Unexpected response from Delhivery",
+            debug: {
+              bodyPreview: svcText.slice(0, 300),
+            },
           },
-        },
-        { status: 502 }
+          { status: 502 }
+        )
       );
     }
 
@@ -102,19 +105,21 @@ export async function GET(req) {
     const inc = postal.inc || null;
 
     if (!isServiceable) {
-      return NextResponse.json({
-        ok: true,
-        pin,
-        isServiceable: false,
-        isCod,
-        isPrepaid,
-        city,
-        district,
-        stateCode,
-        inc,
-        tatDays: null,
-        estimatedDate: null,
-      });
+      return withCors(
+        NextResponse.json({
+          ok: true,
+          pin,
+          isServiceable: false,
+          isCod,
+          isPrepaid,
+          city,
+          district,
+          stateCode,
+          inc,
+          tatDays: null,
+          estimatedDate: null,
+        })
+      );
     }
 
     let tatDays = null;
@@ -146,7 +151,7 @@ export async function GET(req) {
 
         try {
           tatJson = JSON.parse(tatText);
-        } catch (e) {}
+        } catch (_e) {}
 
         if (tatJson) {
           tatDays =
@@ -176,24 +181,28 @@ export async function GET(req) {
       console.error("[DELHIVERY TAT ERROR]", tatErr);
     }
 
-    return NextResponse.json({
-      ok: true,
-      pin,
-      isServiceable,
-      isCod,
-      isPrepaid,
-      city,
-      district,
-      stateCode,
-      inc,
-      tatDays: tatDays != null ? Number(tatDays) : null,
-      estimatedDate,
-    });
+    return withCors(
+      NextResponse.json({
+        ok: true,
+        pin,
+        isServiceable,
+        isCod,
+        isPrepaid,
+        city,
+        district,
+        stateCode,
+        inc,
+        tatDays: tatDays != null ? Number(tatDays) : null,
+        estimatedDate,
+      })
+    );
   } catch (error) {
     console.error("[DELHIVERY PINCODE ERROR]", error);
-    return NextResponse.json(
-      { ok: false, error: "Failed to fetch serviceability" },
-      { status: 500 }
+    return withCors(
+      NextResponse.json(
+        { ok: false, error: "Failed to fetch serviceability" },
+        { status: 500 }
+      )
     );
   }
 }
