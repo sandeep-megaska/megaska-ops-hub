@@ -61,6 +61,12 @@ export async function GET(req) {
 
   let res;
   try {
+    console.log("[DELHIVERY PINCODE] auth check", {
+  hasToken: !!token,
+  tokenLength: token ? token.length : 0,
+  tokenPrefix: token ? token.slice(0, 4) : null,
+  tokenSuffix: token ? token.slice(-4) : null,
+});
     res = await fetch(url, {
       method: "GET",
       headers: {
