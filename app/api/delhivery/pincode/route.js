@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 
+function safeSlice(value, len = 500) {
+  if (!value) return "";
+  return value.length > len ? value.slice(0, len) + "...[truncated]" : value;
+}
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
 
@@ -24,38 +29,39 @@ export async function GET(req) {
     );
   }
 
-  return NextResponse.json({ ok: true, pincode });
-}
   const token = process.env.DELHIVERY_API_TOKEN;
-  const useStaging = process.env.DELHIVERY_ENV !== "production";
+  const env = process.env.DELHIVERY_ENV || "staging";
 
-  const baseUrl = useStaging
-    ? "https://staging-express.delhivery.com"
-    : "https://track.delhivery.com";
+  const baseUrl =
+    env === "production"
+      ? "https://track.delhivery.com"
+      : "https://staging-express.delhivery.com";
 
-  const serviceabilityUrl =
-    `${baseUrl}/c/api/pin-codes/json/?filter_codes=${encodeURIComponent(pincode)}`;
+  const url = `${baseUrl}/c/api/pin-codes/json/?filter_codes=${encodeURIComponent(
+    pincode
+  )}`;
 
-  console.log("[DELHIVERY PINCODE] request start", {
-    pincode,
-    useStaging,
+  console.log("[DELHIVERY PINCODE] request config", {
+    env,
     baseUrl,
     hasToken: !!token,
     tokenPrefix: token ? token.slice(0, 6) : null,
+    requestUrl: url,
   });
 
   if (!token) {
     return NextResponse.json(
-      { ok: false, error: "Delhivery token missing" },
+      {
+        ok: false,
+        error: "Delhivery token missing",
+      },
       { status: 500 }
     );
   }
 
-  let res: Response;
-  let raw = "";
-
+  let res;
   try {
-    res = await fetch(serviceabilityUrl, {
+    res = await fetch(url, {
       method: "GET",
       headers: {
         Authorization: `Token ${token}`,
@@ -67,24 +73,31 @@ export async function GET(req) {
   } catch (err) {
     console.error("[DELHIVERY PINCODE] fetch failed", err);
     return NextResponse.json(
-      { ok: false, error: "Failed to connect to Delhivery" },
+      {
+        ok: false,
+        error: "Failed to connect to Delhivery",
+      },
       { status: 502 }
     );
   }
 
   const contentType = res.headers.get("content-type") || "";
+  let raw = "";
 
   try {
     raw = await res.text();
   } catch (err) {
     console.error("[DELHIVERY PINCODE] body read failed", err);
     return NextResponse.json(
-      { ok: false, error: "Failed to read Delhivery response" },
+      {
+        ok: false,
+        error: "Failed to read Delhivery response",
+      },
       { status: 502 }
     );
   }
 
-  console.log("[DELHIVERY PINCODE] raw response", {
+  console.log("[DELHIVERY PINCODE] upstream response", {
     status: res.status,
     ok: res.ok,
     contentType,
@@ -105,11 +118,12 @@ export async function GET(req) {
     );
   }
 
-  let data: any = null;
+  let data;
   try {
     data = raw ? JSON.parse(raw) : null;
   } catch (err) {
-    console.error("[DELHIVERY PINCODE] non-json response", {
+    console.error("[DELHIVERY PINCODE] non-json body", {
+      status: res.status,
       contentType,
       bodyPreview: safeSlice(raw, 500),
     });
@@ -119,6 +133,7 @@ export async function GET(req) {
         ok: false,
         error: "Unexpected response from Delhivery",
         debug: {
+          status: res.status,
           contentType,
           bodyPreview: safeSlice(raw, 300),
         },
@@ -127,14 +142,16 @@ export async function GET(req) {
     );
   }
 
-  console.log("[DELHIVERY PINCODE] parsed response", {
-    topLevelKeys: data && typeof data === "object" ? Object.keys(data) : null,
+  console.log("[DELHIVERY PINCODE] parsed json", {
+    topLevelKeys:
+      data && typeof data === "object" && !Array.isArray(data)
+        ? Object.keys(data)
+        : null,
+    isArray: Array.isArray(data),
   });
 
-  // TEMPORARY: return raw parsed structure first, until mapping is confirmed
   return NextResponse.json({
     ok: true,
-    source: "delhivery",
     raw: data,
   });
 }
