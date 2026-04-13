@@ -67,6 +67,13 @@ export async function GET(req) {
   tokenPrefix: token ? token.slice(0, 4) : null,
   tokenSuffix: token ? token.slice(-4) : null,
 });
+   console.log("[DELHIVERY CONFIG CHECK]", {
+  hasToken: !!(process.env.DELHIVERY_API_TOKEN || "").trim(),
+  tokenLength: ((process.env.DELHIVERY_API_TOKEN || "").trim()).length,
+  pincodeUrl: process.env.DELHIVERY_PINCODE_URL || null,
+  tatUrl: process.env.DELHIVERY_TAT_URL || null,
+  originPin: process.env.DELHIVERY_ORIGIN_PIN || null,
+});
     res = await fetch(url, {
       method: "GET",
       headers: {
