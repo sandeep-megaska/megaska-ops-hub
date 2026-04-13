@@ -1,19 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 
-function safeSlice(value: string, len = 500) {
-  return value.length > len ? value.slice(0, len) + "...[truncated]" : value;
-}
-
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const pincode = (searchParams.get("pincode") || "").trim();
+
+  const pincode =
+    (searchParams.get("pin") || searchParams.get("pincode") || "").trim();
+
+  console.log("[DELHIVERY PINCODE] incoming query", {
+    url: req.url,
+    pin: searchParams.get("pin"),
+    pincodeParam: searchParams.get("pincode"),
+    resolvedPincode: pincode,
+  });
 
   if (!/^\d{6}$/.test(pincode)) {
     return NextResponse.json(
-      { ok: false, error: "Invalid pincode" },
+      {
+        ok: false,
+        error: "Invalid pincode",
+        received: pincode || null,
+      },
       { status: 400 }
     );
   }
+
+  // rest of your logic...
+}
 
   const token = process.env.DELHIVERY_API_TOKEN;
   const useStaging = process.env.DELHIVERY_ENV !== "production";
