@@ -1,46 +1,54 @@
-// pages/api/delhivery/pincode.js
+import { NextResponse } from "next/server";
 
-export default async function handler(req, res) {
-  // --- CORS headers ---
-  res.setHeader("Access-Control-Allow-Origin", "*"); // you can tighten to https://megaska.com later
-  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+export const runtime = "nodejs";
 
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+function json(data, status = 200) {
+  return NextResponse.json(data, {
+    status,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
+  });
+}
 
-  if (req.method !== "GET") {
-    res.setHeader("Allow", ["GET"]);
-    return res.status(405).json({ ok: false, error: "Method not allowed" });
-  }
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    },
+  });
+}
 
-  const pin = (req.query.pin || "").toString().trim();
+export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  const pin = String(searchParams.get("pin") || "").trim();
 
   if (!pin || pin.length < 4) {
-    return res.status(400).json({ ok: false, error: "Invalid pincode" });
+    return json({ ok: false, error: "Invalid pincode" }, 400);
   }
 
   try {
     const token = process.env.DELHIVERY_API_TOKEN;
     const baseUrl =
       process.env.DELHIVERY_PINCODE_URL ||
-      "https://track.delhivery.com/c/api/pin-codes/json/?filter_codes=pin_code";
+      "https://track.delhivery.com/c/api/pin-codes/json/";
     const originPin = process.env.DELHIVERY_ORIGIN_PIN;
     const tatBaseUrl =
       process.env.DELHIVERY_TAT_URL ||
       "https://track.delhivery.com/api/dc/expected_tat";
 
     if (!token) {
-      return res
-        .status(500)
-        .json({ ok: false, error: "Delhivery token not configured" });
+      return json({ ok: false, error: "Delhivery token not configured" }, 500);
     }
 
-    // 1) PINCODE SERVICEABILITY
-    const svcUrl = `${baseUrl}?token=${encodeURIComponent(
-      token
-    )}&filter_codes=${encodeURIComponent(pin)}`;
+    const svcUrl =
+      `${baseUrl}?token=${encodeURIComponent(token)}` +
+      `&filter_codes=${encodeURIComponent(pin)}`;
 
     const dlRes = await fetch(svcUrl, {
       method: "GET",
@@ -48,18 +56,16 @@ export default async function handler(req, res) {
         Accept: "application/json",
         Authorization: `Token ${token}`,
       },
+      cache: "no-store",
     });
 
     const svcText = await dlRes.text();
     let raw;
     try {
       raw = JSON.parse(svcText);
-    } catch (e) {
+    } catch (_e) {
       console.error("[DELHIVERY PINCODE NON-JSON]", svcText);
-      return res.status(500).json({
-        ok: false,
-        error: "Unexpected response from Delhivery",
-      });
+      return json({ ok: false, error: "Unexpected response from Delhivery" }, 500);
     }
 
     const codes = raw.delivery_codes || [];
@@ -74,9 +80,8 @@ export default async function handler(req, res) {
     const stateCode = postal.state_code || null;
     const inc = postal.inc || null;
 
-    // If not serviceable, no need to call TAT API
     if (!isServiceable) {
-      return res.status(200).json({
+      return json({
         ok: true,
         pin,
         isServiceable: false,
@@ -91,14 +96,11 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2) EXPECTED TAT API (origin_pin + destination_pin + mot + pdt)
     let tatDays = null;
     let estimatedDate = null;
 
     try {
       if (tatBaseUrl && originPin) {
-        // You said: origin_pin, destination_pin, mot (S/E), pdt (B2B/B2C/empty)
-        // We'll use Surface (S) and B2C.
         const mot = "E";
         const pdt = "B2C";
 
@@ -115,22 +117,19 @@ export default async function handler(req, res) {
             Accept: "application/json",
             Authorization: `Token ${token}`,
           },
+          cache: "no-store",
         });
 
         const tatText = await tatRes.text();
         let tatJson;
         try {
           tatJson = JSON.parse(tatText);
-        } catch (e) {
+        } catch (_e) {
           console.error("[DELHIVERY TAT NON-JSON]", tatText);
           tatJson = null;
         }
 
-        console.log("[DELHIVERY TAT JSON]", tatJson);
-
         if (tatJson) {
-          // 🔴 IMPORTANT: adjust these fields to what your TAT API actually returns.
-          // Common patterns – you can tweak after checking logs:
           tatDays =
             tatJson.tat ||
             tatJson.days ||
@@ -147,20 +146,18 @@ export default async function handler(req, res) {
                 tatJson.data.delivery_date)) ||
             null;
 
-          // If API only gives days and no date, derive date from today
           if (tatDays && !estimatedDate) {
             const d = new Date();
             d.setDate(d.getDate() + Number(tatDays));
-            estimatedDate = d.toISOString().slice(0, 10); // YYYY-MM-DD
+            estimatedDate = d.toISOString().slice(0, 10);
           }
         }
       }
     } catch (tatErr) {
       console.error("[DELHIVERY TAT ERROR]", tatErr);
-      // Don't break the whole API just because TAT failed
     }
 
-    return res.status(200).json({
+    return json({
       ok: true,
       pin,
       isServiceable,
@@ -175,9 +172,6 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error("[DELHIVERY PINCODE ERROR]", error);
-    return res.status(500).json({
-      ok: false,
-      error: "Failed to fetch serviceability",
-    });
+    return json({ ok: false, error: "Failed to fetch serviceability" }, 500);
   }
 }
