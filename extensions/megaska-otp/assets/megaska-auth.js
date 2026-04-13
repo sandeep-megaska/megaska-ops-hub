@@ -216,56 +216,59 @@
     };
   }
 
-  function buildCheckoutPrefillParams(customer) {
-    const source = customer || {};
-    const fullName = source.fullName || source.firstName || "";
-    const nameParts = splitName(fullName);
-    const firstName = String(source.firstName || nameParts.firstName || "").trim();
-    const lastName = String(source.lastName || nameParts.lastName || "").trim();
-    const email = String(source.email || "").trim();
-    const phone = String(source.phoneE164 || source.phone || "").trim();
-    const addressLine1 = String(source.addressLine1 || "").trim();
-    const addressLine2 = String(source.addressLine2 || "").trim();
-    const city = String(source.city || "").trim();
-    const stateProvince = String(source.stateProvince || "").trim();
-    const postalCode = String(source.postalCode || "").trim();
-    const countryRegion = String(source.countryRegion || "").trim();
-    const params = {};
+ function buildCheckoutPrefillParams(customer) {
+  const source = customer || {};
+  const fullName = source.fullName || source.firstName || "";
+  const nameParts = splitName(fullName);
+  const firstName = String(source.firstName || nameParts.firstName || "").trim();
+  const lastName = String(source.lastName || nameParts.lastName || "").trim();
+  const email = String(source.email || "").trim();
+  const phone = String(source.phoneE164 || source.phone || "").trim();
+  const addressLine1 = String(source.addressLine1 || "").trim();
+  const addressLine2 = String(source.addressLine2 || "").trim();
+  const city = String(source.city || "").trim();
+  const stateProvince = String(source.stateProvince || "").trim();
+  const postalCode = String(source.postalCode || "").trim();
+  const countryRegion = String(source.countryRegion || "").trim();
+  const params = {};
 
-    // Keep Shopify checkout prefill aligned with Megaska flow:
-    // - Contact section: email only
-    // - Shipping section: phone
-    // Do not populate contact phone fields (e.g. checkout[phone]).
-    if (email) params["checkout[email]"] = email;
-    if (phone) params["checkout[shipping_address][phone]"] = phone;
-    if (firstName) {
-      params["checkout[shipping_address][first_name]"] = firstName;
-    }
-    if (lastName) {
-      params["checkout[shipping_address][last_name]"] = lastName;
-    }
-    if (addressLine1) {
-      params["checkout[shipping_address][address1]"] = addressLine1;
-    }
-    if (addressLine2) {
-      params["checkout[shipping_address][address2]"] = addressLine2;
-    }
-    if (city) {
-      params["checkout[shipping_address][city]"] = city;
-    }
-    if (stateProvince) {
-      params["checkout[shipping_address][province]"] = stateProvince;
-    }
-    if (postalCode) {
-      params["checkout[shipping_address][zip]"] = postalCode;
-    }
-    if (countryRegion) {
-      params["checkout[shipping_address][country]"] = countryRegion;
-    }
-
-    return params;
+  if (email) {
+    params["checkout[email]"] = email;
   }
 
+  if (phone) {
+    params["checkout[shipping_address][phone]"] = phone;
+    params["checkout[phone]"] = phone;
+    params["checkout[contact][phone]"] = phone;
+  }
+
+  if (firstName) {
+    params["checkout[shipping_address][first_name]"] = firstName;
+  }
+  if (lastName) {
+    params["checkout[shipping_address][last_name]"] = lastName;
+  }
+  if (addressLine1) {
+    params["checkout[shipping_address][address1]"] = addressLine1;
+  }
+  if (addressLine2) {
+    params["checkout[shipping_address][address2]"] = addressLine2;
+  }
+  if (city) {
+    params["checkout[shipping_address][city]"] = city;
+  }
+  if (stateProvince) {
+    params["checkout[shipping_address][province]"] = stateProvince;
+  }
+  if (postalCode) {
+    params["checkout[shipping_address][zip]"] = postalCode;
+  }
+  if (countryRegion) {
+    params["checkout[shipping_address][country]"] = countryRegion;
+  }
+
+  return params;
+}
   function applyCheckoutPrefillToUrl(rawUrl, customer) {
     if (!rawUrl) return rawUrl;
     const params = buildCheckoutPrefillParams(customer);
