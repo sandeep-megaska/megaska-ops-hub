@@ -271,17 +271,13 @@
     const params = buildCheckoutPrefillParams(customer);
     if (!Object.keys(params).length) return rawUrl;
 
-    const url = new URL(rawUrl, window.location.origin);
-    // Remove any legacy contact phone query params to avoid forcing phone
-    // into checkout contact fields.
-    url.searchParams.delete("checkout[phone]");
-    url.searchParams.delete("checkout[contact][phone]");
+   const url = new URL(rawUrl, window.location.origin);
 
-    Object.entries(params).forEach(([key, value]) => {
-      if (!url.searchParams.get(key)) {
-        url.searchParams.set(key, value);
-      }
-    });
+Object.entries(params).forEach(([key, value]) => {
+  if (value && !url.searchParams.get(key)) {
+    url.searchParams.set(key, value);
+  }
+});
     return `${url.pathname}${url.search}${url.hash}`;
   }
 
@@ -292,11 +288,7 @@
     if (!entries.length) return false;
 
     // Remove legacy hidden contact phone inputs if they exist.
-    form
-      .querySelectorAll(
-        "input[type='hidden'][name='checkout[phone]'], input[type='hidden'][name='checkout[contact][phone]']"
-      )
-      .forEach((legacyInput) => legacyInput.remove());
+    
 
     entries.forEach(([name, value]) => {
       let input = form.querySelector(`input[type="hidden"][name="${name}"]`);
