@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-export async function GET(req: NextRequest) {
+export async function GET(req) {
   const { searchParams } = new URL(req.url);
 
   const pincode =
@@ -24,9 +24,8 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // rest of your logic...
+  return NextResponse.json({ ok: true, pincode });
 }
-
   const token = process.env.DELHIVERY_API_TOKEN;
   const useStaging = process.env.DELHIVERY_ENV !== "production";
 
