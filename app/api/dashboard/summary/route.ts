@@ -13,9 +13,7 @@ import { ACTIVE_EXCHANGE_STATUSES } from "../../../../services/exchange/lifecycl
 import { getOrCreateWalletAccount, listWalletTransactions } from "../../../../services/wallet";
 
 export const runtime = "nodejs";
-export async function OPTIONS() {
-  return applyCors(new NextResponse(null, { status: 204 }));
-}
+
 export async function OPTIONS(req: NextRequest) {
   return handleOptions(req);
 }
