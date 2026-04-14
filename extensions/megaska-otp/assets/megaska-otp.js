@@ -2670,13 +2670,28 @@ function ensureDesktopAccountFallback() {
   const fallback = createDesktopAccountFallback();
   const containerTag = String(desktopContainer.tagName || "").toUpperCase();
 
+  const cartCandidate = desktopContainer.querySelector(
+    "a[href='/cart'], a[href*='/cart'], .cart-icon, .icon-cart, .js_car_tt, [aria-label*='cart' i], [aria-label*='bag' i]"
+  );
+
   if (containerTag === "UL" || containerTag === "OL") {
     const li = document.createElement("li");
     li.className = "megaska-account-fallback-item";
     li.appendChild(fallback);
-    desktopContainer.appendChild(li);
+
+    if (cartCandidate && cartCandidate.parentElement === desktopContainer) {
+      desktopContainer.insertBefore(li, cartCandidate);
+    } else if (cartCandidate && cartCandidate.closest("li")?.parentElement === desktopContainer) {
+      desktopContainer.insertBefore(li, cartCandidate.closest("li"));
+    } else {
+      desktopContainer.appendChild(li);
+    }
   } else {
-    desktopContainer.appendChild(fallback);
+    if (cartCandidate && cartCandidate.parentElement === desktopContainer) {
+      desktopContainer.insertBefore(fallback, cartCandidate);
+    } else {
+      desktopContainer.appendChild(fallback);
+    }
   }
 
   console.log("[Megaska OTP] desktop account fallback inserted");
