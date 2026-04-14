@@ -43,28 +43,29 @@
   ];
 
   const state = {
-    isOpen: false,
-    step: "phone",
-    phoneDigits: "",
-    normalizedPhone: "",
-    otpDigits: ["", "", "", ""],
-    requesting: false,
-    verifying: false,
-    savingProfile: false,
-    resendSeconds: 0,
-    resendTimerId: null,
-    errorMessage: "",
-    successMessage: "Welcome back to Megaska",
-    profileFirstName: "",
-    profileLastName: "",
-    profileEmail: "",
-    profileAddressLine1: "",
-    profileAddressLine2: "",
-    profileCity: "",
-    profileStateProvince: "",
-    profilePostalCode: "",
-    profileCountryRegion: COUNTRY_REGION,
-  };
+  isOpen: false,
+  step: "phone",
+  phoneDigits: "",
+  normalizedPhone: "",
+  otpDigits: ["", "", "", ""],
+  requesting: false,
+  verifying: false,
+  savingProfile: false,
+  resendSeconds: 0,
+  resendTimerId: null,
+  errorMessage: "",
+  statusMessage: "",
+  successMessage: "Welcome back to Megaska",
+  profileFirstName: "",
+  profileLastName: "",
+  profileEmail: "",
+  profileAddressLine1: "",
+  profileAddressLine2: "",
+  profileCity: "",
+  profileStateProvince: "",
+  profilePostalCode: "",
+  profileCountryRegion: COUNTRY_REGION,
+};
 
   let globalClickBound = false;
   let checkoutSubmitBound = false;
@@ -691,103 +692,123 @@
   }
 
   function getModalParts() {
-    const modal = ensureModal();
-    return {
-      modal,
-      stepPhone: modal.querySelector("[data-megaska-step-phone]"),
-      stepOtp: modal.querySelector("[data-megaska-step-otp]"),
-      stepProfile: modal.querySelector("[data-megaska-step-profile]"),
-      stepSuccess: modal.querySelector("[data-megaska-step-success]"),
-      phoneInput: modal.querySelector("[data-megaska-phone-input]"),
-      phoneHint: modal.querySelector("[data-megaska-phone-hint]"),
-      phoneDisplay: modal.querySelector("[data-megaska-phone-display]"),
-      otpInputs: Array.from(modal.querySelectorAll("[data-megaska-otp-digit]")),
-      resendText: modal.querySelector("[data-megaska-resend-text]"),
-      resendBtn: modal.querySelector("[data-megaska-resend]"),
-      profileFirstNameInput: modal.querySelector("[data-megaska-profile-firstname]"),
-      profileLastNameInput: modal.querySelector("[data-megaska-profile-lastname]"),
-      profileEmailInput: modal.querySelector("[data-megaska-profile-email]"),
-      profileAddress1Input: modal.querySelector("[data-megaska-profile-address1]"),
-      profileAddress2Input: modal.querySelector("[data-megaska-profile-address2]"),
-      profileCityInput: modal.querySelector("[data-megaska-profile-city]"),
-      profileStateInput: modal.querySelector("[data-megaska-profile-state]"),
-      profilePostalInput: modal.querySelector("[data-megaska-profile-postal]"),
-      profileSubmitBtn: modal.querySelector("[data-megaska-profile-submit]"),
-      errorEl: modal.querySelector("[data-megaska-otp-error]"),
-      statusEl: modal.querySelector("[data-megaska-otp-status]"),
-      successMessage: modal.querySelector("[data-megaska-success-message]"),
-    };
-  }
-
+  const modal = ensureModal();
+  return {
+    modal,
+    stepPhone: modal.querySelector("[data-megaska-step-phone]"),
+    stepOtp: modal.querySelector("[data-megaska-step-otp]"),
+    stepProfile: modal.querySelector("[data-megaska-step-profile]"),
+    stepSuccess: modal.querySelector("[data-megaska-step-success]"),
+    phoneInput: modal.querySelector("[data-megaska-phone-input]"),
+    phoneHint: modal.querySelector("[data-megaska-phone-hint]"),
+    phoneDisplay: modal.querySelector("[data-megaska-phone-display]"),
+    otpInputs: Array.from(modal.querySelectorAll("[data-megaska-otp-digit]")),
+    resendText: modal.querySelector("[data-megaska-resend-text]"),
+    resendBtn: modal.querySelector("[data-megaska-resend]"),
+    profileFirstNameInput: modal.querySelector("[data-megaska-profile-firstname]"),
+    profileLastNameInput: modal.querySelector("[data-megaska-profile-lastname]"),
+    profileEmailInput: modal.querySelector("[data-megaska-profile-email]"),
+    profileAddress1Input: modal.querySelector("[data-megaska-profile-address1]"),
+    profileAddress2Input: modal.querySelector("[data-megaska-profile-address2]"),
+    profileCityInput: modal.querySelector("[data-megaska-profile-city]"),
+    profileStateInput: modal.querySelector("[data-megaska-profile-state]"),
+    profilePostalInput: modal.querySelector("[data-megaska-profile-postal]"),
+    profileSubmitBtn: modal.querySelector("[data-megaska-profile-submit]"),
+    errorEl: modal.querySelector("[data-megaska-otp-error]"),
+    statusEl: modal.querySelector("[data-megaska-otp-status]"),
+    successMessage: modal.querySelector("[data-megaska-success-message]"),
+  };
+}
   function renderStep() {
-    const {
-      stepPhone,
-      stepOtp,
-      stepProfile,
-      stepSuccess,
-      phoneInput,
-      phoneHint,
-      phoneDisplay,
-      otpInputs,
-      profileFirstNameInput,
-      profileLastNameInput,
-      statusEl,
-      profileEmailInput,
-      profileAddress1Input,
-      profileAddress2Input,
-      profileCityInput,
-      profileStateInput,
-      profilePostalInput,
-      profileSubmitBtn,
-      errorEl,
-      successMessage,
-    } = getModalParts();
+  const {
+    stepPhone,
+    stepOtp,
+    stepProfile,
+    stepSuccess,
+    phoneInput,
+    phoneHint,
+    phoneDisplay,
+    otpInputs,
+    resendText,
+    resendBtn,
+    profileFirstNameInput,
+    profileLastNameInput,
+    profileEmailInput,
+    profileAddress1Input,
+    profileAddress2Input,
+    profileCityInput,
+    profileStateInput,
+    profilePostalInput,
+    profileSubmitBtn,
+    errorEl,
+    statusEl,
+    successMessage,
+  } = getModalParts();
 
-    stepPhone.hidden = state.step !== "phone";
-    stepOtp.hidden = state.step !== "otp";
-    stepProfile.hidden = state.step !== "profile";
-    stepSuccess.hidden = state.step !== "success";
-statusEl: modal.querySelector("[data-megaska-otp-status]"),
-    phoneInput.value = state.phoneDigits;
-    phoneDisplay.textContent = maskPhone(state.phoneDigits);
-    successMessage.textContent = state.successMessage;
-    profileFirstNameInput.value = state.profileFirstName;
-    profileLastNameInput.value = state.profileLastName;
-    profileEmailInput.value = state.profileEmail;
-    profileAddress1Input.value = state.profileAddressLine1;
-    profileAddress2Input.value = state.profileAddressLine2;
-    profileCityInput.value = state.profileCity;
-    profileStateInput.value = state.profileStateProvince;
-    profilePostalInput.value = state.profilePostalCode;
-    profileFirstNameInput.disabled = state.savingProfile;
-    profileLastNameInput.disabled = state.savingProfile;
-    profileEmailInput.disabled = state.savingProfile;
-    profileAddress1Input.disabled = state.savingProfile;
-    profileAddress2Input.disabled = state.savingProfile;
-    profileCityInput.disabled = state.savingProfile;
-    profileStateInput.disabled = state.savingProfile;
-    profilePostalInput.disabled = state.savingProfile;
-    profileSubmitBtn.disabled = state.savingProfile;
-    profileSubmitBtn.textContent = state.savingProfile ? "Saving..." : "Save and Continue";
+  stepPhone.hidden = state.step !== "phone";
+  stepOtp.hidden = state.step !== "otp";
+  stepProfile.hidden = state.step !== "profile";
+  stepSuccess.hidden = state.step !== "success";
 
-    otpInputs.forEach((input, index) => {
-      input.value = state.otpDigits[index] || "";
-      input.disabled = state.verifying;
-    });
+  phoneInput.value = state.phoneDigits;
+  phoneDisplay.textContent = maskPhone(state.phoneDigits);
+  successMessage.textContent = state.successMessage;
 
-    if (state.step === "phone") {
-      if (state.requesting) {
-        phoneHint.textContent = "Sending OTP...";
-      } else if (state.phoneDigits.length < 10) {
-        phoneHint.textContent = "We'll auto-send a 4-digit OTP when 10 digits are entered.";
-      } else {
-        phoneHint.textContent = "Valid number detected. Sending OTP...";
-      }
+  profileFirstNameInput.value = state.profileFirstName;
+  profileLastNameInput.value = state.profileLastName;
+  profileEmailInput.value = state.profileEmail;
+  profileAddress1Input.value = state.profileAddressLine1;
+  profileAddress2Input.value = state.profileAddressLine2;
+  profileCityInput.value = state.profileCity;
+  profileStateInput.value = state.profileStateProvince;
+  profilePostalInput.value = state.profilePostalCode;
+
+  profileFirstNameInput.disabled = state.savingProfile;
+  profileLastNameInput.disabled = state.savingProfile;
+  profileEmailInput.disabled = state.savingProfile;
+  profileAddress1Input.disabled = state.savingProfile;
+  profileAddress2Input.disabled = state.savingProfile;
+  profileCityInput.disabled = state.savingProfile;
+  profileStateInput.disabled = state.savingProfile;
+  profilePostalInput.disabled = state.savingProfile;
+  profileSubmitBtn.disabled = state.savingProfile;
+  profileSubmitBtn.textContent = state.savingProfile ? "Saving..." : "Save and Continue";
+
+  otpInputs.forEach((input, index) => {
+    input.value = state.otpDigits[index] || "";
+    input.disabled = state.verifying;
+  });
+
+  if (state.step === "phone") {
+    if (state.requesting) {
+      phoneHint.textContent = "Sending OTP...";
+    } else if (state.phoneDigits.length < 10) {
+      phoneHint.textContent = "We'll auto-send a 4-digit OTP when 10 digits are entered.";
+    } else {
+      phoneHint.textContent = "Valid number detected. Sending OTP...";
     }
-
-    errorEl.textContent = state.errorMessage;
-    updateResendUi();
   }
+
+  if (statusEl) {
+    statusEl.textContent = state.statusMessage || "";
+  }
+
+  errorEl.textContent = state.errorMessage || "";
+
+  if (state.step !== "otp") {
+    resendBtn.disabled = true;
+    resendText.textContent = "";
+  } else if (state.requesting) {
+    resendText.textContent = "Sending new OTP...";
+    resendBtn.disabled = true;
+  } else if (state.resendSeconds > 0) {
+    resendText.textContent = `Resend available in ${state.resendSeconds}s`;
+    resendBtn.disabled = true;
+  } else {
+    resendText.textContent = "Didn't get the code?";
+    resendBtn.disabled = false;
+  }
+}
 
   function updateResendUi() {
     const { resendBtn, resendText } = getModalParts();
@@ -869,28 +890,30 @@ statusEl: modal.querySelector("[data-megaska-otp-status]"),
   }
 
   function renderPhoneStep() {
-    state.step = "phone";
-    state.errorMessage = "";
-    state.otpDigits = ["", "", "", ""];
-    renderStep();
-    focusPhoneInput();
-  }
+  state.step = "phone";
+  state.errorMessage = "";
+  state.statusMessage = "";
+  state.otpDigits = ["", "", "", ""];
+  renderStep();
+  focusPhoneInput();
+}
 
-  function renderOtpStep() {
-    state.step = "otp";
-    state.errorMessage = "";
-    state.otpDigits = ["", "", "", ""];
-    renderStep();
-    focusOtpInput(0);
-  }
+function renderOtpStep() {
+  state.step = "otp";
+  state.errorMessage = "";
+  state.statusMessage = state.requesting ? "Sending OTP..." : "";
+  state.otpDigits = ["", "", "", ""];
+  renderStep();
+  focusOtpInput(0);
+}
 
-  function renderSuccessStep(message) {
-    state.step = "success";
-    state.statusMessage = "";
-    state.errorMessage = "";
-    state.successMessage = message || "Welcome back to Megaska";
-    renderStep();
-  }
+function renderSuccessStep(message) {
+  state.step = "success";
+  state.statusMessage = "";
+  state.errorMessage = "";
+  state.successMessage = message || "Welcome back to Megaska";
+  renderStep();
+}
 
   function normalizeText(value) {
     return String(value || "")
@@ -992,15 +1015,16 @@ statusEl: modal.querySelector("[data-megaska-otp-status]"),
   const normalizedPhone = normalizeIndianPhone(state.phoneDigits);
   if (!normalizedPhone) {
     state.errorMessage = "Please enter a valid 10-digit mobile number.";
+    state.statusMessage = "";
     renderStep();
     return;
   }
 
   state.requesting = true;
   state.errorMessage = "";
+  state.statusMessage = "Sending OTP...";
   state.normalizedPhone = normalizedPhone;
 
-  // Move to OTP step immediately for faster UX
   renderOtpStep();
   startResendTimer();
 
@@ -1013,10 +1037,12 @@ statusEl: modal.querySelector("[data-megaska-otp-status]"),
     }
 
     state.requesting = false;
+    state.statusMessage = "";
     renderStep();
   } catch (error) {
     state.requesting = false;
     state.step = "phone";
+    state.statusMessage = "";
     state.errorMessage = error.message || "Unable to send OTP. Please try again.";
     renderStep();
     focusPhoneInput();
@@ -1039,52 +1065,53 @@ statusEl: modal.querySelector("[data-megaska-otp-status]"),
     return state.otpDigits.join("");
   }
 
-  async function submitOtpIfReady() {
-    const otp = collectOtpDigits();
+ async function submitOtpIfReady() {
+  const otp = collectOtpDigits();
 
-    if (!isModalOpen()) return;
-    if (state.verifying || state.requesting) return;
-    if (otp.length !== OTP_LENGTH || !state.normalizedPhone) return;
+  if (!isModalOpen()) return;
+  if (state.verifying || state.requesting) return;
+  if (otp.length !== OTP_LENGTH || !state.normalizedPhone) return;
 
-    state.verifying = true;
-state.errorMessage = "";
-state.statusMessage = "Verifying OTP...";
-renderStep();
+  state.verifying = true;
+  state.errorMessage = "";
+  state.statusMessage = "Verifying OTP...";
+  renderStep();
 
-    try {
-      await window.MegaskaAuth.verifyOtp(state.normalizedPhone, otp);
-      const refreshedSession = await window.MegaskaAuth.refreshAuthState();
-      state.verifying = false;
-      const sessionCustomer = refreshedSession?.customer || null;
+  try {
+    await window.MegaskaAuth.verifyOtp(state.normalizedPhone, otp);
+    const refreshedSession = await window.MegaskaAuth.refreshAuthState();
+    state.verifying = false;
+    state.statusMessage = "";
 
-      if (needsProfileCompletion(sessionCustomer)) {
-        renderProfileStep(sessionCustomer);
-        return;
-      }
+    const sessionCustomer = refreshedSession?.customer || null;
 
-     hideAccountMenu();
-await syncAccountUiState();
-
-const accountRedirectTarget = consumePendingAccountRedirect();
-if (accountRedirectTarget) {
-  console.log("[Megaska OTP] account redirect after OTP", { accountRedirectTarget });
-  window.location.assign(accountRedirectTarget);
-  return;
-}
-
-await resumePendingAction(sessionCustomer);
-renderSuccessStep("Login successful. Welcome to Megaska");
-setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS);
-    } catch (error) {
-      state.verifying = false;
-      state.errorMessage = error.message || "Invalid or expired OTP. Please try again.";
-      state.statusMessage = "";
-      state.otpDigits = ["", "", "", ""];
-      renderStep();
-      focusOtpInput(0);
+    if (needsProfileCompletion(sessionCustomer)) {
+      renderProfileStep(sessionCustomer);
+      return;
     }
-  }
 
+    hideAccountMenu();
+    await syncAccountUiState();
+
+    const accountRedirectTarget = consumePendingAccountRedirect();
+    if (accountRedirectTarget) {
+      console.log("[Megaska OTP] account redirect after OTP", { accountRedirectTarget });
+      window.location.assign(accountRedirectTarget);
+      return;
+    }
+
+    await resumePendingAction(sessionCustomer);
+    renderSuccessStep("Login successful. Welcome to Megaska");
+    setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS);
+  } catch (error) {
+    state.verifying = false;
+    state.statusMessage = "";
+    state.errorMessage = error.message || "Invalid or expired OTP. Please try again.";
+    state.otpDigits = ["", "", "", ""];
+    renderStep();
+    focusOtpInput(0);
+  }
+}
   async function handleProfileSubmit() {
     if (!isModalOpen()) return;
     if (state.step !== "profile") return;
