@@ -3,6 +3,7 @@ import { withCors, handleOptions } from "../../_lib/cors";
 import { prisma } from "../../../../services/db/prisma";
 import { getAuthenticatedCustomer } from "../../../../services/exchange/auth";
 import { evaluateCancellationEligibility, isCancellationStatusBlocking } from "../../../../services/exchange/cancellation";
+import { sendCancellationRequestCreatedEmail } from "../../../../services/notifications/cancellation";
 
 export const runtime = "nodejs";
 
@@ -88,6 +89,23 @@ export async function POST(req: NextRequest) {
         payments: { orderBy: { createdAt: "desc" }, take: 1 },
       },
     });
+
+    try {
+      await sendCancellationRequestCreatedEmail({
+        requestId: created.id,
+        orderNumber: created.orderNumber,
+        status: created.status,
+        customerName: created.customerNameSnapshot,
+        customerPhone: created.customerPhoneSnapshot,
+        customerEmail: created.customerEmailSnapshot,
+        reason: created.reason,
+      });
+    } catch (error) {
+      console.error("[CANCELLATION NOTIFY] Route-level send failed", {
+        requestId: created.id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     return withCors(req, NextResponse.json({ request: created }, { status: 201 }));
   } catch (error) {
