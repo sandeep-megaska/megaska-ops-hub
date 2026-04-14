@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { withCors, handleOptions } from "../../_lib/cors";
 import { prisma } from "../../../../services/db/prisma";
 import { hashSessionToken } from "../../../../services/auth/session";
-import { resolveCartId, updateCartBuyerIdentity } from "../../../../services/shopify/storefront";
+import {
+  resolveCartId,
+  updateCartAttributes,
+  updateCartBuyerIdentity,
+} from "../../../../services/shopify/storefront";
 
 export async function OPTIONS(req: NextRequest) {
   return handleOptions(req);
@@ -14,7 +18,6 @@ export async function POST(req: NextRequest) {
     const bearerToken = authHeader?.startsWith("Bearer ")
       ? authHeader.slice(7).trim()
       : "";
-
     const queryToken = req.nextUrl.searchParams.get("token")?.trim() ?? "";
     const sessionToken = bearerToken || queryToken;
 
@@ -61,13 +64,29 @@ export async function POST(req: NextRequest) {
     if (!session?.customer) {
       return withCors(
         req,
-        NextResponse.json({ ok: false, error: "Invalid session" }, { status: 401 })
+        NextResponse.json({ ok: false, error: "Invalid or expired session" }, { status: 401 })
       );
     }
 
     const customer = session.customer;
+    const customerProfileId = String(customer.id || "").trim();
+    const shopifyCustomerId = String(customer.shopifyCustomerId || "").trim();
+    const phone = String(customer.phoneE164 || "").trim();
+    const phoneVerifiedAt =
+      customer.phoneVerifiedAt instanceof Date
+        ? customer.phoneVerifiedAt.toISOString()
+        : "";
 
-    // 🧠 Apply buyer identity to Shopify cart
+    if (!phone) {
+      return withCors(
+        req,
+        NextResponse.json(
+          { ok: false, blocked: true, reason: "missing-verified-phone" },
+          { status: 403 }
+        )
+      );
+    }
+
     const identityResult = await updateCartBuyerIdentity({
       cartId,
       buyerIdentity: {
@@ -84,24 +103,43 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (!identityResult.ok) {
-      return withCors(
-        req,
-        NextResponse.json({
-          ok: false,
-          error: "Failed to apply buyer identity",
-          details: identityResult.userErrors,
-        })
-      );
-    }
+    const verificationAttributes = [
+      { key: "megaska_phone_verified", value: "true" },
+      { key: "megaska_verified_phone", value: phone },
+      { key: "megaska_auth_source", value: "otp" },
+      { key: "megaska_customer_profile_id", value: customerProfileId },
+      { key: "megaska_shopify_customer_id", value: shopifyCustomerId },
+      { key: "megaska_auth_verified_at", value: phoneVerifiedAt },
+    ].filter((entry) => entry.value);
 
-    const checkoutUrl = identityResult.checkoutUrl || "/checkout";
+    const attributeResult = await updateCartAttributes({
+      cartId,
+      attributes: verificationAttributes,
+    });
+
+    const ok = Boolean(identityResult.ok && attributeResult.ok);
+    const checkoutUrl =
+      attributeResult.checkoutUrl ||
+      identityResult.checkoutUrl ||
+      "/checkout";
 
     return withCors(
       req,
       NextResponse.json({
-        ok: true,
+        ok,
+        blocked: false,
+        cartId: attributeResult.cartId || identityResult.cartId || cartId,
         checkoutUrl,
+        redirectUrl: checkoutUrl,
+        buyerIdentity: identityResult.buyerIdentity || null,
+        userErrors: [
+          ...(identityResult.userErrors || []),
+          ...(attributeResult.userErrors || []),
+        ],
+        apiErrors: [
+          ...(identityResult.apiErrors || []),
+          ...(attributeResult.apiErrors || []),
+        ],
       })
     );
   } catch (error) {
