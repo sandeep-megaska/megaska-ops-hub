@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
     const initialStatus = eligibility.decision === "ELIGIBLE" ? "AWAITING_PAYMENT" : "OPEN";
 
-    const created = await prisma.orderActionRequest.create({
+        const created = await prisma.orderActionRequest.create({
       data: {
         requestType: "EXCHANGE",
         customerProfileId: session.customer.id,
@@ -121,23 +121,43 @@ export async function POST(req: NextRequest) {
       },
     });
 
-   try {
-  await sendExchangeRequestCreatedEmail({
-    requestId: created.id,
-    customerName: created.customerNameSnapshot,
-    customerPhone: created.customerPhoneSnapshot,
-    customerEmail: created.customerEmailSnapshot,
-    orderNumber: created.orderNumber,
-    itemTitle: created.items[0]?.productTitle || productTitle,
-    currentSize: created.items[0]?.currentSize || currentSize,
-    requestedSize: created.items[0]?.requestedSize || requestedSize,
-    status: created.status,
-  });
-} catch (error) {
-  console.error("[EXCHANGE NOTIFY] Route-level send failed", {
-    requestId: created.id,
-    errorMessage: error instanceof Error ? error.message : String(error),
-  });
+    try {
+      await sendExchangeRequestCreatedEmail({
+        requestId: created.id,
+        customerName: created.customerNameSnapshot,
+        customerPhone: created.customerPhoneSnapshot,
+        customerEmail: created.customerEmailSnapshot,
+        orderNumber: created.orderNumber,
+        itemTitle: created.items[0]?.productTitle || productTitle,
+        currentSize: created.items[0]?.currentSize || currentSize,
+        requestedSize: created.items[0]?.requestedSize || requestedSize,
+        status: created.status,
+      });
+    } catch (error) {
+      console.error("[EXCHANGE NOTIFY] Route-level send failed", {
+        requestId: created.id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return withCors(
+      req,
+      NextResponse.json(
+        {
+          request: created,
+          stockReviewMessage:
+            eligibility.stockReviewMessage ||
+            "Exchange approval depends on the availability of the requested size. If unavailable, our team will contact you with next steps.",
+        },
+        { status: 201 }
+      )
+    );
+  } catch (error) {
+    return withCors(
+      req,
+      NextResponse.json({ error: error instanceof Error ? error.message : "Failed" }, { status: 500 })
+    );
+  }
 }
 export async function GET(req: NextRequest) {
   try {
