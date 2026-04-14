@@ -294,6 +294,7 @@
     state.savingProfile = false;
     state.resendSeconds = 0;
     state.errorMessage = "";
+    statusMessage: "",
     state.successMessage = "Welcome back to Megaska";
     state.profileFirstName = "";
     state.profileLastName = "";
@@ -406,7 +407,7 @@
             <p class="megaska-otp-helper-link-row">
               <button type="button" class="megaska-otp-link" data-megaska-edit-phone>Edit number</button>
             </p>
-
+<p class="megaska-otp-status" data-megaska-otp-status></p>
             <div class="megaska-otp-inputs" data-megaska-otp-inputs>
               ${Array.from({ length: OTP_LENGTH })
                 .map(
@@ -713,6 +714,7 @@
       profilePostalInput: modal.querySelector("[data-megaska-profile-postal]"),
       profileSubmitBtn: modal.querySelector("[data-megaska-profile-submit]"),
       errorEl: modal.querySelector("[data-megaska-otp-error]"),
+      statusEl: modal.querySelector("[data-megaska-otp-status]"),
       successMessage: modal.querySelector("[data-megaska-success-message]"),
     };
   }
@@ -729,6 +731,7 @@
       otpInputs,
       profileFirstNameInput,
       profileLastNameInput,
+      statusEl,
       profileEmailInput,
       profileAddress1Input,
       profileAddress2Input,
@@ -744,7 +747,7 @@
     stepOtp.hidden = state.step !== "otp";
     stepProfile.hidden = state.step !== "profile";
     stepSuccess.hidden = state.step !== "success";
-
+statusEl: modal.querySelector("[data-megaska-otp-status]"),
     phoneInput.value = state.phoneDigits;
     phoneDisplay.textContent = maskPhone(state.phoneDigits);
     successMessage.textContent = state.successMessage;
@@ -883,6 +886,7 @@
 
   function renderSuccessStep(message) {
     state.step = "success";
+    state.statusMessage = "";
     state.errorMessage = "";
     state.successMessage = message || "Welcome back to Megaska";
     renderStep();
@@ -1043,8 +1047,9 @@
     if (otp.length !== OTP_LENGTH || !state.normalizedPhone) return;
 
     state.verifying = true;
-    state.errorMessage = "Verifying OTP...";
-    renderStep();
+state.errorMessage = "";
+state.statusMessage = "Verifying OTP...";
+renderStep();
 
     try {
       await window.MegaskaAuth.verifyOtp(state.normalizedPhone, otp);
@@ -1073,6 +1078,7 @@ setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS)
     } catch (error) {
       state.verifying = false;
       state.errorMessage = error.message || "Invalid or expired OTP. Please try again.";
+      state.statusMessage = "";
       state.otpDigits = ["", "", "", ""];
       renderStep();
       focusOtpInput(0);
