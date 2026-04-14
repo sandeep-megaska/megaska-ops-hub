@@ -15,7 +15,7 @@ import { getOrCreateWalletAccount, listWalletTransactions } from "../../../../se
 export const runtime = "nodejs";
 
 export async function OPTIONS(req: NextRequest) {
-  return handleOptions(req);
+  return applyCors(handleOptions(req));
 }
 const SHOPIFY_DEBUG_ORIGIN = "https://megaskastore.myshopify.com";
 
