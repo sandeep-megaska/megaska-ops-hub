@@ -1614,33 +1614,39 @@ setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS)
     return `/discount/${normalizedCode}?redirect=/cart`;
   }
 
-  function tryAutoApplyWalletDiscount(handoff) {
-    const wallet = handoff?.wallet || null;
-    const code = String(wallet?.code || "").trim();
-    const reservationId = String(wallet?.reservationId || "").trim();
-    const discountNodeId = String(wallet?.discountNodeId || "").trim();
+ async function tryAutoApplyWalletDiscount(handoff) {
+  const wallet = handoff?.wallet || null;
+  const code = String(wallet?.code || "").trim();
+  const reservationId = String(wallet?.reservationId || "").trim();
+  const discountNodeId = String(wallet?.discountNodeId || "").trim();
 
-    if (!handoff?.ok || !wallet?.applied || !code || !reservationId || !discountNodeId) {
-      return false;
-    }
-
-    const target = buildWalletDiscountTarget(code);
-
-    console.log("[WALLET UI] apply success", {
-      reservationId,
-      code,
-      discountNodeId,
-    });
-
-    console.log("[WALLET UI] redirecting to apply wallet discount", {
-      code,
-      target,
-    });
-
-    window.location.assign(target);
-    return true;
+  if (!handoff?.ok || !wallet?.applied || !code || !reservationId || !discountNodeId) {
+    return false;
   }
 
+  const target = buildWalletDiscountTarget(code);
+
+  console.log("[WALLET UI] apply success", {
+    reservationId,
+    code,
+    discountNodeId,
+  });
+
+  console.log("[WALLET UI] waiting before wallet discount redirect", {
+    code,
+    target,
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 700));
+
+  console.log("[WALLET UI] redirecting to apply wallet discount", {
+    code,
+    target,
+  });
+
+  window.location.assign(target);
+  return true;
+}
   async function applyCheckoutPrefillToForm(form, preferredCustomer) {
     const customer = await resolveMegaskaCustomer(preferredCustomer);
     if (!customer) return false;
@@ -1657,43 +1663,51 @@ setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS)
     return false;
   }
 
-  async function continueToCheckoutFromPendingAction(preferredCustomer, source) {
-    const customer = await resolveMegaskaCustomer(preferredCustomer);
-    const prefilledUrl = await buildPrefilledCheckoutUrl("/checkout", customer);
-    console.log("[Megaska Checkout Prefill] checkout handoff start", {
-      source,
-      detectedCheckoutUrl: prefilledUrl,
-    });
-    const handoff = await runBuyerIdentityHandoff(prefilledUrl, customer);
-    if (isCheckoutContinuationBlocked(handoff)) {
-      console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
-        reason: handoff.reason || "blocked",
-      });
-      openModal("checkout-gate-blocked");
-      return;
-    }
-    if (tryAutoApplyWalletDiscount(handoff)) {
-      return;
-    }
+async function continueToCheckoutFromPendingAction(preferredCustomer, source) {
+  const customer = await resolveMegaskaCustomer(preferredCustomer);
+  const prefilledUrl = await buildPrefilledCheckoutUrl("/checkout", customer);
 
-    const targetUrl = handoff?.checkoutUrl || prefilledUrl;
-    window.__megaskaCheckoutDebug = {
-      cartId: handoff?.cartId || null,
-      buyerIdentityPayload: {
-        email: String(handoff?.buyerIdentity?.email || "").trim() || null,
-        phone: String(handoff?.buyerIdentity?.phone || "").trim() || null,
-      },
-      mutationResult: handoff || null,
-      checkoutUrl: targetUrl || null,
-    };
-    console.log("[Megaska Checkout Prefill] checkout continuation", {
-      mode: "navigate",
-      finalCheckoutUrl: targetUrl,
-      mutationWaited: true,
-      debugSurface: "window.__megaskaCheckoutDebug",
+  console.log("[Megaska Checkout Prefill] checkout handoff start", {
+    source,
+    detectedCheckoutUrl: prefilledUrl,
+  });
+
+  const handoff = await runBuyerIdentityHandoff(prefilledUrl, customer);
+
+  if (isCheckoutContinuationBlocked(handoff)) {
+    console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
+      reason: handoff.reason || "blocked",
     });
-    window.location.assign(targetUrl);
+    openModal("checkout-gate-blocked");
+    return;
   }
+
+  if (await tryAutoApplyWalletDiscount(handoff)) {
+    return;
+  }
+
+  const targetUrl = handoff?.checkoutUrl || prefilledUrl;
+
+  window.__megaskaCheckoutDebug = {
+    cartId: handoff?.cartId || null,
+    buyerIdentityPayload: {
+      email: String(handoff?.buyerIdentity?.email || "").trim() || null,
+      phone: String(handoff?.buyerIdentity?.phone || "").trim() || null,
+    },
+    mutationResult: handoff || null,
+    checkoutUrl: targetUrl || null,
+  };
+
+  console.log("[Megaska Checkout Prefill] checkout continuation", {
+    mode: "navigate",
+    finalCheckoutUrl: targetUrl,
+    mutationWaited: true,
+    debugSurface: "window.__megaskaCheckoutDebug",
+  });
+
+  window.location.assign(targetUrl);
+}
+
 function consumePendingAccountRedirect() {
   if (!pendingAction || pendingAction.type !== "account-redirect") {
     return null;
@@ -2200,171 +2214,215 @@ function consumePendingAccountRedirect() {
 }
 
   async function ensureMegaskaAuthenticatedBeforeCheckout(options) {
-    const opts = options || {};
-    const pending =
-      opts.pendingAction ||
-      (opts.targetUrl ? { type: "navigate", url: opts.targetUrl } : null);
+  const opts = options || {};
+  const pending =
+    opts.pendingAction ||
+    (opts.targetUrl ? { type: "navigate", url: opts.targetUrl } : null);
 
-    return requireAuthenticationOrOpenModal({
-      event: opts.event,
-      pendingAction: pending,
-      triggerSource: "checkout-intercept",
-      triggerEl: opts.triggerEl,
-      form: opts.form,
-    });
+  return requireAuthenticationOrOpenModal({
+    event: opts.event,
+    pendingAction: pending,
+    triggerSource: "checkout-intercept",
+    triggerEl: opts.triggerEl,
+    form: opts.form,
+  });
+}
+
+ async function handleCheckoutTriggerClick(event, triggerEl) {
+  if (!checkoutInterceptionEnabled) return;
+
+  const targetUrl =
+    triggerEl?.tagName === "A" ? triggerEl.getAttribute("href") : "/checkout";
+
+  const allowed = await ensureMegaskaAuthenticatedBeforeCheckout({
+    event,
+    targetUrl,
+    triggerEl,
+  });
+
+  if (!allowed) {
+    console.log("[Megaska OTP] checkout click intercepted", { targetUrl });
+    return;
   }
 
-  async function handleCheckoutTriggerClick(event, triggerEl) {
-    if (!checkoutInterceptionEnabled) return;
+  const isAnchorCheckoutTrigger = triggerEl?.tagName === "A" && Boolean(targetUrl);
 
-    const targetUrl =
-      triggerEl?.tagName === "A" ? triggerEl.getAttribute("href") : "/checkout";
-    const allowed = await ensureMegaskaAuthenticatedBeforeCheckout({
-      event,
-      targetUrl,
-      triggerEl,
+  if (isAnchorCheckoutTrigger) {
+    event.preventDefault();
+
+    const customer = await getCurrentMegaskaCustomer();
+    const prefilledUrl = await buildPrefilledCheckoutUrl(targetUrl, customer);
+
+    console.log("[Megaska Checkout Prefill] checkout handoff start", {
+      source: "interceptedCheckoutAnchor.href",
+      detectedCheckoutUrl: prefilledUrl,
     });
 
-    if (!allowed) {
-      console.log("[Megaska OTP] checkout click intercepted", { targetUrl });
+    const handoff = await runBuyerIdentityHandoff(prefilledUrl, customer);
+
+    if (isCheckoutContinuationBlocked(handoff)) {
+      console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
+        reason: handoff.reason || "blocked",
+      });
+      openModal("checkout-gate-blocked");
       return;
     }
 
-    const isAnchorCheckoutTrigger = triggerEl?.tagName === "A" && Boolean(targetUrl);
-    if (isAnchorCheckoutTrigger) {
-      event.preventDefault();
-      const customer = await getCurrentMegaskaCustomer();
-      const prefilledUrl = await buildPrefilledCheckoutUrl(targetUrl, customer);
-      console.log("[Megaska Checkout Prefill] checkout handoff start", {
-        source: "interceptedCheckoutAnchor.href",
-        detectedCheckoutUrl: prefilledUrl,
+    if (await tryAutoApplyWalletDiscount(handoff)) {
+      return;
+    }
+
+    const finalTargetUrl = handoff?.checkoutUrl || prefilledUrl;
+
+    window.__megaskaCheckoutDebug = {
+      cartId: handoff?.cartId || null,
+      buyerIdentityPayload: {
+        email: String(handoff?.buyerIdentity?.email || "").trim() || null,
+        phone: String(handoff?.buyerIdentity?.phone || "").trim() || null,
+      },
+      mutationResult: handoff || null,
+      checkoutUrl: finalTargetUrl || null,
+    };
+
+    console.log("[Megaska Checkout Prefill] checkout continuation", {
+      mode: "click",
+      finalCheckoutUrl: finalTargetUrl,
+      mutationWaited: true,
+      debugSurface: "window.__megaskaCheckoutDebug",
+    });
+
+    window.location.assign(finalTargetUrl);
+    return;
+  }
+
+  const checkoutForm =
+    triggerEl && typeof triggerEl.closest === "function"
+      ? triggerEl.closest("form")
+      : null;
+
+  if (checkoutForm) {
+    event.preventDefault();
+
+    const customer = await getCurrentMegaskaCustomer();
+    await applyCheckoutPrefillToForm(checkoutForm, customer);
+
+    const submittedAction = checkoutForm.getAttribute("action") || "/checkout";
+    const prefilledUrl = await buildPrefilledCheckoutUrl("/checkout", customer);
+    const handoff = await runBuyerIdentityHandoff(prefilledUrl, customer);
+
+    if (isCheckoutContinuationBlocked(handoff)) {
+      console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
+        reason: handoff.reason || "blocked",
       });
+      renderCheckoutGuardError({
+        anchor: checkoutForm,
+        message: "Please verify your mobile number before checkout.",
+      });
+      openModal("checkout-gate-blocked");
+      return;
+    }
+
+    if (await tryAutoApplyWalletDiscount(handoff)) {
+      return;
+    }
+
+    const finalTargetUrl = handoff?.checkoutUrl || prefilledUrl || submittedAction;
+
+    console.log("[Megaska Checkout Prefill] checkout continuation", {
+      mode: "click-form-redirect",
+      formAction: submittedAction,
+      finalCheckoutUrl: finalTargetUrl,
+      prefillApplied: true,
+    });
+
+    window.location.assign(finalTargetUrl);
+  }
+}
+
+  function bindCheckoutSubmitInterceptor() {
+  if (checkoutSubmitBound) return;
+  checkoutSubmitBound = true;
+
+  document.addEventListener(
+    "submit",
+    async (event) => {
+      if (!checkoutInterceptionEnabled) return;
+
+      const form = event.target;
+      if (!form || !form.matches || !form.matches("form")) return;
+
+      const action = form.getAttribute("action") || "";
+      const submitter = event.submitter;
+      const fallbackSubmitter =
+        form.querySelector(
+          "button[name='checkout'], button[name='goto_pp'], input[name='checkout'], input[name='goto_pp'], [data-checkout-button], .shopify-payment-button__button, .checkout-button, .btn-checkout, .mini-cart__checkout, .cart__checkout"
+        ) || submitter;
+
+      const checkoutIntent =
+        action.includes("/checkout") ||
+        isCheckoutSubmitter(submitter) ||
+        isCheckoutSubmitter(fallbackSubmitter);
+
+      if (!checkoutIntent) return;
+
+      const allowed = await ensureMegaskaAuthenticatedBeforeCheckout({
+        event,
+        pendingAction: {
+          type: "navigate",
+          url: "/checkout",
+        },
+        triggerEl:
+          submitter ||
+          form.querySelector(
+            "button[name='checkout'], button[name='goto_pp'], input[name='checkout'], input[name='goto_pp'], [data-checkout-button], .shopify-payment-button__button, .checkout-button, .btn-checkout, .mini-cart__checkout, .cart__checkout"
+          ),
+        form,
+      });
+
+      if (!allowed) {
+        console.log("[Megaska OTP] checkout submit intercepted");
+        return;
+      }
+
+      event.preventDefault();
+
+      const customer = await getCurrentMegaskaCustomer();
+      await applyCheckoutPrefillToForm(form, customer);
+
+      const submittedAction = form.getAttribute("action") || "/checkout";
+      const prefilledUrl = await buildPrefilledCheckoutUrl(submittedAction, customer);
       const handoff = await runBuyerIdentityHandoff(prefilledUrl, customer);
+
       if (isCheckoutContinuationBlocked(handoff)) {
         console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
           reason: handoff.reason || "blocked",
         });
+        renderCheckoutGuardError({
+          anchor: form,
+          message: "Please verify your mobile number before checkout.",
+        });
         openModal("checkout-gate-blocked");
         return;
       }
-      const finalTargetUrl = handoff?.checkoutUrl || prefilledUrl;
-      window.__megaskaCheckoutDebug = {
-        cartId: handoff?.cartId || null,
-        buyerIdentityPayload: {
-          email: String(handoff?.buyerIdentity?.email || "").trim() || null,
-          phone: String(handoff?.buyerIdentity?.phone || "").trim() || null,
-        },
-        mutationResult: handoff || null,
-        checkoutUrl: finalTargetUrl || null,
-      };
+
+      if (await tryAutoApplyWalletDiscount(handoff)) {
+        return;
+      }
+
+      const finalTargetUrl = handoff?.checkoutUrl || prefilledUrl || submittedAction;
+
       console.log("[Megaska Checkout Prefill] checkout continuation", {
-        mode: "click",
+        mode: "form-redirect",
         finalCheckoutUrl: finalTargetUrl,
         mutationWaited: true,
         debugSurface: "window.__megaskaCheckoutDebug",
       });
+
       window.location.assign(finalTargetUrl);
-      return;
-    }
-
-    const checkoutForm =
-      triggerEl && typeof triggerEl.closest === "function" ? triggerEl.closest("form") : null;
-    if (checkoutForm) {
-      event.preventDefault();
-      const customer = await getCurrentMegaskaCustomer();
-      await applyCheckoutPrefillToForm(checkoutForm, customer);
-      const submittedAction = checkoutForm.getAttribute("action") || "/checkout";
-      const prefilledUrl = await buildPrefilledCheckoutUrl("/checkout", customer);
-      const handoff = await runBuyerIdentityHandoff(prefilledUrl, customer);
-      const finalTargetUrl = handoff?.checkoutUrl || prefilledUrl || submittedAction;
-      console.log("[Megaska Checkout Prefill] checkout continuation", {
-        mode: "click-form-redirect",
-        formAction: submittedAction,
-        finalCheckoutUrl: finalTargetUrl,
-        prefillApplied: true,
-      });
-      window.location.assign(finalTargetUrl);
-    }
-  }
-
-  function bindGlobalClickInterceptor() {
-    if (globalClickBound) return;
-    globalClickBound = true;
-
-    console.log("[Megaska OTP] binding account triggers", ACCOUNT_TRIGGER_SELECTORS);
-
-    document.addEventListener("click", (event) => {
-      const clickedInteractiveElement =
-        event.target && typeof event.target.closest === "function"
-          ? event.target.closest("a,button,input,[role='button'],form")
-          : null;
-      if (clickedInteractiveElement) {
-        console.log("[CLICK]", clickedInteractiveElement);
-      }
-
-      const logoutTrigger = findClosestMatchingElement(event, LOGOUT_TRIGGER_SELECTORS);
-      if (logoutTrigger) {
-        handleLogoutClick(event);
-        return;
-      }
-
-      const accountTrigger =
-        findClosestMatchingElement(event, ACCOUNT_TRIGGER_SELECTORS) ||
-        (isNativeAccountIntentElement(clickedInteractiveElement) ? clickedInteractiveElement : null);
-      if (accountTrigger) {
-        handleAccountTriggerClick(event, accountTrigger);
-        return;
-      }
-
-      const buyNowTrigger = clickedInteractiveElement
-        ? clickedInteractiveElement.closest(
-            ".pbar-buy, #mpb-continue, .mpb-continue, .shopify-payment-button__button, a,button,input,[role='button']"
-          )
-        : null;
-      if (isBuyNowElement(buyNowTrigger) && !hasKnownMegaskaSession()) {
-        hardBlockEvent(event);
-        console.log("[Megaska OTP] buy-now click intercepted", { trigger: buyNowTrigger });
-
-        let buyNowForm =
-          buyNowTrigger && typeof buyNowTrigger.closest === "function"
-            ? buyNowTrigger.closest("form")
-            : null;
-        if (!buyNowForm || typeof buyNowForm.submit !== "function") {
-          buyNowForm = document.querySelector("#cart-form_ppr, form[action*='/cart/add']");
-        }
-
-        if (buyNowForm && typeof buyNowForm.submit === "function") {
-          setPendingAction({
-            type: "buy-now-submit",
-            form: buyNowForm,
-            submitter: buyNowTrigger || null,
-          });
-          console.log("[Megaska OTP] buy-now pending action stored", { form: buyNowForm });
-        } else {
-          console.warn("[Megaska OTP] buy-now interception could not locate form", {
-            trigger: buyNowTrigger,
-          });
-        }
-
-        openModal("buy-now-intercept");
-        return;
-      }
-
-      const checkoutTrigger = inferCheckoutTriggerFromEvent(event);
-      if (checkoutTrigger && isCheckoutTarget(checkoutTrigger)) {
-        hardBlockEvent(event);
-        handleCheckoutTriggerClick(event, checkoutTrigger);
-        return;
-      }
-
-      const clickedInsideMenu =
-        accountMenuContainer && event.target && accountMenuContainer.contains(event.target);
-      if (!clickedInsideMenu) {
-        closeAccountMenu();
-      }
-    }, true);
-  }
-
+    },
+    true
+  );
+}
   function bindSubmitDebugListener() {
     if (submitDebugBound) return;
     submitDebugBound = true;
