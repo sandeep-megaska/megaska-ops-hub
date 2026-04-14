@@ -981,38 +981,43 @@
   }
 
   async function submitPhoneIfReady() {
-    if (!isModalOpen()) return;
-    if (state.requesting || state.verifying) return;
-    if (state.phoneDigits.length !== 10) return;
+  if (!isModalOpen()) return;
+  if (state.requesting || state.verifying) return;
+  if (state.phoneDigits.length !== 10) return;
 
-    const normalizedPhone = normalizeIndianPhone(state.phoneDigits);
-    if (!normalizedPhone) {
-      state.errorMessage = "Please enter a valid 10-digit mobile number.";
-      renderStep();
-      return;
-    }
-
-    state.requesting = true;
-    state.errorMessage = "";
+  const normalizedPhone = normalizeIndianPhone(state.phoneDigits);
+  if (!normalizedPhone) {
+    state.errorMessage = "Please enter a valid 10-digit mobile number.";
     renderStep();
-
-    try {
-      const otpRequestResponse = await window.MegaskaAuth.requestOtp(normalizedPhone);
-      if (!isModalOpen()) return;
-      if (!didOtpRequestSucceed(otpRequestResponse)) {
-        throw new Error(getOtpRequestErrorMessage(otpRequestResponse));
-      }
-      state.normalizedPhone = normalizedPhone;
-      state.requesting = false;
-      renderOtpStep();
-      startResendTimer();
-    } catch (error) {
-      state.requesting = false;
-      state.errorMessage = error.message || "Unable to send OTP. Please try again.";
-      renderStep();
-    }
+    return;
   }
 
+  state.requesting = true;
+  state.errorMessage = "";
+  state.normalizedPhone = normalizedPhone;
+
+  // Move to OTP step immediately for faster UX
+  renderOtpStep();
+  startResendTimer();
+
+  try {
+    const otpRequestResponse = await window.MegaskaAuth.requestOtp(normalizedPhone);
+    if (!isModalOpen()) return;
+
+    if (!didOtpRequestSucceed(otpRequestResponse)) {
+      throw new Error(getOtpRequestErrorMessage(otpRequestResponse));
+    }
+
+    state.requesting = false;
+    renderStep();
+  } catch (error) {
+    state.requesting = false;
+    state.step = "phone";
+    state.errorMessage = error.message || "Unable to send OTP. Please try again.";
+    renderStep();
+    focusPhoneInput();
+  }
+}
   function handlePhoneInput(event) {
     if (!isModalOpen()) return;
 
