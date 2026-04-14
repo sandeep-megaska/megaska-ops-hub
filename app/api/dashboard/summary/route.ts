@@ -15,17 +15,9 @@ import { getOrCreateWalletAccount, listWalletTransactions } from "../../../../se
 export const runtime = "nodejs";
 
 export async function OPTIONS(req: NextRequest) {
-  return applyCors(handleOptions(req));
+  return withCors(req, handleOptions(req));
 }
-const SHOPIFY_DEBUG_ORIGIN = "https://megaskastore.myshopify.com";
 
-function applyCors(res: NextResponse) {
-  res.headers.set("Access-Control-Allow-Origin", SHOPIFY_DEBUG_ORIGIN);
-  res.headers.set("Vary", "Origin");
-  res.headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.headers.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
-  return res;
-}
 function getSessionToken(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
