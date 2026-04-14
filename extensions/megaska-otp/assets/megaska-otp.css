@@ -366,7 +366,13 @@
   caret-color: #0f172a;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-
+.megaska-otp-status {
+  min-height: 18px;
+  margin: 2px 0 6px;
+  text-align: center;
+  font-size: 13px;
+  color: #475569;
+}
 .megaska-otp-digit:focus,
 .megaska-otp-text-input:focus {
   outline: 0;
