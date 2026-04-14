@@ -13,11 +13,21 @@ import { ACTIVE_EXCHANGE_STATUSES } from "../../../../services/exchange/lifecycl
 import { getOrCreateWalletAccount, listWalletTransactions } from "../../../../services/wallet";
 
 export const runtime = "nodejs";
-
+export async function OPTIONS() {
+  return applyCors(new NextResponse(null, { status: 204 }));
+}
 export async function OPTIONS(req: NextRequest) {
   return handleOptions(req);
 }
+const SHOPIFY_DEBUG_ORIGIN = "https://megaskastore.myshopify.com";
 
+function applyCors(res: NextResponse) {
+  res.headers.set("Access-Control-Allow-Origin", SHOPIFY_DEBUG_ORIGIN);
+  res.headers.set("Vary", "Origin");
+  res.headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.headers.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
+  return res;
+}
 function getSessionToken(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
@@ -29,7 +39,7 @@ export async function GET(req: NextRequest) {
   try {
     const sessionToken = getSessionToken(req);
     if (!sessionToken) {
-      return withCors(req, NextResponse.json({ error: "Session token required" }, { status: 401 }));
+     return applyCors(NextResponse.json({ error: "Session token required" }, { status: 401 }));
     }
 
     const now = new Date();
