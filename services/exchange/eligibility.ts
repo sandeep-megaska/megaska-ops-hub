@@ -50,6 +50,10 @@ function isKnownUndeliveredStatus(status: string) {
   return blockedKeywords.some((keyword) => status.includes(keyword));
 }
 
+function allowTestExchangeWithoutDelivery() {
+  return String(process.env.ALLOW_TEST_EXCHANGE_WITHOUT_DELIVERY || "").trim().toLowerCase() === "true";
+}
+
 export function evaluateExchangeEligibility(input: EligibilityInput) {
   const currentSize = String(input.currentSize || "").trim().toLowerCase();
   const requestedSize = String(input.requestedSize || "").trim().toLowerCase();
@@ -99,32 +103,35 @@ export function evaluateExchangeEligibility(input: EligibilityInput) {
 
   const deliveredAt = input.deliveredAt ? new Date(input.deliveredAt) : null;
   const hasValidDeliveredAt = Boolean(deliveredAt && !Number.isNaN(deliveredAt.getTime()));
+  const bypassDeliveryCheck = allowTestExchangeWithoutDelivery();
 
-  if (fulfillmentStatus && !isDeliveredOrFulfilledStatus(fulfillmentStatus) && isKnownUndeliveredStatus(fulfillmentStatus)) {
-    return {
-      decision: "REJECTED" as const,
-      reason: "Exchange can be requested only after the order has been delivered.",
-      blocked: true,
-      stockReviewMessage: STOCK_REVIEW_MESSAGE,
-    };
-  }
+  if (!bypassDeliveryCheck) {
+    if (fulfillmentStatus && !isDeliveredOrFulfilledStatus(fulfillmentStatus) && isKnownUndeliveredStatus(fulfillmentStatus)) {
+      return {
+        decision: "REJECTED" as const,
+        reason: "Exchange can be requested only after the order has been delivered.",
+        blocked: true,
+        stockReviewMessage: STOCK_REVIEW_MESSAGE,
+      };
+    }
 
-  if (!isDeliveredOrFulfilledStatus(fulfillmentStatus)) {
-    return {
-      decision: "REJECTED" as const,
-      reason: "Exchange can be requested only after the order has been delivered.",
-      blocked: true,
-      stockReviewMessage: STOCK_REVIEW_MESSAGE,
-    };
-  }
+    if (!isDeliveredOrFulfilledStatus(fulfillmentStatus)) {
+      return {
+        decision: "REJECTED" as const,
+        reason: "Exchange can be requested only after the order has been delivered.",
+        blocked: true,
+        stockReviewMessage: STOCK_REVIEW_MESSAGE,
+      };
+    }
 
-  if (!hasValidDeliveredAt) {
-    return {
-      decision: "REJECTED" as const,
-      reason: "We couldn’t confirm the delivery date for this order. Please contact support for help.",
-      blocked: true,
-      stockReviewMessage: STOCK_REVIEW_MESSAGE,
-    };
+    if (!hasValidDeliveredAt) {
+      return {
+        decision: "REJECTED" as const,
+        reason: "We couldn’t confirm the delivery date for this order. Please contact support for help.",
+        blocked: true,
+        stockReviewMessage: STOCK_REVIEW_MESSAGE,
+      };
+    }
   }
 
   if (!reason) {
@@ -136,9 +143,10 @@ export function evaluateExchangeEligibility(input: EligibilityInput) {
     };
   }
 
-  if (hasValidDeliveredAt && deliveredAt) {
+  if (!bypassDeliveryCheck && hasValidDeliveredAt && deliveredAt) {
     const elapsedMs = Date.now() - deliveredAt.getTime();
     const days = elapsedMs / (1000 * 60 * 60 * 24);
+
     if (days > EXCHANGE_ALLOWED_DAYS_WINDOW) {
       return {
         decision: "REJECTED" as const,
