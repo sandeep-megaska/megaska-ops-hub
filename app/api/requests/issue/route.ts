@@ -3,6 +3,7 @@ import { withCors, handleOptions } from "../../_lib/cors";
 import { prisma } from "../../../../services/db/prisma";
 import { getAuthenticatedCustomer } from "../../../../services/exchange/auth";
 import { evaluateIssueEligibility, isIssueStatusBlocking } from "../../../../services/exchange/issue";
+import { sendIssueRequestCreatedEmail } from "../../../../services/notifications/issue";
 
 export const runtime = "nodejs";
 
@@ -131,6 +132,26 @@ export async function POST(req: NextRequest) {
         items: true,
       },
     });
+
+    try {
+      await sendIssueRequestCreatedEmail({
+        requestId: created.id,
+        orderNumber: created.orderNumber,
+        status: created.status,
+        customerName: created.customerNameSnapshot,
+        customerPhone: created.customerPhoneSnapshot,
+        customerEmail: created.customerEmailSnapshot,
+        itemTitle: created.items[0]?.productTitle || productTitle,
+        variantTitle: created.items[0]?.variantTitle || variantTitle,
+        reason: created.reason,
+        customerNote: created.customerNote,
+      });
+    } catch (error) {
+      console.error("[ISSUE NOTIFY] Route-level send failed", {
+        requestId: created.id,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     return withCors(
       req,
