@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
     const initialStatus = eligibility.decision === "ELIGIBLE" ? "AWAITING_PAYMENT" : "OPEN";
 
-        const created = await prisma.orderActionRequest.create({
+    const created = await prisma.orderActionRequest.create({
       data: {
         requestType: "EXCHANGE",
         customerProfileId: session.customer.id,
@@ -159,6 +159,7 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getAuthenticatedCustomer(req);
