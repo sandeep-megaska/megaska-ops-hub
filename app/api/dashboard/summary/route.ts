@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   try {
     const sessionToken = getSessionToken(req);
     if (!sessionToken) {
-     return applyCors(NextResponse.json({ error: "Session token required" }, { status: 401 }));
+     return withCors(req, NextResponse.json({ error: "Session token required" }, { status: 401 }));
     }
 
     const now = new Date();
