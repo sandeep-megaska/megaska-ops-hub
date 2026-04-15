@@ -61,3 +61,23 @@ export interface GstExportRequest {
   periodStart: Date;
   periodEnd: Date;
 }
+
+export interface GstPartyInput {
+  legalName?: string;
+  gstin?: string | null;
+  stateCode?: string | null;
+}
+
+export interface GstInvoiceDraftInput {
+  gstSettingsId?: string;
+  documentDate?: Date | string;
+  billingStateCode?: string | null;
+  shippingStateCode?: string | null;
+  buyer?: GstPartyInput;
+  supplyType?: GstSupplyType;
+  placeOfSupplyStateCode?: string;
+  isInterstate?: boolean;
+  currency?: string;
+  lines: GstDocumentLineInput[];
+  metadata?: Record<string, unknown>;
+}
