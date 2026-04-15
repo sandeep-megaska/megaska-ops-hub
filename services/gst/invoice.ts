@@ -1,11 +1,11 @@
 import { Prisma } from "../../generated/prisma";
-import { prisma } from "../db/prisma";
 import { classifySupply } from "./classifier";
+import { gstDb } from "./db";
 import { reserveGstNumber } from "./numbering";
 import { getActiveGstSettings, getGstSettingsById } from "./settings";
 import { computeTotals } from "./tax-engine";
 import type { GstInvoiceDraftInput, GstServiceResult } from "./types";
-const db = prisma as any;
+import { validateDocumentDraftPayload } from "./validation";
 
 export interface GstInvoiceDraftResult {
   id: string;
@@ -30,6 +30,13 @@ export async function buildInvoiceDraft(
   input: GstInvoiceDraftInput,
 ): Promise<GstServiceResult<GstInvoiceDraftResult>> {
   try {
+    const payloadValidation = validateDocumentDraftPayload(input);
+    if (!payloadValidation.ok || !payloadValidation.data) {
+      return { ok: false, error: payloadValidation.error || "Invalid GST document payload" };
+    }
+
+    const normalizedCurrency = payloadValidation.data.normalizedCurrency;
+
     const settingsResult = input.gstSettingsId
       ? await getGstSettingsById(input.gstSettingsId)
       : await getActiveGstSettings();
@@ -56,7 +63,7 @@ export async function buildInvoiceDraft(
 
     const taxResult = computeTotals(
       input.lines,
-      input.isInterstate ?? classification.data.isInterstate,
+      input.isInterstate ?? classificationData.isInterstate,
     );
 
     if (!taxResult.ok || !taxResult.data) {
@@ -85,7 +92,7 @@ export async function buildInvoiceDraft(
       totals: taxData.totals,
     };
 
-    const created = await db.$transaction(async (tx: any) => {
+    const created = await gstDb.$transaction(async (tx) => {
       const document = await tx.gstDocument.create({
         data: {
           documentType: "TAX_INVOICE",
@@ -97,7 +104,7 @@ export async function buildInvoiceDraft(
           placeOfSupplyStateCode:
             input.placeOfSupplyStateCode || classificationData.placeOfSupplyStateCode,
           isInterstate: input.isInterstate ?? classificationData.isInterstate,
-          currency: input.currency || settings.defaultCurrency || "INR",
+          currency: normalizedCurrency,
           taxableAmount: new Prisma.Decimal(taxData.totals.taxableAmount),
           cgstAmount: new Prisma.Decimal(taxData.totals.cgstAmount),
           sgstAmount: new Prisma.Decimal(taxData.totals.sgstAmount),
@@ -157,7 +164,7 @@ export async function getGstInvoiceById(
   gstDocumentId: string,
 ): Promise<GstServiceResult<Record<string, unknown>>> {
   try {
-    const document = await db.gstDocument.findUnique({
+    const document = await gstDb.gstDocument.findUnique({
       where: { id: String(gstDocumentId).trim() },
       include: {
         lines: {

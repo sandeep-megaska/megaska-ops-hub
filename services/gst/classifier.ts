@@ -15,12 +15,12 @@ export interface GstClassificationResult {
   customerType: "B2B" | "B2C";
 }
 
-function normalizeStateCode(value: string | null | undefined): string | null {
+export function normalizeStateCode(value: string | null | undefined): string | null {
   const cleaned = String(value ?? "").trim();
   return cleaned || null;
 }
 
-function determineSupplyType(input: GstClassificationInput): GstSupplyType {
+export function determineSupplyType(input: GstClassificationInput): GstSupplyType {
   if (input.explicitSupplyType) {
     return input.explicitSupplyType;
   }
@@ -28,7 +28,7 @@ function determineSupplyType(input: GstClassificationInput): GstSupplyType {
   return input.buyerGstin ? "B2B" : "B2C";
 }
 
-function determinePlaceOfSupply(input: GstClassificationInput): string | null {
+export function determinePlaceOfSupply(input: GstClassificationInput): string | null {
   return normalizeStateCode(input.shippingStateCode) || normalizeStateCode(input.billingStateCode);
 }
 

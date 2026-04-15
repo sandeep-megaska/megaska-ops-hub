@@ -7,7 +7,8 @@ export interface GstPdfRenderPayload {
   html: string;
   metadata: {
     generatedAt: string;
-    renderer: "GST_HTML_PLACEHOLDER_V1";
+    renderer: "GST_HTML_RENDERER_V2";
+    templateType: "invoice" | "credit_note" | "debit_note";
   };
 }
 
@@ -20,6 +21,26 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#039;");
 }
 
+function resolveTemplateType(documentType: string): GstPdfRenderPayload["metadata"]["templateType"] {
+  if (documentType === "CREDIT_NOTE") {
+    return "credit_note";
+  }
+  if (documentType === "DEBIT_NOTE") {
+    return "debit_note";
+  }
+  return "invoice";
+}
+
+function renderHeader(title: string, documentNumber: string, status: string): string {
+  return `
+    <header>
+      <h1>${escapeHtml(title)}</h1>
+      <p>Document Number: ${escapeHtml(documentNumber)}</p>
+      <p>Status: ${escapeHtml(status)}</p>
+    </header>
+  `;
+}
+
 export async function renderGstPdf(
   gstDocumentId: string,
 ): Promise<GstServiceResult<GstPdfRenderPayload>> {
@@ -30,22 +51,36 @@ export async function renderGstPdf(
 
   const documentNumber = String(documentResult.data.documentNumber || "");
   const status = String(documentResult.data.status || "");
+  const documentType = String(documentResult.data.documentType || "TAX_INVOICE");
+  const templateType = resolveTemplateType(documentType);
+
+  const title =
+    templateType === "invoice"
+      ? "Tax Invoice"
+      : templateType === "credit_note"
+        ? "Credit Note"
+        : "Debit Note";
+
   const html = `<!doctype html>
 <html>
   <head>
-    <meta charset=\"utf-8\" />
+    <meta charset="utf-8" />
     <title>${escapeHtml(documentNumber)}</title>
   </head>
   <body>
-    <h1>GST Document ${escapeHtml(documentNumber)}</h1>
-    <p>Status: ${escapeHtml(status)}</p>
-    <p>This is a placeholder renderer payload for future PDF generation.</p>
+    ${renderHeader(title, documentNumber, status)}
+    <section>
+      <h2>GST ${escapeHtml(documentType)}</h2>
+      <p>This HTML payload is the renderer foundation for a binary PDF pipeline.</p>
+      <p>Totals: ${escapeHtml(String(documentResult.data.totalAmount || "0"))}</p>
+    </section>
   </body>
 </html>`;
 
-  console.info("[GST PDF] Generated GST placeholder render payload", {
+  console.info("[GST PDF] Generated GST renderer payload", {
     gstDocumentId,
     documentNumber,
+    templateType,
   });
 
   return {
@@ -56,7 +91,8 @@ export async function renderGstPdf(
       html,
       metadata: {
         generatedAt: new Date().toISOString(),
-        renderer: "GST_HTML_PLACEHOLDER_V1",
+        renderer: "GST_HTML_RENDERER_V2",
+        templateType,
       },
     },
   };

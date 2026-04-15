@@ -28,11 +28,11 @@ export interface GstAllocationInput {
 
 const ROUND_SCALE = 100;
 
-function round2(value: number): number {
+export function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * ROUND_SCALE) / ROUND_SCALE;
 }
 
-function sanitizeLine(line: GstDocumentLineInput): GstDocumentLineInput {
+export function sanitizeLine(line: GstDocumentLineInput): GstDocumentLineInput {
   return {
     ...line,
     quantity: Number(line.quantity || 0),
@@ -77,15 +77,34 @@ export function allocateDiscountProRata(input: GstAllocationInput): GstServiceRe
   return { ok: true, data: adjusted };
 }
 
+export function splitTaxAmount(taxableAmount: number, taxRate: number, isInterstate: boolean): {
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+} {
+  const taxAmount = round2((taxableAmount * taxRate) / 100);
+  if (isInterstate) {
+    return {
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: taxAmount,
+    };
+  }
+
+  const halfTax = round2(taxAmount / 2);
+  return {
+    cgstAmount: halfTax,
+    sgstAmount: halfTax,
+    igstAmount: 0,
+  };
+}
+
 export function computeLineTax(line: GstDocumentLineInput, isInterstate: boolean, lineNumber: number): GstTaxLineComputation {
   const safe = sanitizeLine(line);
   const gross = round2(safe.quantity * safe.unitPrice);
   const discount = round2(Math.min(gross, Math.max(0, safe.discount || 0)));
   const taxableAmount = round2(Math.max(0, gross - discount));
-  const taxAmount = round2((taxableAmount * safe.taxRate) / 100);
-
-  const igstAmount = isInterstate ? taxAmount : 0;
-  const halfTax = isInterstate ? 0 : round2(taxAmount / 2);
+  const split = splitTaxAmount(taxableAmount, safe.taxRate, isInterstate);
 
   return {
     lineNumber,
@@ -95,11 +114,11 @@ export function computeLineTax(line: GstDocumentLineInput, isInterstate: boolean
     discount,
     taxRate: safe.taxRate,
     taxableAmount,
-    cgstAmount: halfTax,
-    sgstAmount: halfTax,
-    igstAmount,
+    cgstAmount: split.cgstAmount,
+    sgstAmount: split.sgstAmount,
+    igstAmount: split.igstAmount,
     cessAmount: 0,
-    lineTotal: round2(taxableAmount + taxAmount),
+    lineTotal: round2(taxableAmount + split.cgstAmount + split.sgstAmount + split.igstAmount),
     hsnOrSac: safe.hsnOrSac,
     unit: safe.unit,
   };
@@ -136,6 +155,10 @@ export function computeTotals(
 
   const computedLines = lines.map((line, index) => computeLineTax(line, isInterstate, index + 1));
   const totals = aggregateTaxTotals(computedLines);
+
+  if (totals.taxableAmount < 0 || totals.totalAmount < 0) {
+    return { ok: false, error: "GST totals cannot be negative" };
+  }
 
   console.info("[GST TAX] Computed GST totals", {
     lineCount: computedLines.length,
