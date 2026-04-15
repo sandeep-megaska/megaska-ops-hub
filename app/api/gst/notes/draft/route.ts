@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildInvoiceDraft } from "../../../../../services/gst/invoice";
-import type { GstInvoiceDraftInput } from "../../../../../services/gst/types";
+import { buildNoteDraft } from "../../../../../services/gst/notes";
+import type { GstNoteDraftInput } from "../../../../../services/gst/types";
 
 export const runtime = "nodejs";
 
-function parseDraftPayload(body: Record<string, unknown>): GstInvoiceDraftInput {
+function parseDraftPayload(body: Record<string, unknown>): GstNoteDraftInput {
   return {
+    noteType: body.noteType === "DEBIT_NOTE" ? "DEBIT_NOTE" : "CREDIT_NOTE",
+    originalDocumentId: body.originalDocumentId ? String(body.originalDocumentId) : undefined,
     gstSettingsId: body.gstSettingsId ? String(body.gstSettingsId) : undefined,
     documentDate: body.documentDate ? String(body.documentDate) : undefined,
     billingStateCode: body.billingStateCode ? String(body.billingStateCode) : null,
@@ -53,11 +55,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
-  const result = await buildInvoiceDraft(parseDraftPayload(body));
+  const result = await buildNoteDraft(parseDraftPayload(body));
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
-  return NextResponse.json({ invoice: result.data }, { status: 201 });
+  return NextResponse.json({ note: result.data }, { status: 201 });
 }

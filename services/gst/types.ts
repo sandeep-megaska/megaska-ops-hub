@@ -55,11 +55,14 @@ export interface GstServiceResult<T> {
   error?: string;
 }
 
+export type GstExportType = "invoice_register" | "notes_register";
+
 export interface GstExportRequest {
   gstSettingsId: string;
-  exportType: string;
+  exportType: GstExportType;
   periodStart: Date;
   periodEnd: Date;
+  filters?: Record<string, unknown>;
 }
 
 export interface GstPartyInput {
@@ -80,4 +83,9 @@ export interface GstInvoiceDraftInput {
   currency?: string;
   lines: GstDocumentLineInput[];
   metadata?: Record<string, unknown>;
+}
+
+export interface GstNoteDraftInput extends GstInvoiceDraftInput {
+  noteType: Extract<GstDocumentType, "CREDIT_NOTE" | "DEBIT_NOTE">;
+  originalDocumentId?: string;
 }

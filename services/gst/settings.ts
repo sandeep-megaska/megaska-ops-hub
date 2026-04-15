@@ -1,6 +1,6 @@
-import { prisma } from "../db/prisma";
+import { gstDb } from "./db";
 import type { GstServiceResult } from "./types";
-const db = prisma as any;
+import { GSTIN_REGEX, PAN_REGEX, PREFIX_REGEX, isValidStateCode } from "./validation";
 
 export interface GstSettingsSnapshot {
   id: string;
@@ -33,16 +33,11 @@ export interface GstSettingsWriteInput {
   isActive?: boolean;
 }
 
-const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[A-Z0-9]{3}$/;
-const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-const STATE_CODE_REGEX = /^[0-9]{2}$/;
-const PREFIX_REGEX = /^[A-Z0-9/_-]{1,12}$/;
-
 function normalize(value: string | null | undefined): string {
   return String(value ?? "").trim();
 }
 
-function toSnapshot(settings: any): GstSettingsSnapshot | undefined {
+function toSnapshot(settings: GstSettingsSnapshot | null | undefined): GstSettingsSnapshot | undefined {
   if (!settings) {
     return undefined;
   }
@@ -86,8 +81,8 @@ export function validateGstIdentityConfig(
   if (pan && !PAN_REGEX.test(pan)) {
     errors.push("pan must be a valid PAN");
   }
-  if (!STATE_CODE_REGEX.test(stateCode)) {
-    errors.push("stateCode must be a 2-digit GST state code");
+  if (!isValidStateCode(stateCode)) {
+    errors.push("stateCode must be a valid GST state code");
   }
   if (!PREFIX_REGEX.test(invoicePrefix)) {
     errors.push("invoicePrefix must be 1-12 chars and contain A-Z, 0-9, /, _, -");
@@ -130,9 +125,34 @@ export function validateGstIdentityConfig(
   };
 }
 
+async function detectActiveSettingsConflicts(gstin: string): Promise<GstServiceResult<true>> {
+  const activeSettings = await gstDb.gstSettings.findMany({
+    where: { isActive: true },
+    select: { id: true, gstin: true },
+  });
+
+  const uniqueActiveGstins = new Set(activeSettings.map((entry) => String(entry.gstin)));
+  if (uniqueActiveGstins.size > 1) {
+    return {
+      ok: false,
+      error: "Multiple active GST settings exist. Resolve duplicates before updating.",
+    };
+  }
+
+  const duplicateActiveByGstin = activeSettings.filter((entry) => String(entry.gstin) === gstin);
+  if (duplicateActiveByGstin.length > 1) {
+    return {
+      ok: false,
+      error: `Duplicate active GST settings found for GSTIN ${gstin}`,
+    };
+  }
+
+  return { ok: true, data: true };
+}
+
 export async function getGstSettingsById(id: string): Promise<GstServiceResult<GstSettingsSnapshot>> {
   try {
-    const settings = await db.gstSettings.findUnique({ where: { id: normalize(id) } });
+    const settings = await gstDb.gstSettings.findUnique({ where: { id: normalize(id) } });
     if (!settings) {
       return { ok: false, error: "GST settings not found" };
     }
@@ -146,7 +166,7 @@ export async function getGstSettingsById(id: string): Promise<GstServiceResult<G
 
 export async function getActiveGstSettings(): Promise<GstServiceResult<GstSettingsSnapshot>> {
   try {
-    const settings = await db.gstSettings.findFirst({ where: { isActive: true }, orderBy: { updatedAt: "desc" } });
+    const settings = await gstDb.gstSettings.findFirst({ where: { isActive: true }, orderBy: { updatedAt: "desc" } });
     if (!settings) {
       return { ok: false, error: "No active GST settings configured" };
     }
@@ -167,7 +187,12 @@ export async function upsertGstSettings(input: GstSettingsWriteInput): Promise<G
   const normalized = validation.data.normalized;
 
   try {
-    const created = await db.$transaction(async (tx: any) => {
+    const conflictCheck = await detectActiveSettingsConflicts(String(normalized.gstin));
+    if (!conflictCheck.ok) {
+      return { ok: false, error: conflictCheck.error || "Active GST settings conflict detected" };
+    }
+
+    const created = await gstDb.$transaction(async (tx) => {
       if (normalized.isActive) {
         await tx.gstSettings.updateMany({ where: { isActive: true }, data: { isActive: false } });
       }
