@@ -1,5 +1,6 @@
 import { Prisma } from "../../generated/prisma";
 import { writeGstAuditLog } from "./audit";
+import { GST_DEFAULT_DOCUMENT_STATUS } from "./constants";
 import { classifySupply } from "./classifier";
 import { gstDb } from "./db";
 import { reserveGstNumber } from "./numbering";
@@ -11,7 +12,7 @@ import { validateDocumentDraftPayload } from "./validation";
 export interface GstInvoiceDraftResult {
   id: string;
   documentNumber: string;
-  status: "DRAFT";
+  status: typeof GST_DEFAULT_DOCUMENT_STATUS;
 }
 
 function normalizeDate(value: Date | string | undefined): Date {
@@ -172,7 +173,7 @@ export async function buildInvoiceDraft(
       const document = await tx.gstDocument.create({
         data: {
           documentType: "TAX_INVOICE",
-          status: "DRAFT",
+          status: GST_DEFAULT_DOCUMENT_STATUS,
           documentNumber: numberingData.documentNumber,
           documentDate,
           gstSettingsId: settings.id,
@@ -236,7 +237,7 @@ export async function buildInvoiceDraft(
       data: {
         id: created.id,
         documentNumber: created.documentNumber,
-        status: "DRAFT",
+        status: GST_DEFAULT_DOCUMENT_STATUS,
       },
     };
   } catch (error) {

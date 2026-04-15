@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isGstNoteDocumentType } from "../../../../../services/gst/constants";
 import {
   buildShadowInvoiceDraft,
   buildShadowNoteDraft,
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
     mode === "NOTE"
       ? buildShadowNoteDraft(
           source,
-          body.noteType === "DEBIT_NOTE" ? "DEBIT_NOTE" : "CREDIT_NOTE",
+          isGstNoteDocumentType(body.noteType) ? body.noteType : "CREDIT_NOTE",
           body.originalDocumentNumber ? String(body.originalDocumentNumber) : undefined,
         )
       : buildShadowInvoiceDraft(source);

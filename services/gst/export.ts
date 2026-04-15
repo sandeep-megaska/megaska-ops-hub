@@ -1,4 +1,5 @@
 import { writeGstAuditLog } from "./audit";
+import { GST_DOCUMENT_TYPES } from "./constants";
 import { gstDb } from "./db";
 import type { GstExportRequest, GstServiceResult } from "./types";
 
@@ -14,7 +15,7 @@ export interface GstExportBatchResult {
 }
 
 function exportTypeFilter(exportType: GstExportRequest["exportType"]): string[] {
-  return exportType === "notes_register" ? ["CREDIT_NOTE", "DEBIT_NOTE"] : ["TAX_INVOICE"];
+  return exportType === "notes_register" ? [GST_DOCUMENT_TYPES[1], GST_DOCUMENT_TYPES[2]] : [GST_DOCUMENT_TYPES[0]];
 }
 
 function toAmount(value: unknown): string {

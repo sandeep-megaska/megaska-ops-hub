@@ -1,18 +1,13 @@
+import type { GstAuditAction, GstAuditActorType } from "./constants";
 import { gstDb } from "./db";
 
 export interface GstAuditActor {
-  actorType: "SYSTEM" | "ADMIN" | "CUSTOMER";
+  actorType: GstAuditActorType;
   actorId?: string | null;
 }
 
 export interface GstAuditEvent {
-  action:
-    | "GST_SETTINGS_UPSERT"
-    | "GST_DOCUMENT_DRAFT_CREATED"
-    | "GST_DOCUMENT_FINALIZED"
-    | "GST_DOCUMENT_CANCELLED"
-    | "GST_EXPORT_GENERATED"
-    | "GST_RECONCILIATION_RUN_CREATED";
+  action: GstAuditAction;
   gstSettingsId?: string | null;
   gstDocumentId?: string | null;
   gstExportId?: string | null;

@@ -1,7 +1,5 @@
 import { prisma } from "../db/prisma";
-
-export type GstDocumentType = "TAX_INVOICE" | "CREDIT_NOTE" | "DEBIT_NOTE";
-export type GstDocumentStatus = "DRAFT" | "ISSUED" | "CANCELLED" | "VOID" | "FAILED";
+import type { GstDocumentStatus, GstDocumentType, GstNumberingStrategy } from "./constants";
 
 export interface GstSettingsRecord {
   id: string;
@@ -13,7 +11,7 @@ export interface GstSettingsRecord {
   invoicePrefix: string;
   creditNotePrefix: string;
   debitNotePrefix: string;
-  invoiceNumberStrategy: "FINANCIAL_YEAR_SEQUENCE" | "CALENDAR_YEAR_SEQUENCE" | "MONTHLY_SEQUENCE" | "MANUAL";
+  invoiceNumberStrategy: GstNumberingStrategy;
   defaultCurrency: string;
   einvoiceEnabled: boolean;
   isActive: boolean;

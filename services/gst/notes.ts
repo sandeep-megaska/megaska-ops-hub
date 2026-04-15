@@ -1,5 +1,6 @@
 import { Prisma } from "../../generated/prisma";
 import { writeGstAuditLog } from "./audit";
+import { GST_DEFAULT_DOCUMENT_STATUS } from "./constants";
 import { classifySupply } from "./classifier";
 import { gstDb } from "./db";
 import { getGstInvoiceById } from "./invoice";
@@ -14,7 +15,7 @@ export interface GstNoteDraftResult {
   documentType: "CREDIT_NOTE" | "DEBIT_NOTE";
   documentNumber: string;
   originalDocumentId?: string;
-  status: "DRAFT";
+  status: typeof GST_DEFAULT_DOCUMENT_STATUS;
 }
 
 function normalizeDate(value: Date | string | undefined): Date {
@@ -104,7 +105,7 @@ export async function buildNoteDraft(input: GstNoteDraftInput): Promise<GstServi
       const document = await tx.gstDocument.create({
         data: {
           documentType: input.noteType,
-          status: "DRAFT",
+          status: GST_DEFAULT_DOCUMENT_STATUS,
           documentNumber: numberingData.documentNumber,
           documentDate,
           gstSettingsId: settings.id,
@@ -162,7 +163,7 @@ export async function buildNoteDraft(input: GstNoteDraftInput): Promise<GstServi
       { actorType: "SYSTEM" },
     );
 
-    return { ok: true, data: { id: created.id, documentType: input.noteType, documentNumber: created.documentNumber, originalDocumentId: input.originalDocumentId, status: "DRAFT" } };
+    return { ok: true, data: { id: created.id, documentType: input.noteType, documentNumber: created.documentNumber, originalDocumentId: input.originalDocumentId, status: GST_DEFAULT_DOCUMENT_STATUS } };
   } catch (error) {
     console.error("[GST NOTE] buildNoteDraft failed", {
       error: error instanceof Error ? error.message : String(error),

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react'
 import { createOrUpdateGstSettings, getGstSettings } from '../../lib/gst-client'
+import { GST_DEFAULT_NUMBERING_STRATEGY } from '../../services/gst/constants'
 import { GstResponseViewer } from './gst-response-viewer'
 
 const initialState = {
@@ -13,7 +14,7 @@ const initialState = {
   invoicePrefix: 'GST',
   creditNotePrefix: 'CN',
   debitNotePrefix: 'DN',
-  invoiceNumberStrategy: 'FINANCIAL_YEAR_SEQUENCE',
+  invoiceNumberStrategy: GST_DEFAULT_NUMBERING_STRATEGY,
   defaultCurrency: 'INR',
   einvoiceEnabled: false,
   isActive: true,

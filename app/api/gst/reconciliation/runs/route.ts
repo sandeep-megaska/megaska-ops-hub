@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { GST_DEFAULT_SOURCE_SYSTEM } from "../../../../../services/gst/constants";
 import { createGstReconciliationRun } from "../../../../../services/gst/reconcile";
 import { getActiveGstSettings } from "../../../../../services/gst/settings";
 
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     gstSettingsId: settings.data.id,
     periodStart,
     periodEnd,
-    sourceSystem: String(body.sourceSystem || "MANUAL"),
+    sourceSystem: String(body.sourceSystem || GST_DEFAULT_SOURCE_SYSTEM),
     sourceDocuments,
   });
 

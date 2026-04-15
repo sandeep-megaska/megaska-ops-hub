@@ -1,3 +1,4 @@
+import { GST_DOCUMENT_TYPES } from "./constants";
 import { gstDb } from "./db";
 import type { GstDocumentType, GstServiceResult } from "./types";
 
@@ -31,11 +32,11 @@ export function buildDocumentNumber(prefix: string, financialYear: string, seque
 
 export function pickPrefix(documentType: GstDocumentType, settings: { invoicePrefix: string; creditNotePrefix: string; debitNotePrefix: string }): string {
   switch (documentType) {
-    case "TAX_INVOICE":
+    case GST_DOCUMENT_TYPES[0]:
       return settings.invoicePrefix;
-    case "CREDIT_NOTE":
+    case GST_DOCUMENT_TYPES[1]:
       return settings.creditNotePrefix;
-    case "DEBIT_NOTE":
+    case GST_DOCUMENT_TYPES[2]:
       return settings.debitNotePrefix;
     default:
       return settings.invoicePrefix;

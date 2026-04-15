@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isGstSupplyType } from "../../../../../services/gst/constants";
 import { buildInvoiceDraft } from "../../../../../services/gst/invoice";
 import type { GstInvoiceDraftInput } from "../../../../../services/gst/types";
 
@@ -20,15 +21,7 @@ function parseDraftPayload(body: Record<string, unknown>): GstInvoiceDraftInput 
       gstin: body.buyer && typeof body.buyer === "object" ? String((body.buyer as Record<string, unknown>).gstin || "") : null,
       stateCode: body.buyer && typeof body.buyer === "object" ? String((body.buyer as Record<string, unknown>).stateCode || "") : null,
     },
-    supplyType:
-      body.supplyType === "B2B" ||
-      body.supplyType === "B2C" ||
-      body.supplyType === "EXPORT" ||
-      body.supplyType === "SEZ_WITH_PAYMENT" ||
-      body.supplyType === "SEZ_WITHOUT_PAYMENT" ||
-      body.supplyType === "DEEMED_EXPORT"
-        ? body.supplyType
-        : undefined,
+    supplyType: isGstSupplyType(body.supplyType) ? body.supplyType : undefined,
     placeOfSupplyStateCode: body.placeOfSupplyStateCode
       ? String(body.placeOfSupplyStateCode)
       : undefined,
