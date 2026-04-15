@@ -10,5 +10,6 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
     return NextResponse.json({ ok: false, error: result.error || "Unable to render PDF payload" }, { status: 404 });
   }
 
-  return NextResponse.json({ ok: true, pdf: result.data });
+  const pdf = result.data;
+  return NextResponse.json({ ok: true, pdf });
 }

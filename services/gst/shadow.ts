@@ -114,19 +114,20 @@ export function buildShadowInvoiceDraft(
   if (!classification.ok || !classification.data) {
     return { ok: false, error: classification.error || "Unable to classify shadow invoice" };
   }
+  const classificationData = classification.data;
 
-  const lines = computeShadowLines(source.lines, classification.data.isInterstate);
+  const lines = computeShadowLines(source.lines, classificationData.isInterstate);
   const totals = aggregateTaxTotals(lines);
 
   return {
     ok: true,
     data: {
       documentType: "TAX_INVOICE",
-      supplyType: classification.data.supplyType,
-      isInterstate: classification.data.isInterstate,
+      supplyType: classificationData.supplyType,
+      isInterstate: classificationData.isInterstate,
       lines,
       totals,
-      metadata: createMetadata(source, classification.data.placeOfSupplyStateCode),
+      metadata: createMetadata(source, classificationData.placeOfSupplyStateCode),
       deterministicValidation: validateDeterministicTotals({
         lines,
         header: totals,

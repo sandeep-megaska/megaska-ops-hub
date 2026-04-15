@@ -10,9 +10,10 @@ export async function GET(
   const params = await context.params;
   const result = await getGstNoteById(params.id);
 
-  if (!result.ok) {
+  if (!result.ok || !result.data) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 404 });
   }
 
-  return NextResponse.json({ ok: true, note: result.data });
+  const note = result.data;
+  return NextResponse.json({ ok: true, note });
 }

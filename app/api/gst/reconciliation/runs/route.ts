@@ -42,9 +42,10 @@ export async function POST(req: NextRequest) {
     sourceDocuments,
   });
 
-  if (!result.ok) {
+  if (!result.ok || !result.data) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, reconciliation: result.data }, { status: 201 });
+  const reconciliation = result.data;
+  return NextResponse.json({ ok: true, reconciliation }, { status: 201 });
 }

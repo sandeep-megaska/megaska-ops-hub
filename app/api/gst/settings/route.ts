@@ -5,11 +5,12 @@ export const runtime = "nodejs";
 
 export async function GET() {
   const result = await getActiveGstSettings();
-  if (!result.ok) {
+  if (!result.ok || !result.data) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 404 });
   }
 
-  return NextResponse.json({ ok: true, settings: result.data });
+  const settings = result.data;
+  return NextResponse.json({ ok: true, settings });
 }
 
 export async function POST(req: NextRequest) {
@@ -38,9 +39,10 @@ export async function POST(req: NextRequest) {
     isActive: body.isActive === false ? false : true,
   });
 
-  if (!result.ok) {
+  if (!result.ok || !result.data) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, settings: result.data }, { status: 201 });
+  const settings = result.data;
+  return NextResponse.json({ ok: true, settings }, { status: 201 });
 }

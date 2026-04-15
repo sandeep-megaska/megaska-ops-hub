@@ -33,6 +33,7 @@ export async function createGstReconciliationRun(input: GstReconcileRunInput): P
     if (!comparison.ok || !comparison.data) {
       return { ok: false, error: comparison.error || "Reconciliation failed" };
     }
+    const comparisonData = comparison.data;
 
     const created = await gstDb.gstReconciliationRun.create({
       data: {
@@ -40,12 +41,12 @@ export async function createGstReconciliationRun(input: GstReconcileRunInput): P
         periodStart: input.periodStart,
         periodEnd: input.periodEnd,
         sourceSystem: input.sourceSystem,
-        status: comparison.data.mismatches.length > 0 ? "MISMATCH" : "MATCHED",
-        matchedCount: comparison.data.summary.matchedCount,
-        mismatchedCount: comparison.data.summary.mismatchedCount,
-        missingInBooksCount: comparison.data.summary.missingInBooksCount,
-        missingInPortalCount: comparison.data.summary.missingInSourceCount,
-        summary: comparison.data,
+        status: comparisonData.mismatches.length > 0 ? "MISMATCH" : "MATCHED",
+        matchedCount: comparisonData.summary.matchedCount,
+        mismatchedCount: comparisonData.summary.mismatchedCount,
+        missingInBooksCount: comparisonData.summary.missingInBooksCount,
+        missingInPortalCount: comparisonData.summary.missingInSourceCount,
+        summary: comparisonData,
         completedAt: new Date(),
       },
     });
@@ -55,12 +56,12 @@ export async function createGstReconciliationRun(input: GstReconcileRunInput): P
         action: "GST_RECONCILIATION_RUN_CREATED",
         gstSettingsId: input.gstSettingsId,
         reconciliationRunId: String(created.id),
-        nextState: comparison.data.summary,
+        nextState: comparisonData.summary,
       },
       { actorType: "SYSTEM" },
     );
 
-    return { ok: true, data: { run: created, comparison: comparison.data } };
+    return { ok: true, data: { run: created, comparison: comparisonData } };
   } catch (error) {
     console.error("[GST RECO] createGstReconciliationRun failed", { error: error instanceof Error ? error.message : String(error) });
     return { ok: false, error: "Failed to create reconciliation run" };

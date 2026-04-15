@@ -84,7 +84,8 @@ export async function buildInvoiceDraft(
       };
     }
 
-    const normalizedCurrency = payloadValidation.data.normalizedCurrency;
+    const payloadData = payloadValidation.data;
+    const normalizedCurrency = payloadData.normalizedCurrency;
 
     const settingsResult = input.gstSettingsId
       ? await getGstSettingsById(input.gstSettingsId)

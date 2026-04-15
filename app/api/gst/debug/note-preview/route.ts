@@ -63,9 +63,10 @@ export async function POST(req: NextRequest) {
     body.originalDocumentNumber ? String(body.originalDocumentNumber) : undefined,
   );
 
-  if (!result.ok) {
+  if (!result.ok || !result.data) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, preview: result.data }, { status: 200 });
+  const preview = result.data;
+  return NextResponse.json({ ok: true, preview }, { status: 200 });
 }
