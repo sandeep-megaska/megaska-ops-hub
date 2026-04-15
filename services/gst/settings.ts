@@ -1,4 +1,5 @@
 import { gstDb } from "./db";
+import { writeGstAuditLog } from "./audit";
 import type { GstServiceResult } from "./types";
 import { GSTIN_REGEX, PAN_REGEX, PREFIX_REGEX, isValidStateCode } from "./validation";
 
@@ -228,6 +229,16 @@ export async function upsertGstSettings(input: GstSettingsWriteInput): Promise<G
         },
       });
     });
+
+    await writeGstAuditLog(
+      {
+        action: "GST_SETTINGS_UPSERT",
+        gstSettingsId: created.id,
+        nextState: toSnapshot(created),
+        metadata: { gstin: created.gstin },
+      },
+      { actorType: "SYSTEM" },
+    );
 
     console.info("[GST SETTINGS] upserted GST settings", { gstSettingsId: created.id, gstin: created.gstin });
     return { ok: true, data: toSnapshot(created) };

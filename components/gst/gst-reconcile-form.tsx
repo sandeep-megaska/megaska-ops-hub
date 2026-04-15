@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
-import { reconcilePreview } from '../../lib/gst-client'
+import { reconcilePreview, runReconciliation } from '../../lib/gst-client'
 import { GstResponseViewer } from './gst-response-viewer'
 
 const defaultPayload = {
-  runType: 'DEBUG',
-  periodKey: '2026-04',
-  source: 'TEST_STORE',
+  periodStart: `${new Date().getUTCFullYear()}-04-01T00:00:00.000Z`,
+  periodEnd: new Date().toISOString(),
+  sourceSystem: 'TEST_STORE',
+  sourceDocuments: [],
 }
 
 export function GstReconcileForm() {
@@ -16,20 +17,15 @@ export function GstReconcileForm() {
   const [result, setResult] = useState<unknown>()
   const [error, setError] = useState<string>()
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
+  async function run(action: 'debug' | 'persist') {
     setLoading(true)
     setError(undefined)
 
     try {
       const parsed = JSON.parse(payload) as Record<string, unknown>
-      const res = await reconcilePreview(parsed)
-
-      if (res.ok) {
-        setResult(res.data)
-      } else {
-        setError(res.error)
-      }
+      const res = action === 'debug' ? await reconcilePreview(parsed) : await runReconciliation(parsed)
+      if (res.ok) setResult(res.data)
+      else setError(res.error)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid JSON')
     }
@@ -37,27 +33,20 @@ export function GstReconcileForm() {
     setLoading(false)
   }
 
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    await run('debug')
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <form onSubmit={onSubmit} className="space-y-4">
-        <label className="block">
-          <div className="mb-1 text-sm font-medium">Reconcile Payload</div>
-          <textarea
-            className="min-h-[320px] w-full rounded-xl border p-3 font-mono text-xs"
-            value={payload}
-            onChange={(e) => setPayload(e.target.value)}
-          />
-        </label>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-xl border px-4 py-2 font-medium"
-        >
-          {loading ? 'Running...' : 'Run Reconcile Debug'}
-        </button>
+        <textarea className="min-h-[320px] w-full rounded-xl border p-3 font-mono text-xs" value={payload} onChange={(e) => setPayload(e.target.value)} />
+        <div className="flex gap-2">
+          <button type="submit" disabled={loading} className="rounded-xl border px-4 py-2 font-medium">Debug Reconcile</button>
+          <button type="button" disabled={loading} onClick={() => void run('persist')} className="rounded-xl border px-4 py-2 font-medium">Create Run</button>
+        </div>
       </form>
-
       <GstResponseViewer title="Reconcile Response" data={result} error={error} />
     </div>
   )

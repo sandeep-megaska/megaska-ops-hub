@@ -11,8 +11,8 @@ export async function GET(
   const result = await getGstNoteById(params.id);
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 404 });
+    return NextResponse.json({ ok: false, error: result.error }, { status: 404 });
   }
 
-  return NextResponse.json({ note: result.data });
+  return NextResponse.json({ ok: true, note: result.data });
 }

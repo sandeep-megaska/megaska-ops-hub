@@ -1,5 +1,8 @@
 import { prisma } from "../db/prisma";
 
+export type GstDocumentType = "TAX_INVOICE" | "CREDIT_NOTE" | "DEBIT_NOTE";
+export type GstDocumentStatus = "DRAFT" | "ISSUED" | "CANCELLED" | "VOID" | "FAILED";
+
 export interface GstSettingsRecord {
   id: string;
   legalName: string;
@@ -18,32 +21,52 @@ export interface GstSettingsRecord {
 }
 
 export interface GstCounterRecord {
+  id?: string;
   lastNumber: number;
 }
 
 export interface GstDocumentRecord {
   id: string;
-  documentType: "TAX_INVOICE" | "CREDIT_NOTE" | "DEBIT_NOTE";
-  status: "DRAFT" | "ISSUED" | "CANCELLED" | "VOID" | "FAILED";
+  documentType: GstDocumentType;
+  status: GstDocumentStatus;
   documentNumber: string;
   documentDate: Date;
   gstSettingsId: string;
-  totalAmount: unknown;
+  originalDocumentId?: string | null;
+  supplyType?: string;
+  placeOfSupplyStateCode?: string;
+  isInterstate?: boolean;
   taxableAmount: unknown;
   cgstAmount: unknown;
   sgstAmount: unknown;
   igstAmount: unknown;
-  lines?: Array<{ lineNumber: number }>;
+  cessAmount: unknown;
+  totalAmount: unknown;
+  lines?: Array<Record<string, unknown>>;
+  gstSettings?: GstSettingsRecord;
+  originalDocument?: GstDocumentRecord | null;
   [key: string]: unknown;
 }
 
+export interface GstAuditLogCreateInput {
+  gstSettingsId?: string | null;
+  gstDocumentId?: string | null;
+  gstPartyId?: string | null;
+  gstExportId?: string | null;
+  reconciliationRunId?: string | null;
+  action: string;
+  actorType: string;
+  actorId?: string | null;
+  previousState?: unknown;
+  nextState?: unknown;
+  metadata?: unknown;
+}
+
 /**
- * Temporary GST-only Prisma facade.
+ * GST-only Prisma facade.
  *
- * NOTE: Generated Prisma client in this environment is out-of-sync with GST models,
- * so direct typed delegates (e.g. prisma.gstDocument) are unavailable at compile time.
- * This facade narrows `unknown` into an explicit GST contract so all GST service calls
- * remain strongly-structured and easy to swap to native Prisma typings after regeneration.
+ * This keeps GST module compilation stable even when generated client is stale,
+ * while preserving typed contracts in GST services.
  */
 export interface GstPrismaClient {
   gstSettings: {
@@ -59,6 +82,7 @@ export interface GstPrismaClient {
   };
   gstDocument: {
     create: (args: unknown) => Promise<GstDocumentRecord>;
+    update: (args: unknown) => Promise<GstDocumentRecord>;
     findUnique: (args: unknown) => Promise<GstDocumentRecord | null>;
     findMany: (args: unknown) => Promise<GstDocumentRecord[]>;
   };
@@ -66,10 +90,20 @@ export interface GstPrismaClient {
     createMany: (args: unknown) => Promise<{ count: number }>;
   };
   gstExport: {
-    create: (args: unknown) => Promise<{ id: string; exportType: string; status: string }>;
+    create: (args: unknown) => Promise<{ id: string; exportType: string; status: string; periodStart?: Date; periodEnd?: Date }>;
+    findMany: (args: unknown) => Promise<Array<Record<string, unknown>>>;
   };
   gstExportItem: {
     createMany: (args: unknown) => Promise<{ count: number }>;
+  };
+  gstReconciliationRun: {
+    create: (args: unknown) => Promise<Record<string, unknown>>;
+  };
+  gstAuditLog: {
+    create: (args: unknown) => Promise<Record<string, unknown>>;
+  };
+  gstParty: {
+    upsert: (args: unknown) => Promise<Record<string, unknown>>;
   };
   $transaction: <T>(fn: (tx: GstPrismaClient) => Promise<T>) => Promise<T>;
 }

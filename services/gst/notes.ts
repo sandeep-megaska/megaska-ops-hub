@@ -1,4 +1,5 @@
 import { Prisma } from "../../generated/prisma";
+import { writeGstAuditLog } from "./audit";
 import { classifySupply } from "./classifier";
 import { gstDb } from "./db";
 import { getGstInvoiceById } from "./invoice";
@@ -17,54 +18,30 @@ export interface GstNoteDraftResult {
 }
 
 function normalizeDate(value: Date | string | undefined): Date {
-  if (!value) {
-    return new Date();
-  }
-
-  if (value instanceof Date) {
-    return value;
-  }
-
+  if (!value) return new Date();
+  if (value instanceof Date) return value;
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 }
 
 function isCompatibleNoteType(noteType: "CREDIT_NOTE" | "DEBIT_NOTE", originalDocumentType: string): boolean {
-  if (originalDocumentType === "TAX_INVOICE") {
-    return true;
-  }
-
-  if (noteType === "CREDIT_NOTE" && originalDocumentType === "DEBIT_NOTE") {
-    return true;
-  }
-
-  if (noteType === "DEBIT_NOTE" && originalDocumentType === "CREDIT_NOTE") {
-    return true;
-  }
-
-  return false;
+  return originalDocumentType === "TAX_INVOICE" || (noteType === "CREDIT_NOTE" && originalDocumentType === "DEBIT_NOTE") || (noteType === "DEBIT_NOTE" && originalDocumentType === "CREDIT_NOTE");
 }
 
-export async function buildNoteDraft(
-  input: GstNoteDraftInput,
-): Promise<GstServiceResult<GstNoteDraftResult>> {
+export async function buildNoteDraft(input: GstNoteDraftInput): Promise<GstServiceResult<GstNoteDraftResult>> {
   try {
     const payloadValidation = validateDocumentDraftPayload(input);
     if (!payloadValidation.ok || !payloadValidation.data) {
       return { ok: false, error: payloadValidation.error || "Invalid GST note draft payload" };
     }
 
-    const normalizedCurrency = payloadValidation.data.normalizedCurrency;
-
-    const settingsResult = input.gstSettingsId
-      ? await getGstSettingsById(input.gstSettingsId)
-      : await getActiveGstSettings();
-
+    const settingsResult = input.gstSettingsId ? await getGstSettingsById(input.gstSettingsId) : await getActiveGstSettings();
     if (!settingsResult.ok || !settingsResult.data) {
       return { ok: false, error: settingsResult.error || "Unable to resolve GST settings" };
     }
 
     const settings = settingsResult.data;
+    const normalizedCurrency = payloadValidation.data.normalizedCurrency;
     let originalDocument: Record<string, unknown> | undefined;
 
     if (input.originalDocumentId) {
@@ -72,20 +49,13 @@ export async function buildNoteDraft(
       if (!original.ok || !original.data) {
         return { ok: false, error: "Original GST document not found" };
       }
-
       if (!isCompatibleNoteType(input.noteType, String(original.data.documentType || ""))) {
         return { ok: false, error: "Invalid noteType for referenced original document type" };
       }
-
-      if (String(original.data.gstSettingsId || "") !== settings.id) {
-        return { ok: false, error: "originalDocumentId belongs to a different GST settings profile" };
-      }
-
       originalDocument = original.data;
     }
 
     const documentDate = normalizeDate(input.documentDate);
-
     const classification = classifySupply({
       sellerStateCode: settings.stateCode,
       billingStateCode: input.billingStateCode,
@@ -103,12 +73,7 @@ export async function buildNoteDraft(
       return { ok: false, error: tax.error || "GST note tax computation failed" };
     }
 
-    const numbering = await reserveGstNumber({
-      gstSettingsId: settings.id,
-      documentType: input.noteType,
-      documentDate,
-    });
-
+    const numbering = await reserveGstNumber({ gstSettingsId: settings.id, documentType: input.noteType, documentDate });
     if (!numbering.ok || !numbering.data) {
       return { ok: false, error: numbering.error || "Unable to reserve note number" };
     }
@@ -119,6 +84,11 @@ export async function buildNoteDraft(
       buyer: input.buyer || {},
       metadata: input.metadata || {},
       noteType: input.noteType,
+      source: {
+        sourceOrderId: input.sourceOrderId || null,
+        sourceOrderNumber: input.sourceOrderNumber || null,
+        sourceReference: input.sourceReference || null,
+      },
       originalDocumentId: input.originalDocumentId || null,
       originalDocumentNumber: originalDocument?.documentNumber || null,
       computedAt: new Date().toISOString(),
@@ -135,22 +105,28 @@ export async function buildNoteDraft(
           documentDate,
           gstSettingsId: settings.id,
           originalDocumentId: input.originalDocumentId || null,
-          supplyType: classification.data?.supplyType,
-          placeOfSupplyStateCode: input.placeOfSupplyStateCode || classification.data?.placeOfSupplyStateCode,
-          isInterstate: input.isInterstate ?? classification.data?.isInterstate,
+          shopifyOrderId: input.shopifyOrderId || null,
+          shopifyOrderName: input.shopifyOrderName || null,
+          sourceOrderId: input.sourceOrderId || null,
+          sourceOrderNumber: input.sourceOrderNumber || null,
+          sourceReference: input.sourceReference || null,
+          supplyType: classification.data.supplyType,
+          placeOfSupplyStateCode: input.placeOfSupplyStateCode || classification.data.placeOfSupplyStateCode,
+          isInterstate: input.isInterstate ?? classification.data.isInterstate,
           currency: normalizedCurrency,
-          taxableAmount: new Prisma.Decimal(tax.data?.totals.taxableAmount || 0),
-          cgstAmount: new Prisma.Decimal(tax.data?.totals.cgstAmount || 0),
-          sgstAmount: new Prisma.Decimal(tax.data?.totals.sgstAmount || 0),
-          igstAmount: new Prisma.Decimal(tax.data?.totals.igstAmount || 0),
-          cessAmount: new Prisma.Decimal(tax.data?.totals.cessAmount || 0),
-          totalAmount: new Prisma.Decimal(tax.data?.totals.totalAmount || 0),
+          taxableAmount: new Prisma.Decimal(tax.data.totals.taxableAmount),
+          cgstAmount: new Prisma.Decimal(tax.data.totals.cgstAmount),
+          sgstAmount: new Prisma.Decimal(tax.data.totals.sgstAmount),
+          igstAmount: new Prisma.Decimal(tax.data.totals.igstAmount),
+          cessAmount: new Prisma.Decimal(tax.data.totals.cessAmount),
+          totalAmount: new Prisma.Decimal(tax.data.totals.totalAmount),
           jsonSnapshot: snapshot,
+          metadata: input.metadata || {},
         },
       });
 
       await tx.gstDocumentLine.createMany({
-        data: (tax.data?.lines || []).map((line) => ({
+        data: tax.data.lines.map((line) => ({
           gstDocumentId: document.id,
           lineNumber: line.lineNumber,
           description: line.description,
@@ -172,28 +148,21 @@ export async function buildNoteDraft(
       return document;
     });
 
-    console.info("[GST NOTE] Created draft GST note", {
-      gstDocumentId: created.id,
-      documentNumber: created.documentNumber,
-      noteType: input.noteType,
-      originalDocumentId: input.originalDocumentId || null,
-    });
-
-    return {
-      ok: true,
-      data: {
-        id: created.id,
-        documentType: input.noteType,
-        documentNumber: created.documentNumber,
-        originalDocumentId: input.originalDocumentId,
-        status: "DRAFT",
+    await writeGstAuditLog(
+      {
+        action: "GST_DOCUMENT_DRAFT_CREATED",
+        gstSettingsId: settings.id,
+        gstDocumentId: created.id,
+        nextState: snapshot,
       },
-    };
+      { actorType: "SYSTEM" },
+    );
+
+    return { ok: true, data: { id: created.id, documentType: input.noteType, documentNumber: created.documentNumber, originalDocumentId: input.originalDocumentId, status: "DRAFT" } };
   } catch (error) {
     console.error("[GST NOTE] buildNoteDraft failed", {
       error: error instanceof Error ? error.message : String(error),
     });
-
     return { ok: false, error: "Failed to create GST note draft" };
   }
 }
@@ -202,11 +171,7 @@ export async function getGstNoteById(gstDocumentId: string): Promise<GstServiceR
   try {
     const document = await gstDb.gstDocument.findUnique({
       where: { id: String(gstDocumentId).trim() },
-      include: {
-        lines: { orderBy: { lineNumber: "asc" } },
-        gstSettings: true,
-        originalDocument: true,
-      },
+      include: { lines: { orderBy: { lineNumber: "asc" } }, gstSettings: true, originalDocument: true },
     });
 
     if (!document || (document.documentType !== "CREDIT_NOTE" && document.documentType !== "DEBIT_NOTE")) {
@@ -218,7 +183,6 @@ export async function getGstNoteById(gstDocumentId: string): Promise<GstServiceR
     console.error("[GST NOTE] getGstNoteById failed", {
       error: error instanceof Error ? error.message : String(error),
     });
-
     return { ok: false, error: "Failed to fetch GST note" };
   }
 }

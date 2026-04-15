@@ -31,7 +31,7 @@ function parseLines(value: unknown): GstDocumentLineInput[] {
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) {
-    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Invalid JSON payload" }, { status: 400 });
   }
 
   const source = {
@@ -77,13 +77,14 @@ export async function POST(req: NextRequest) {
       : buildShadowInvoiceDraft(source);
 
   if (!draftResult.ok || !draftResult.data) {
-    return NextResponse.json({ error: draftResult.error || "Unable to build shadow draft" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: draftResult.error || "Unable to build shadow draft" }, { status: 400 });
   }
 
   const comparison = compareShadowWithReference(draftResult.data, reference);
 
   return NextResponse.json(
     {
+      ok: true,
       mode,
       draft: draftResult.data,
       comparison,
