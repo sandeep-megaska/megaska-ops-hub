@@ -334,6 +334,37 @@ model WalletReservation {
   @@index([shopifyOrderId])
 }
 
+
+enum GstDocumentType {
+  TAX_INVOICE
+  CREDIT_NOTE
+  DEBIT_NOTE
+}
+
+enum GstDocumentStatus {
+  DRAFT
+  ISSUED
+  CANCELLED
+  VOID
+  FAILED
+}
+
+enum GstNumberingStrategy {
+  FINANCIAL_YEAR_SEQUENCE
+  CALENDAR_YEAR_SEQUENCE
+  MONTHLY_SEQUENCE
+  MANUAL
+}
+
+enum GstSupplyType {
+  B2B
+  B2C
+  EXPORT
+  SEZ_WITH_PAYMENT
+  SEZ_WITHOUT_PAYMENT
+  DEEMED_EXPORT
+}
+
 model GstSettings {
   id                    String   @id @default(uuid())
   legalName             String
@@ -344,7 +375,7 @@ model GstSettings {
   invoicePrefix         String
   creditNotePrefix      String
   debitNotePrefix       String
-  invoiceNumberStrategy String
+  invoiceNumberStrategy GstNumberingStrategy
   defaultCurrency       String   @default("INR")
   einvoiceEnabled       Boolean  @default(false)
   isActive              Boolean  @default(true)
@@ -358,7 +389,7 @@ model GstSettings {
 model GstCounter {
   id            String      @id @default(uuid())
   gstSettingsId String
-  documentType  String
+  documentType  GstDocumentType
   financialYear String
   lastNumber    Int         @default(0)
   createdAt     DateTime    @default(now())
@@ -372,8 +403,8 @@ model GstCounter {
 
 model GstDocument {
   id                     String            @id @default(uuid())
-  documentType           String
-  status                 String
+  documentType           GstDocumentType
+  status                 GstDocumentStatus
   documentNumber         String            @unique
   documentDate           DateTime
   gstSettingsId          String
@@ -386,7 +417,7 @@ model GstDocument {
   originalDocument       GstDocument?      @relation("GstDocToOriginal", fields: [originalDocumentId], references: [id])
   derivedNotes           GstDocument[]     @relation("GstDocToOriginal")
 
-  supplyType             String
+  supplyType             GstSupplyType
   placeOfSupplyStateCode String
   isInterstate           Boolean
   currency               String            @default("INR")
@@ -436,4 +467,147 @@ model GstDocumentLine {
 
   @@unique([gstDocumentId, lineNumber])
   @@index([gstDocumentId])
+}
+
+
+model GstParty {
+  id                  String   @id @default(uuid())
+  gstin               String?  @unique
+  legalName           String
+  tradeName           String?
+  customerProfileId   String?
+  email               String?
+  phone               String?
+  stateCode           String?
+  countryCode         String   @default("IN")
+  metadata            Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  customer            CustomerProfile? @relation(fields: [customerProfileId], references: [id], onDelete: SetNull)
+
+  @@index([customerProfileId])
+  @@index([legalName])
+}
+
+model GstExport {
+  id                  String   @id @default(uuid())
+  gstSettingsId       String
+  exportType          String
+  periodStart         DateTime
+  periodEnd           DateTime
+  status              String
+  storageUrl          String?
+  checksum            String?
+  filters             Json?
+  generatedByType     String?
+  generatedById       String?
+  generatedAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  gstSettings         GstSettings @relation(fields: [gstSettingsId], references: [id], onDelete: Cascade)
+  items               GstExportItem[]
+
+  @@index([gstSettingsId, periodStart, periodEnd])
+  @@index([status, createdAt])
+  @@unique([gstSettingsId, exportType, periodStart, periodEnd])
+}
+
+model GstExportItem {
+  id                  String   @id @default(uuid())
+  gstExportId         String
+  gstDocumentId       String?
+  rowNumber           Int
+  documentType        GstDocumentType?
+  documentNumber      String?
+  documentDate        DateTime?
+  status              String
+  payload             Json
+  errorCode           String?
+  errorMessage        String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  gstExport           GstExport    @relation(fields: [gstExportId], references: [id], onDelete: Cascade)
+  gstDocument         GstDocument? @relation(fields: [gstDocumentId], references: [id], onDelete: SetNull)
+
+  @@unique([gstExportId, rowNumber])
+  @@index([gstDocumentId])
+  @@index([status])
+  @@index([documentType, documentDate])
+}
+
+model GstReconciliationRun {
+  id                  String   @id @default(uuid())
+  gstSettingsId       String
+  periodStart         DateTime
+  periodEnd           DateTime
+  sourceSystem        String
+  status              String
+  matchedCount        Int      @default(0)
+  mismatchedCount     Int      @default(0)
+  missingInBooksCount Int      @default(0)
+  missingInPortalCount Int     @default(0)
+  summary             Json?
+  startedAt           DateTime @default(now())
+  completedAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  gstSettings         GstSettings @relation(fields: [gstSettingsId], references: [id], onDelete: Cascade)
+
+  @@index([gstSettingsId, periodStart, periodEnd])
+  @@index([status, startedAt])
+}
+
+model GstAuditLog {
+  id                  String   @id @default(uuid())
+  gstSettingsId       String?
+  gstDocumentId       String?
+  gstPartyId          String?
+  gstExportId         String?
+  reconciliationRunId String?
+  action              String
+  actorType           String
+  actorId             String?
+  previousState       Json?
+  nextState           Json?
+  metadata            Json?
+  createdAt           DateTime @default(now())
+
+  gstSettings         GstSettings? @relation(fields: [gstSettingsId], references: [id], onDelete: SetNull)
+  gstDocument         GstDocument? @relation(fields: [gstDocumentId], references: [id], onDelete: SetNull)
+  gstParty            GstParty?    @relation(fields: [gstPartyId], references: [id], onDelete: SetNull)
+  gstExport           GstExport?   @relation(fields: [gstExportId], references: [id], onDelete: SetNull)
+  reconciliationRun   GstReconciliationRun? @relation(fields: [reconciliationRunId], references: [id], onDelete: SetNull)
+
+  @@index([gstDocumentId, createdAt])
+  @@index([gstPartyId, createdAt])
+  @@index([gstExportId, createdAt])
+  @@index([reconciliationRunId, createdAt])
+  @@index([action, createdAt])
+}
+
+model GstLegacyDocument {
+  id                  String   @id @default(uuid())
+  sourceSystem        String
+  legacyDocumentId    String
+  legacyDocumentNumber String?
+  documentType        GstDocumentType?
+  documentStatus      GstDocumentStatus?
+  gstDocumentId       String?
+  gstPartyId          String?
+  payload             Json?
+  importedAt          DateTime @default(now())
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  gstDocument         GstDocument? @relation(fields: [gstDocumentId], references: [id], onDelete: SetNull)
+  gstParty            GstParty?    @relation(fields: [gstPartyId], references: [id], onDelete: SetNull)
+
+  @@unique([sourceSystem, legacyDocumentId])
+  @@index([legacyDocumentNumber])
+  @@index([gstDocumentId])
+  @@index([gstPartyId])
 }
