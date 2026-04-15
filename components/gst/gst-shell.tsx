@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -11,13 +12,7 @@ const nav = [
   { href: '/admin/gst/reconcile', label: 'Reconcile' },
 ]
 
-export function GstShell({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
+export function GstShell({ title, children }: { title: string; children: ReactNode }) {
   const pathname = usePathname()
   const enabled = process.env.NEXT_PUBLIC_ENABLE_GST_UI === 'true'
   const mode = process.env.NEXT_PUBLIC_GST_UI_MODE || 'disabled'
@@ -34,7 +29,7 @@ export function GstShell({
   }
 
   return (
-    <div className="mx-auto max-w-6xl p-6 space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6 p-6">
       <div className="rounded-2xl border p-5">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -56,9 +51,7 @@ export function GstShell({
             <Link
               key={item.href}
               href={item.href}
-              className={`rounded-xl border px-4 py-2 text-sm ${
-                active ? 'font-semibold' : ''
-              }`}
+              className={`rounded-xl border px-4 py-2 text-sm ${active ? 'font-semibold' : ''}`}
             >
               {item.label}
             </Link>

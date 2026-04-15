@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { invoicePreview } from '@/lib/gst-client'
+import { useState, type FormEvent } from 'react'
+import { invoicePreview } from '../../lib/gst-client'
 import { GstResponseViewer } from './gst-response-viewer'
 
 const defaultPayload = {
@@ -48,13 +48,13 @@ export function GstInvoicePreviewForm() {
   const [result, setResult] = useState<unknown>()
   const [error, setError] = useState<string>()
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     setError(undefined)
 
     try {
-      const parsed = JSON.parse(payload)
+      const parsed = JSON.parse(payload) as Record<string, unknown>
       const res = await invoicePreview(parsed)
 
       if (res.ok) {
@@ -90,11 +90,7 @@ export function GstInvoicePreviewForm() {
         </button>
       </form>
 
-      <GstResponseViewer
-        title="Invoice Preview Response"
-        data={result}
-        error={error}
-      />
+      <GstResponseViewer title="Invoice Preview Response" data={result} error={error} />
     </div>
   )
 }
