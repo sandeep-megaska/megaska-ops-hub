@@ -20,6 +20,136 @@ function exportTypeFilter(exportType: GstExportRequest["exportType"]): string[] 
   return ["TAX_INVOICE"];
 }
 
+function toAmount(value: unknown): string {
+  return String(value ?? "0");
+}
+
+function formatDate(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+function buildInvoiceRegisterRow(doc: GstExportRowInput) {
+  return {
+    registerType: "invoice_register",
+    gstDocumentId: doc.id,
+    documentType: doc.documentType,
+    documentNumber: doc.documentNumber,
+    documentDate: formatDate(doc.documentDate),
+    status: doc.status,
+    supplyType: doc.supplyType || "",
+    placeOfSupplyStateCode: doc.placeOfSupplyStateCode || "",
+    isInterstate: Boolean(doc.isInterstate),
+    taxableAmount: toAmount(doc.taxableAmount),
+    cgstAmount: toAmount(doc.cgstAmount),
+    sgstAmount: toAmount(doc.sgstAmount),
+    igstAmount: toAmount(doc.igstAmount),
+    cessAmount: toAmount(doc.cessAmount || 0),
+    totalAmount: toAmount(doc.totalAmount),
+    lineCount: Array.isArray(doc.lines) ? doc.lines.length : 0,
+  };
+}
+
+function buildNotesRegisterRow(doc: GstExportRowInput) {
+  return {
+    registerType: "notes_register",
+    gstDocumentId: doc.id,
+    noteType: doc.documentType,
+    documentNumber: doc.documentNumber,
+    documentDate: formatDate(doc.documentDate),
+    status: doc.status,
+    originalDocumentId: doc.originalDocumentId,
+    supplyType: doc.supplyType || "",
+    placeOfSupplyStateCode: doc.placeOfSupplyStateCode || "",
+    isInterstate: Boolean(doc.isInterstate),
+    taxableAmount: toAmount(doc.taxableAmount),
+    cgstAmount: toAmount(doc.cgstAmount),
+    sgstAmount: toAmount(doc.sgstAmount),
+    igstAmount: toAmount(doc.igstAmount),
+    cessAmount: toAmount(doc.cessAmount || 0),
+    totalAmount: toAmount(doc.totalAmount),
+    lineCount: Array.isArray(doc.lines) ? doc.lines.length : 0,
+  };
+}
+
+type GstExportRowInput = {
+  id: string;
+  documentType: string;
+  documentNumber: string;
+  documentDate: Date;
+  status: string;
+  supplyType?: string | null;
+  placeOfSupplyStateCode?: string | null;
+  isInterstate?: boolean | null;
+  originalDocumentId?: string | null;
+  taxableAmount: unknown;
+  cgstAmount: unknown;
+  sgstAmount: unknown;
+  igstAmount: unknown;
+  cessAmount?: unknown;
+  totalAmount: unknown;
+  lines?: unknown[];
+};
+
+function buildStableRows(
+  exportType: GstExportRequest["exportType"],
+  documents: GstExportRowInput[],
+): Array<Record<string, unknown>> {
+  const builder = exportType === "notes_register" ? buildNotesRegisterRow : buildInvoiceRegisterRow;
+
+  return documents.map((doc) => builder(doc)).sort((a, b) => {
+    const ad = String(a.documentDate || "");
+    const bd = String(b.documentDate || "");
+    if (ad !== bd) {
+      return ad.localeCompare(bd);
+    }
+
+    return String(a.documentNumber || "").localeCompare(String(b.documentNumber || ""));
+  });
+}
+
+function getHeaders(exportType: GstExportRequest["exportType"]): string[] {
+  if (exportType === "notes_register") {
+    return [
+      "registerType",
+      "gstDocumentId",
+      "noteType",
+      "documentNumber",
+      "documentDate",
+      "status",
+      "originalDocumentId",
+      "supplyType",
+      "placeOfSupplyStateCode",
+      "isInterstate",
+      "taxableAmount",
+      "cgstAmount",
+      "sgstAmount",
+      "igstAmount",
+      "cessAmount",
+      "totalAmount",
+      "lineCount",
+    ];
+  }
+
+  return [
+    "registerType",
+    "gstDocumentId",
+    "documentType",
+    "documentNumber",
+    "documentDate",
+    "status",
+    "supplyType",
+    "placeOfSupplyStateCode",
+    "isInterstate",
+    "taxableAmount",
+    "cgstAmount",
+    "sgstAmount",
+    "igstAmount",
+    "cessAmount",
+    "totalAmount",
+    "lineCount",
+  ];
+}
+
 export async function prepareGstExport(
   request: GstExportRequest,
 ): Promise<GstServiceResult<GstExportBatchResult>> {
@@ -40,19 +170,7 @@ export async function prepareGstExport(
       },
     });
 
-    const rows = documents.map((doc) => ({
-      gstDocumentId: doc.id,
-      documentType: doc.documentType,
-      documentNumber: doc.documentNumber,
-      documentDate: doc.documentDate,
-      status: doc.status,
-      taxableAmount: String(doc.taxableAmount),
-      cgstAmount: String(doc.cgstAmount),
-      sgstAmount: String(doc.sgstAmount),
-      igstAmount: String(doc.igstAmount),
-      totalAmount: String(doc.totalAmount),
-      lineCount: Array.isArray(doc.lines) ? doc.lines.length : 0,
-    }));
+    const rows = buildStableRows(request.exportType, documents);
 
     const created = await gstDb.$transaction(async (tx) => {
       const exportBatch = await tx.gstExport.create({
@@ -74,9 +192,9 @@ export async function prepareGstExport(
             gstExportId: exportBatch.id,
             gstDocumentId: String(row.gstDocumentId),
             rowNumber: index + 1,
-            documentType: row.documentType,
+            documentType: String(row.documentType || row.noteType || ""),
             documentNumber: String(row.documentNumber),
-            documentDate: row.documentDate as Date,
+            documentDate: new Date(String(row.documentDate)),
             status: "READY",
             payload: row,
           })),
@@ -102,18 +220,7 @@ export async function prepareGstExport(
         status: created.status,
         itemCount: rows.length,
         payload: {
-          headers: [
-            "documentType",
-            "documentNumber",
-            "documentDate",
-            "status",
-            "taxableAmount",
-            "cgstAmount",
-            "sgstAmount",
-            "igstAmount",
-            "totalAmount",
-            "lineCount",
-          ],
+          headers: getHeaders(request.exportType),
           rows,
         },
       },
