@@ -85,6 +85,7 @@ export async function buildInvoiceDraft(
     }
 
     const normalizedCurrency = payloadValidation.data.normalizedCurrency;
+
     const settingsResult = input.gstSettingsId
       ? await getGstSettingsById(input.gstSettingsId)
       : await getActiveGstSettings();
@@ -128,6 +129,8 @@ export async function buildInvoiceDraft(
       };
     }
 
+    const taxData = taxResult.data;
+
     const numberingResult = await reserveGstNumber({
       gstSettingsId: settings.id,
       documentType: "TAX_INVOICE",
@@ -140,6 +143,8 @@ export async function buildInvoiceDraft(
         error: numberingResult.error || "GST numbering failed",
       };
     }
+
+    const numberingData = numberingResult.data;
 
     const buyerParty = await ensureBuyerParty(input);
 
@@ -158,8 +163,8 @@ export async function buildInvoiceDraft(
         shopifyOrderName: input.shopifyOrderName || null,
       },
       computedAt: new Date().toISOString(),
-      lines: taxResult.data.lines,
-      totals: taxResult.data.totals,
+      lines: taxData.lines,
+      totals: taxData.totals,
     };
 
     const created = await gstDb.$transaction(async (tx) => {
@@ -167,7 +172,7 @@ export async function buildInvoiceDraft(
         data: {
           documentType: "TAX_INVOICE",
           status: "DRAFT",
-          documentNumber: numberingResult.data.documentNumber,
+          documentNumber: numberingData.documentNumber,
           documentDate,
           gstSettingsId: settings.id,
           shopifyOrderId: input.shopifyOrderId || null,
@@ -179,24 +184,21 @@ export async function buildInvoiceDraft(
           placeOfSupplyStateCode:
             input.placeOfSupplyStateCode ||
             classificationData.placeOfSupplyStateCode,
-          isInterstate:
-            input.isInterstate ?? classificationData.isInterstate,
+          isInterstate: input.isInterstate ?? classificationData.isInterstate,
           currency: normalizedCurrency,
-          taxableAmount: new Prisma.Decimal(
-            taxResult.data.totals.taxableAmount
-          ),
-          cgstAmount: new Prisma.Decimal(taxResult.data.totals.cgstAmount),
-          sgstAmount: new Prisma.Decimal(taxResult.data.totals.sgstAmount),
-          igstAmount: new Prisma.Decimal(taxResult.data.totals.igstAmount),
-          cessAmount: new Prisma.Decimal(taxResult.data.totals.cessAmount),
-          totalAmount: new Prisma.Decimal(taxResult.data.totals.totalAmount),
+          taxableAmount: new Prisma.Decimal(taxData.totals.taxableAmount),
+          cgstAmount: new Prisma.Decimal(taxData.totals.cgstAmount),
+          sgstAmount: new Prisma.Decimal(taxData.totals.sgstAmount),
+          igstAmount: new Prisma.Decimal(taxData.totals.igstAmount),
+          cessAmount: new Prisma.Decimal(taxData.totals.cessAmount),
+          totalAmount: new Prisma.Decimal(taxData.totals.totalAmount),
           jsonSnapshot: snapshot,
           metadata: input.metadata || {},
         },
       });
 
       await tx.gstDocumentLine.createMany({
-        data: taxResult.data.lines.map((line) => ({
+        data: taxData.lines.map((line) => ({
           gstDocumentId: document.id,
           lineNumber: line.lineNumber,
           description: line.description,
