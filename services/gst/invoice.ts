@@ -23,7 +23,9 @@ function normalizeDate(value: Date | string | undefined): Date {
 
 async function ensureBuyerParty(input: GstInvoiceDraftInput) {
   const legalName = String(input.buyer?.legalName || "").trim();
-  const gstin = String(input.buyer?.gstin || "").trim().toUpperCase();
+  const gstin = String(input.buyer?.gstin || "")
+    .trim()
+    .toUpperCase();
   const stateCode = String(input.buyer?.stateCode || "").trim() || null;
 
   if (!legalName && !gstin) {
@@ -50,7 +52,9 @@ async function ensureBuyerParty(input: GstInvoiceDraftInput) {
   }
 
   return gstDb.gstParty.upsert({
-    where: { id: `ungst-${legalName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` },
+    where: {
+      id: `ungst-${legalName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    },
     update: {
       legalName: legalName || "Unregistered Buyer",
       stateCode,
@@ -68,22 +72,33 @@ async function ensureBuyerParty(input: GstInvoiceDraftInput) {
   });
 }
 
-export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<GstServiceResult<GstInvoiceDraftResult>> {
+export async function buildInvoiceDraft(
+  input: GstInvoiceDraftInput
+): Promise<GstServiceResult<GstInvoiceDraftResult>> {
   try {
     const payloadValidation = validateDocumentDraftPayload(input);
     if (!payloadValidation.ok || !payloadValidation.data) {
-      return { ok: false, error: payloadValidation.error || "Invalid GST document payload" };
+      return {
+        ok: false,
+        error: payloadValidation.error || "Invalid GST document payload",
+      };
     }
 
     const normalizedCurrency = payloadValidation.data.normalizedCurrency;
-    const settingsResult = input.gstSettingsId ? await getGstSettingsById(input.gstSettingsId) : await getActiveGstSettings();
+    const settingsResult = input.gstSettingsId
+      ? await getGstSettingsById(input.gstSettingsId)
+      : await getActiveGstSettings();
 
     if (!settingsResult.ok || !settingsResult.data) {
-      return { ok: false, error: settingsResult.error || "Unable to resolve GST settings" };
+      return {
+        ok: false,
+        error: settingsResult.error || "Unable to resolve GST settings",
+      };
     }
 
     const settings = settingsResult.data;
     const documentDate = normalizeDate(input.documentDate);
+
     const classification = classifySupply({
       sellerStateCode: settings.stateCode,
       billingStateCode: input.billingStateCode,
@@ -93,12 +108,24 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
     });
 
     if (!classification.ok || !classification.data) {
-      return { ok: false, error: classification.error || "GST classification failed" };
+      return {
+        ok: false,
+        error: classification.error || "GST classification failed",
+      };
     }
 
-    const taxResult = computeTotals(input.lines, input.isInterstate ?? classification.data.isInterstate);
+    const classificationData = classification.data;
+
+    const taxResult = computeTotals(
+      input.lines,
+      input.isInterstate ?? classificationData.isInterstate
+    );
+
     if (!taxResult.ok || !taxResult.data) {
-      return { ok: false, error: taxResult.error || "GST tax computation failed" };
+      return {
+        ok: false,
+        error: taxResult.error || "GST tax computation failed",
+      };
     }
 
     const numberingResult = await reserveGstNumber({
@@ -108,15 +135,19 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
     });
 
     if (!numberingResult.ok || !numberingResult.data) {
-      return { ok: false, error: numberingResult.error || "GST numbering failed" };
+      return {
+        ok: false,
+        error: numberingResult.error || "GST numbering failed",
+      };
     }
 
     const buyerParty = await ensureBuyerParty(input);
 
     const snapshot = {
       settings,
-      classification: classification.data,
+      classification: classificationData,
       buyer: input.buyer || {},
+      buyerParty,
       metadata: input.metadata || {},
       reverseCharge: Boolean(input.reverseCharge),
       source: {
@@ -136,7 +167,7 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
         data: {
           documentType: "TAX_INVOICE",
           status: "DRAFT",
-          documentNumber: numberingResult.data?.documentNumber,
+          documentNumber: numberingResult.data.documentNumber,
           documentDate,
           gstSettingsId: settings.id,
           shopifyOrderId: input.shopifyOrderId || null,
@@ -144,11 +175,16 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
           sourceOrderId: input.sourceOrderId || null,
           sourceOrderNumber: input.sourceOrderNumber || null,
           sourceReference: input.sourceReference || null,
-          supplyType: classification.data.supplyType,
-          placeOfSupplyStateCode: input.placeOfSupplyStateCode || classification.data.placeOfSupplyStateCode,
-          isInterstate: input.isInterstate ?? classification.data.isInterstate,
+          supplyType: classificationData.supplyType,
+          placeOfSupplyStateCode:
+            input.placeOfSupplyStateCode ||
+            classificationData.placeOfSupplyStateCode,
+          isInterstate:
+            input.isInterstate ?? classificationData.isInterstate,
           currency: normalizedCurrency,
-          taxableAmount: new Prisma.Decimal(taxResult.data.totals.taxableAmount),
+          taxableAmount: new Prisma.Decimal(
+            taxResult.data.totals.taxableAmount
+          ),
           cgstAmount: new Prisma.Decimal(taxResult.data.totals.cgstAmount),
           sgstAmount: new Prisma.Decimal(taxResult.data.totals.sgstAmount),
           igstAmount: new Prisma.Decimal(taxResult.data.totals.igstAmount),
@@ -189,10 +225,17 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
         gstDocumentId: created.id,
         nextState: snapshot,
       },
-      { actorType: "SYSTEM" },
+      { actorType: "SYSTEM" }
     );
 
-    return { ok: true, data: { id: created.id, documentNumber: created.documentNumber, status: "DRAFT" } };
+    return {
+      ok: true,
+      data: {
+        id: created.id,
+        documentNumber: created.documentNumber,
+        status: "DRAFT",
+      },
+    };
   } catch (error) {
     console.error("[GST INVOICE] buildInvoiceDraft failed", {
       error: error instanceof Error ? error.message : String(error),
@@ -201,11 +244,17 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
   }
 }
 
-export async function getGstInvoiceById(gstDocumentId: string): Promise<GstServiceResult<Record<string, unknown>>> {
+export async function getGstInvoiceById(
+  gstDocumentId: string
+): Promise<GstServiceResult<Record<string, unknown>>> {
   try {
     const document = await gstDb.gstDocument.findUnique({
       where: { id: String(gstDocumentId).trim() },
-      include: { lines: { orderBy: { lineNumber: "asc" } }, gstSettings: true, originalDocument: true },
+      include: {
+        lines: { orderBy: { lineNumber: "asc" } },
+        gstSettings: true,
+        originalDocument: true,
+      },
     });
 
     if (!document) {
