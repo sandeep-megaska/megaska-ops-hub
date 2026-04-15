@@ -41,7 +41,8 @@ export async function buildNoteDraft(input: GstNoteDraftInput): Promise<GstServi
     }
 
     const settings = settingsResult.data;
-    const normalizedCurrency = payloadValidation.data.normalizedCurrency;
+    const payloadData = payloadValidation.data;
+    const normalizedCurrency = payloadData.normalizedCurrency;
     let originalDocument: Record<string, unknown> | undefined;
 
     if (input.originalDocumentId) {
@@ -67,20 +68,23 @@ export async function buildNoteDraft(input: GstNoteDraftInput): Promise<GstServi
     if (!classification.ok || !classification.data) {
       return { ok: false, error: classification.error || "GST note classification failed" };
     }
+    const classificationData = classification.data;
 
-    const tax = computeTotals(input.lines, input.isInterstate ?? classification.data.isInterstate);
+    const tax = computeTotals(input.lines, input.isInterstate ?? classificationData.isInterstate);
     if (!tax.ok || !tax.data) {
       return { ok: false, error: tax.error || "GST note tax computation failed" };
     }
+    const taxData = tax.data;
 
     const numbering = await reserveGstNumber({ gstSettingsId: settings.id, documentType: input.noteType, documentDate });
     if (!numbering.ok || !numbering.data) {
       return { ok: false, error: numbering.error || "Unable to reserve note number" };
     }
+    const numberingData = numbering.data;
 
     const snapshot = {
       settings,
-      classification: classification.data,
+      classification: classificationData,
       buyer: input.buyer || {},
       metadata: input.metadata || {},
       noteType: input.noteType,
@@ -92,8 +96,8 @@ export async function buildNoteDraft(input: GstNoteDraftInput): Promise<GstServi
       originalDocumentId: input.originalDocumentId || null,
       originalDocumentNumber: originalDocument?.documentNumber || null,
       computedAt: new Date().toISOString(),
-      lines: tax.data.lines,
-      totals: tax.data.totals,
+      lines: taxData.lines,
+      totals: taxData.totals,
     };
 
     const created = await gstDb.$transaction(async (tx) => {
@@ -101,7 +105,7 @@ export async function buildNoteDraft(input: GstNoteDraftInput): Promise<GstServi
         data: {
           documentType: input.noteType,
           status: "DRAFT",
-          documentNumber: numbering.data?.documentNumber,
+          documentNumber: numberingData.documentNumber,
           documentDate,
           gstSettingsId: settings.id,
           originalDocumentId: input.originalDocumentId || null,
@@ -110,23 +114,23 @@ export async function buildNoteDraft(input: GstNoteDraftInput): Promise<GstServi
           sourceOrderId: input.sourceOrderId || null,
           sourceOrderNumber: input.sourceOrderNumber || null,
           sourceReference: input.sourceReference || null,
-          supplyType: classification.data.supplyType,
-          placeOfSupplyStateCode: input.placeOfSupplyStateCode || classification.data.placeOfSupplyStateCode,
-          isInterstate: input.isInterstate ?? classification.data.isInterstate,
+          supplyType: classificationData.supplyType,
+          placeOfSupplyStateCode: input.placeOfSupplyStateCode || classificationData.placeOfSupplyStateCode,
+          isInterstate: input.isInterstate ?? classificationData.isInterstate,
           currency: normalizedCurrency,
-          taxableAmount: new Prisma.Decimal(tax.data.totals.taxableAmount),
-          cgstAmount: new Prisma.Decimal(tax.data.totals.cgstAmount),
-          sgstAmount: new Prisma.Decimal(tax.data.totals.sgstAmount),
-          igstAmount: new Prisma.Decimal(tax.data.totals.igstAmount),
-          cessAmount: new Prisma.Decimal(tax.data.totals.cessAmount),
-          totalAmount: new Prisma.Decimal(tax.data.totals.totalAmount),
+          taxableAmount: new Prisma.Decimal(taxData.totals.taxableAmount),
+          cgstAmount: new Prisma.Decimal(taxData.totals.cgstAmount),
+          sgstAmount: new Prisma.Decimal(taxData.totals.sgstAmount),
+          igstAmount: new Prisma.Decimal(taxData.totals.igstAmount),
+          cessAmount: new Prisma.Decimal(taxData.totals.cessAmount),
+          totalAmount: new Prisma.Decimal(taxData.totals.totalAmount),
           jsonSnapshot: snapshot,
           metadata: input.metadata || {},
         },
       });
 
       await tx.gstDocumentLine.createMany({
-        data: tax.data.lines.map((line) => ({
+        data: taxData.lines.map((line) => ({
           gstDocumentId: document.id,
           lineNumber: line.lineNumber,
           description: line.description,

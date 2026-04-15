@@ -11,11 +11,12 @@ export async function GET(req: NextRequest) {
   }
 
   const result = await listGstExports(settings.data.id);
-  if (!result.ok) {
+  if (!result.ok || !result.data) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, exports: result.data || [] });
+  const exportsData = result.data;
+  return NextResponse.json({ ok: true, exports: exportsData });
 }
 
 export async function POST(req: NextRequest) {
@@ -43,9 +44,10 @@ export async function POST(req: NextRequest) {
     filters: body.filters && typeof body.filters === "object" ? (body.filters as Record<string, unknown>) : {},
   });
 
-  if (!result.ok) {
+  if (!result.ok || !result.data) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, export: result.data }, { status: 201 });
+  const exportData = result.data;
+  return NextResponse.json({ ok: true, export: exportData }, { status: 201 });
 }

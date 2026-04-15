@@ -62,9 +62,10 @@ export async function POST(req: NextRequest) {
 
   const result = await buildNoteDraft(parseDraftPayload(body));
 
-  if (!result.ok) {
+  if (!result.ok || !result.data) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, note: result.data }, { status: 201 });
+  const note = result.data;
+  return NextResponse.json({ ok: true, note }, { status: 201 });
 }

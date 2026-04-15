@@ -181,7 +181,7 @@ export async function getActiveGstSettings(): Promise<GstServiceResult<GstSettin
 
 export async function upsertGstSettings(input: GstSettingsWriteInput): Promise<GstServiceResult<GstSettingsSnapshot>> {
   const validation = validateGstIdentityConfig(input);
-  if (!validation.ok || !validation.data?.normalized) {
+  if (!validation.ok || !validation.data || !validation.data.normalized) {
     return { ok: false, error: validation.error || "Invalid GST settings" };
   }
 

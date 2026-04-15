@@ -80,13 +80,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: draftResult.error || "Unable to build shadow draft" }, { status: 400 });
   }
 
-  const comparison = compareShadowWithReference(draftResult.data, reference);
+  const draft = draftResult.data;
+  const comparison = compareShadowWithReference(draft, reference);
 
   return NextResponse.json(
     {
       ok: true,
       mode,
-      draft: draftResult.data,
+      draft,
       comparison,
     },
     { status: 200 },

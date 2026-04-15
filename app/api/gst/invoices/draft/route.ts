@@ -60,9 +60,10 @@ export async function POST(req: NextRequest) {
 
   const result = await buildInvoiceDraft(parseDraftPayload(body));
 
-  if (!result.ok) {
+  if (!result.ok || !result.data) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, invoice: result.data }, { status: 201 });
+  const invoice = result.data;
+  return NextResponse.json({ ok: true, invoice }, { status: 201 });
 }
