@@ -1,5 +1,7 @@
 import { gstDb } from "./db";
 import { writeGstAuditLog } from "./audit";
+import { GST_DEFAULT_NUMBERING_STRATEGY } from "./constants";
+import type { GstNumberingStrategy } from "./constants";
 import type { GstServiceResult } from "./types";
 import { GSTIN_REGEX, PAN_REGEX, PREFIX_REGEX, isValidStateCode } from "./validation";
 
@@ -13,7 +15,7 @@ export interface GstSettingsSnapshot {
   invoicePrefix: string;
   creditNotePrefix: string;
   debitNotePrefix: string;
-  invoiceNumberStrategy: "FINANCIAL_YEAR_SEQUENCE" | "CALENDAR_YEAR_SEQUENCE" | "MONTHLY_SEQUENCE" | "MANUAL";
+  invoiceNumberStrategy: GstNumberingStrategy;
   defaultCurrency: string;
   einvoiceEnabled: boolean;
   isActive: boolean;
@@ -117,7 +119,7 @@ export function validateGstIdentityConfig(
         invoicePrefix,
         creditNotePrefix,
         debitNotePrefix,
-        invoiceNumberStrategy: input.invoiceNumberStrategy ?? "FINANCIAL_YEAR_SEQUENCE",
+        invoiceNumberStrategy: input.invoiceNumberStrategy ?? GST_DEFAULT_NUMBERING_STRATEGY,
         defaultCurrency: normalize(input.defaultCurrency || "INR").toUpperCase(),
         einvoiceEnabled: Boolean(input.einvoiceEnabled),
         isActive: input.isActive ?? true,

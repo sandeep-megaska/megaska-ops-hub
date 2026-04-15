@@ -2,10 +2,11 @@
 
 import { useState, type FormEvent } from 'react'
 import { createNoteDraft, notePreview } from '../../lib/gst-client'
+import { GST_NOTE_DOCUMENT_TYPES } from '../../services/gst/constants'
 import { GstResponseViewer } from './gst-response-viewer'
 
 const defaultPayload = {
-  noteType: 'CREDIT_NOTE',
+  noteType: GST_NOTE_DOCUMENT_TYPES[0],
   sourceOrderId: 'TEST-ORDER-1001',
   sourceReference: 'TEST-CN-001',
   billingStateCode: '29',

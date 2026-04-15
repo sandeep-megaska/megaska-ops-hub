@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isGstNoteDocumentType } from "../../../../../services/gst/constants";
 import { buildShadowNoteDraft } from "../../../../../services/gst/shadow";
 import type { GstDocumentLineInput } from "../../../../../services/gst/types";
 
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Invalid JSON payload" }, { status: 400 });
   }
 
-  const noteType = body.noteType === "DEBIT_NOTE" ? "DEBIT_NOTE" : "CREDIT_NOTE";
+  const noteType = isGstNoteDocumentType(body.noteType) ? body.noteType : "CREDIT_NOTE";
 
   const source = {
     sourceOrderId: String(body.sourceOrderId || ""),

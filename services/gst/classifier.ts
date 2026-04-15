@@ -1,3 +1,4 @@
+import { GST_DEFAULT_SUPPLY_TYPE } from "./constants";
 import type { GstServiceResult, GstSupplyType } from "./types";
 
 export interface GstClassificationInput {
@@ -25,7 +26,7 @@ export function determineSupplyType(input: GstClassificationInput): GstSupplyTyp
     return input.explicitSupplyType;
   }
 
-  return input.buyerGstin ? "B2B" : "B2C";
+  return input.buyerGstin ? "B2B" : GST_DEFAULT_SUPPLY_TYPE;
 }
 
 export function determinePlaceOfSupply(input: GstClassificationInput): string | null {
@@ -54,7 +55,7 @@ export function classifySupply(
       supplyType,
       placeOfSupplyStateCode,
       isInterstate,
-      customerType: input.buyerGstin ? "B2B" : "B2C",
+      customerType: input.buyerGstin ? "B2B" : GST_DEFAULT_SUPPLY_TYPE,
     },
   };
 }

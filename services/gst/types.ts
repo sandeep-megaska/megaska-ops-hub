@@ -1,25 +1,12 @@
-export type GstDocumentType = "TAX_INVOICE" | "CREDIT_NOTE" | "DEBIT_NOTE";
+import type {
+  GstDocumentStatus,
+  GstDocumentType,
+  GstNoteDocumentType,
+  GstNumberingStrategy,
+  GstSupplyType,
+} from "./constants";
 
-export type GstDocumentStatus =
-  | "DRAFT"
-  | "ISSUED"
-  | "CANCELLED"
-  | "VOID"
-  | "FAILED";
-
-export type GstNumberingStrategy =
-  | "FINANCIAL_YEAR_SEQUENCE"
-  | "CALENDAR_YEAR_SEQUENCE"
-  | "MONTHLY_SEQUENCE"
-  | "MANUAL";
-
-export type GstSupplyType =
-  | "B2B"
-  | "B2C"
-  | "EXPORT"
-  | "SEZ_WITH_PAYMENT"
-  | "SEZ_WITHOUT_PAYMENT"
-  | "DEEMED_EXPORT";
+export type { GstDocumentType, GstDocumentStatus, GstNumberingStrategy, GstSupplyType };
 
 export interface GstTaxBreakdown {
   taxableAmount: number;
@@ -94,7 +81,7 @@ export interface GstInvoiceDraftInput {
 }
 
 export interface GstNoteDraftInput extends GstInvoiceDraftInput {
-  noteType: Extract<GstDocumentType, "CREDIT_NOTE" | "DEBIT_NOTE">;
+  noteType: GstNoteDocumentType;
   originalDocumentId?: string;
 }
 

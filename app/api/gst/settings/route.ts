@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  GST_DEFAULT_NUMBERING_STRATEGY,
+  isGstNumberingStrategy,
+} from "../../../../services/gst/constants";
 import { getActiveGstSettings, upsertGstSettings } from "../../../../services/gst/settings";
 
 export const runtime = "nodejs";
@@ -28,12 +32,9 @@ export async function POST(req: NextRequest) {
     invoicePrefix: String(body.invoicePrefix || ""),
     creditNotePrefix: String(body.creditNotePrefix || ""),
     debitNotePrefix: String(body.debitNotePrefix || ""),
-    invoiceNumberStrategy:
-      body.invoiceNumberStrategy === "CALENDAR_YEAR_SEQUENCE" ||
-      body.invoiceNumberStrategy === "MONTHLY_SEQUENCE" ||
-      body.invoiceNumberStrategy === "MANUAL"
-        ? body.invoiceNumberStrategy
-        : "FINANCIAL_YEAR_SEQUENCE",
+    invoiceNumberStrategy: isGstNumberingStrategy(body.invoiceNumberStrategy)
+      ? body.invoiceNumberStrategy
+      : GST_DEFAULT_NUMBERING_STRATEGY,
     defaultCurrency: body.defaultCurrency ? String(body.defaultCurrency) : "INR",
     einvoiceEnabled: Boolean(body.einvoiceEnabled),
     isActive: body.isActive === false ? false : true,
