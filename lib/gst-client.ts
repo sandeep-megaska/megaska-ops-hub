@@ -17,9 +17,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<ApiResult<T>
     })
 
     const contentType = res.headers.get('content-type') || ''
-    const body = contentType.includes('application/json')
-      ? await res.json()
-      : await res.text()
+    const body = contentType.includes('application/json') ? await res.json() : await res.text()
 
     if (!res.ok) {
       return {

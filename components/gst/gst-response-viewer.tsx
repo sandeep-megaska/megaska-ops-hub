@@ -19,9 +19,7 @@ export function GstResponseViewer({
         </div>
       ) : null}
       {data ? (
-        <pre className="overflow-x-auto rounded-xl border p-4 text-xs">
-          {JSON.stringify(data, null, 2)}
-        </pre>
+        <pre className="overflow-x-auto rounded-xl border p-4 text-xs">{JSON.stringify(data, null, 2)}</pre>
       ) : null}
     </div>
   )

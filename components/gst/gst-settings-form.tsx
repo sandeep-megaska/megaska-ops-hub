@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createOrUpdateGstSettings, getGstSettings } from '@/lib/gst-client'
+import { useEffect, useState, type FormEvent } from 'react'
+import { createOrUpdateGstSettings, getGstSettings } from '../../lib/gst-client'
 import { GstResponseViewer } from './gst-response-viewer'
 
 const initialState = {
@@ -36,10 +36,14 @@ export function GstSettingsForm() {
 
   useEffect(() => {
     let mounted = true
+
     async function load() {
       setFetching(true)
       const res = await getGstSettings()
-      if (!mounted) return
+
+      if (!mounted) {
+        return
+      }
 
       if (res.ok && res.data && typeof res.data === 'object') {
         const record = res.data as Record<string, unknown>
@@ -55,13 +59,15 @@ export function GstSettingsForm() {
 
       setFetching(false)
     }
-    load()
+
+    void load()
+
     return () => {
       mounted = false
     }
   }, [])
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     setError(undefined)
@@ -93,7 +99,7 @@ export function GstSettingsForm() {
               onChange={(e) =>
                 update(
                   key as keyof typeof form,
-                  typeof value === 'number' ? Number(e.target.value) : e.target.value
+                  typeof value === 'number' ? Number(e.target.value) : e.target.value,
                 )
               }
             />
@@ -109,11 +115,7 @@ export function GstSettingsForm() {
         </button>
       </form>
 
-      <GstResponseViewer
-        title="Settings Response"
-        data={result}
-        error={error}
-      />
+      <GstResponseViewer title="Settings Response" data={result} error={error} />
     </div>
   )
 }

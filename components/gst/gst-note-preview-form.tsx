@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { notePreview } from '@/lib/gst-client'
+import { useState, type FormEvent } from 'react'
+import { notePreview } from '../../lib/gst-client'
 import { GstResponseViewer } from './gst-response-viewer'
 
 const defaultPayload = {
@@ -46,13 +46,13 @@ export function GstNotePreviewForm() {
   const [result, setResult] = useState<unknown>()
   const [error, setError] = useState<string>()
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     setError(undefined)
 
     try {
-      const parsed = JSON.parse(payload)
+      const parsed = JSON.parse(payload) as Record<string, unknown>
       const res = await notePreview(parsed)
 
       if (res.ok) {
@@ -88,11 +88,7 @@ export function GstNotePreviewForm() {
         </button>
       </form>
 
-      <GstResponseViewer
-        title="Note Preview Response"
-        data={result}
-        error={error}
-      />
+      <GstResponseViewer title="Note Preview Response" data={result} error={error} />
     </div>
   )
 }

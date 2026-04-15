@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { reconcilePreview } from '@/lib/gst-client'
+import { useState, type FormEvent } from 'react'
+import { reconcilePreview } from '../../lib/gst-client'
 import { GstResponseViewer } from './gst-response-viewer'
 
 const defaultPayload = {
@@ -16,13 +16,13 @@ export function GstReconcileForm() {
   const [result, setResult] = useState<unknown>()
   const [error, setError] = useState<string>()
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     setError(undefined)
 
     try {
-      const parsed = JSON.parse(payload)
+      const parsed = JSON.parse(payload) as Record<string, unknown>
       const res = await reconcilePreview(parsed)
 
       if (res.ok) {
@@ -58,11 +58,7 @@ export function GstReconcileForm() {
         </button>
       </form>
 
-      <GstResponseViewer
-        title="Reconcile Response"
-        data={result}
-        error={error}
-      />
+      <GstResponseViewer title="Reconcile Response" data={result} error={error} />
     </div>
   )
 }

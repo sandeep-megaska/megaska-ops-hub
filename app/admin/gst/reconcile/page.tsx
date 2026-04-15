@@ -1,5 +1,5 @@
-import { GstShell } from '@/components/gst/gst-shell'
-import { GstReconcileForm } from '@/components/gst/gst-reconcile-form'
+import { GstReconcileForm } from '../../../../components/gst/gst-reconcile-form'
+import { GstShell } from '../../../../components/gst/gst-shell'
 
 export default function GstReconcilePage() {
   return (
