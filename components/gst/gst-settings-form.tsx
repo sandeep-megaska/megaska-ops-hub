@@ -9,62 +9,36 @@ const initialState = {
   tradeName: 'Megaska Test',
   gstin: '29ABCDE1234F1Z5',
   pan: 'ABCDE1234F',
-  email: 'gst-test@megaska.com',
-  phone: '9999999999',
-  addressLine1: 'Test Address Line 1',
-  addressLine2: '',
-  city: 'Bengaluru',
-  state: 'Karnataka',
   stateCode: '29',
-  postalCode: '560001',
-  country: 'IN',
   invoicePrefix: 'GST',
   creditNotePrefix: 'CN',
   debitNotePrefix: 'DN',
-  invoiceSequencePadding: 6,
-  financialYearStartMonth: 4,
-  defaultPlaceOfSupply: '29',
+  invoiceNumberStrategy: 'FINANCIAL_YEAR_SEQUENCE',
   defaultCurrency: 'INR',
+  einvoiceEnabled: false,
+  isActive: true,
 }
 
 export function GstSettingsForm() {
   const [form, setForm] = useState(initialState)
   const [loading, setLoading] = useState(false)
-  const [fetching, setFetching] = useState(false)
   const [result, setResult] = useState<unknown>()
   const [error, setError] = useState<string>()
 
   useEffect(() => {
-    let mounted = true
-
-    async function load() {
-      setFetching(true)
+    void (async () => {
       const res = await getGstSettings()
-
-      if (!mounted) {
+      if (!res.ok) {
+        setError(res.error)
         return
       }
 
-      if (res.ok && res.data && typeof res.data === 'object') {
-        const record = res.data as Record<string, unknown>
-        setForm((prev) => ({
-          ...prev,
-          ...record,
-        }))
+      const record = (res.data as { settings?: Record<string, unknown> })?.settings
+      if (record) {
+        setForm((prev) => ({ ...prev, ...record }))
         setResult(record)
-        setError(undefined)
-      } else if (!res.ok) {
-        setError(res.error)
       }
-
-      setFetching(false)
-    }
-
-    void load()
-
-    return () => {
-      mounted = false
-    }
+    })()
   }, [])
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -73,7 +47,6 @@ export function GstSettingsForm() {
     setError(undefined)
 
     const res = await createOrUpdateGstSettings(form)
-
     if (res.ok) {
       setResult(res.data)
     } else {
@@ -81,10 +54,6 @@ export function GstSettingsForm() {
     }
 
     setLoading(false)
-  }
-
-  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }))
   }
 
   return (
@@ -97,20 +66,13 @@ export function GstSettingsForm() {
               className="w-full rounded-xl border px-3 py-2"
               value={String(value ?? '')}
               onChange={(e) =>
-                update(
-                  key as keyof typeof form,
-                  typeof value === 'number' ? Number(e.target.value) : e.target.value,
-                )
+                setForm((prev) => ({ ...prev, [key]: typeof value === 'boolean' ? e.target.value === 'true' : e.target.value }))
               }
             />
           </label>
         ))}
 
-        <button
-          type="submit"
-          disabled={loading || fetching}
-          className="rounded-xl border px-4 py-2 font-medium"
-        >
+        <button type="submit" disabled={loading} className="rounded-xl border px-4 py-2 font-medium">
           {loading ? 'Saving...' : 'Save GST Settings'}
         </button>
       </form>

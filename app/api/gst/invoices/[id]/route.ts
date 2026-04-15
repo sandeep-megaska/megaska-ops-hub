@@ -11,8 +11,8 @@ export async function GET(
   const result = await getGstInvoiceById(params.id);
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 404 });
+    return NextResponse.json({ ok: false, error: result.error }, { status: 404 });
   }
 
-  return NextResponse.json({ invoice: result.data });
+  return NextResponse.json({ ok: true, invoice: result.data });
 }

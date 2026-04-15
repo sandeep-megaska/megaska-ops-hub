@@ -1,3 +1,4 @@
+import { writeGstAuditLog } from "./audit";
 import { gstDb } from "./db";
 import type { GstExportRequest, GstServiceResult } from "./types";
 
@@ -13,11 +14,7 @@ export interface GstExportBatchResult {
 }
 
 function exportTypeFilter(exportType: GstExportRequest["exportType"]): string[] {
-  if (exportType === "notes_register") {
-    return ["CREDIT_NOTE", "DEBIT_NOTE"];
-  }
-
-  return ["TAX_INVOICE"];
+  return exportType === "notes_register" ? ["CREDIT_NOTE", "DEBIT_NOTE"] : ["TAX_INVOICE"];
 }
 
 function toAmount(value: unknown): string {
@@ -26,49 +23,6 @@ function toAmount(value: unknown): string {
 
 function formatDate(value: Date): string {
   return value.toISOString().slice(0, 10);
-}
-
-function buildInvoiceRegisterRow(doc: GstExportRowInput) {
-  return {
-    registerType: "invoice_register",
-    gstDocumentId: doc.id,
-    documentType: doc.documentType,
-    documentNumber: doc.documentNumber,
-    documentDate: formatDate(doc.documentDate),
-    status: doc.status,
-    supplyType: doc.supplyType || "",
-    placeOfSupplyStateCode: doc.placeOfSupplyStateCode || "",
-    isInterstate: Boolean(doc.isInterstate),
-    taxableAmount: toAmount(doc.taxableAmount),
-    cgstAmount: toAmount(doc.cgstAmount),
-    sgstAmount: toAmount(doc.sgstAmount),
-    igstAmount: toAmount(doc.igstAmount),
-    cessAmount: toAmount(doc.cessAmount || 0),
-    totalAmount: toAmount(doc.totalAmount),
-    lineCount: Array.isArray(doc.lines) ? doc.lines.length : 0,
-  };
-}
-
-function buildNotesRegisterRow(doc: GstExportRowInput) {
-  return {
-    registerType: "notes_register",
-    gstDocumentId: doc.id,
-    noteType: doc.documentType,
-    documentNumber: doc.documentNumber,
-    documentDate: formatDate(doc.documentDate),
-    status: doc.status,
-    originalDocumentId: doc.originalDocumentId,
-    supplyType: doc.supplyType || "",
-    placeOfSupplyStateCode: doc.placeOfSupplyStateCode || "",
-    isInterstate: Boolean(doc.isInterstate),
-    taxableAmount: toAmount(doc.taxableAmount),
-    cgstAmount: toAmount(doc.cgstAmount),
-    sgstAmount: toAmount(doc.sgstAmount),
-    igstAmount: toAmount(doc.igstAmount),
-    cessAmount: toAmount(doc.cessAmount || 0),
-    totalAmount: toAmount(doc.totalAmount),
-    lineCount: Array.isArray(doc.lines) ? doc.lines.length : 0,
-  };
 }
 
 type GstExportRowInput = {
@@ -90,46 +44,32 @@ type GstExportRowInput = {
   lines?: unknown[];
 };
 
-function buildStableRows(
-  exportType: GstExportRequest["exportType"],
-  documents: GstExportRowInput[],
-): Array<Record<string, unknown>> {
-  const builder = exportType === "notes_register" ? buildNotesRegisterRow : buildInvoiceRegisterRow;
-
-  return documents.map((doc) => builder(doc)).sort((a, b) => {
-    const ad = String(a.documentDate || "");
-    const bd = String(b.documentDate || "");
-    if (ad !== bd) {
-      return ad.localeCompare(bd);
-    }
-
-    return String(a.documentNumber || "").localeCompare(String(b.documentNumber || ""));
-  });
+function buildStableRows(exportType: GstExportRequest["exportType"], documents: GstExportRowInput[]): Array<Record<string, unknown>> {
+  return documents
+    .map((doc) => ({
+      registerType: exportType,
+      gstDocumentId: doc.id,
+      documentType: doc.documentType,
+      noteType: doc.documentType,
+      documentNumber: doc.documentNumber,
+      documentDate: formatDate(doc.documentDate),
+      status: doc.status,
+      originalDocumentId: doc.originalDocumentId || null,
+      supplyType: doc.supplyType || "",
+      placeOfSupplyStateCode: doc.placeOfSupplyStateCode || "",
+      isInterstate: Boolean(doc.isInterstate),
+      taxableAmount: toAmount(doc.taxableAmount),
+      cgstAmount: toAmount(doc.cgstAmount),
+      sgstAmount: toAmount(doc.sgstAmount),
+      igstAmount: toAmount(doc.igstAmount),
+      cessAmount: toAmount(doc.cessAmount || 0),
+      totalAmount: toAmount(doc.totalAmount),
+      lineCount: Array.isArray(doc.lines) ? doc.lines.length : 0,
+    }))
+    .sort((a, b) => `${a.documentDate}`.localeCompare(`${b.documentDate}`) || `${a.documentNumber}`.localeCompare(`${b.documentNumber}`));
 }
 
-function getHeaders(exportType: GstExportRequest["exportType"]): string[] {
-  if (exportType === "notes_register") {
-    return [
-      "registerType",
-      "gstDocumentId",
-      "noteType",
-      "documentNumber",
-      "documentDate",
-      "status",
-      "originalDocumentId",
-      "supplyType",
-      "placeOfSupplyStateCode",
-      "isInterstate",
-      "taxableAmount",
-      "cgstAmount",
-      "sgstAmount",
-      "igstAmount",
-      "cessAmount",
-      "totalAmount",
-      "lineCount",
-    ];
-  }
-
+function getHeaders(): string[] {
   return [
     "registerType",
     "gstDocumentId",
@@ -137,6 +77,7 @@ function getHeaders(exportType: GstExportRequest["exportType"]): string[] {
     "documentNumber",
     "documentDate",
     "status",
+    "originalDocumentId",
     "supplyType",
     "placeOfSupplyStateCode",
     "isInterstate",
@@ -150,24 +91,17 @@ function getHeaders(exportType: GstExportRequest["exportType"]): string[] {
   ];
 }
 
-export async function prepareGstExport(
-  request: GstExportRequest,
-): Promise<GstServiceResult<GstExportBatchResult>> {
+export async function prepareGstExport(request: GstExportRequest): Promise<GstServiceResult<GstExportBatchResult>> {
   try {
     const types = exportTypeFilter(request.exportType);
     const documents = await gstDb.gstDocument.findMany({
       where: {
         gstSettingsId: request.gstSettingsId,
         documentType: { in: types },
-        documentDate: {
-          gte: request.periodStart,
-          lte: request.periodEnd,
-        },
+        documentDate: { gte: request.periodStart, lte: request.periodEnd },
       },
       orderBy: [{ documentDate: "asc" }, { documentNumber: "asc" }],
-      include: {
-        lines: { orderBy: { lineNumber: "asc" } },
-      },
+      include: { lines: { orderBy: { lineNumber: "asc" } } },
     });
 
     const rows = buildStableRows(request.exportType, documents);
@@ -192,7 +126,7 @@ export async function prepareGstExport(
             gstExportId: exportBatch.id,
             gstDocumentId: String(row.gstDocumentId),
             rowNumber: index + 1,
-            documentType: String(row.documentType || row.noteType || ""),
+            documentType: String(row.documentType || ""),
             documentNumber: String(row.documentNumber),
             documentDate: new Date(String(row.documentDate)),
             status: "READY",
@@ -204,13 +138,20 @@ export async function prepareGstExport(
       return exportBatch;
     });
 
-    console.info("[GST EXPORT] Generated GST export batch", {
-      gstExportId: created.id,
-      exportType: created.exportType,
-      periodStart: request.periodStart.toISOString(),
-      periodEnd: request.periodEnd.toISOString(),
-      itemCount: rows.length,
-    });
+    await writeGstAuditLog(
+      {
+        action: "GST_EXPORT_GENERATED",
+        gstSettingsId: request.gstSettingsId,
+        gstExportId: created.id,
+        nextState: {
+          exportType: request.exportType,
+          periodStart: request.periodStart,
+          periodEnd: request.periodEnd,
+          itemCount: rows.length,
+        },
+      },
+      { actorType: "SYSTEM" },
+    );
 
     return {
       ok: true,
@@ -219,17 +160,25 @@ export async function prepareGstExport(
         exportType: request.exportType,
         status: created.status,
         itemCount: rows.length,
-        payload: {
-          headers: getHeaders(request.exportType),
-          rows,
-        },
+        payload: { headers: getHeaders(), rows },
       },
     };
   } catch (error) {
-    console.error("[GST EXPORT] prepareGstExport failed", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-
+    console.error("[GST EXPORT] prepareGstExport failed", { error: error instanceof Error ? error.message : String(error) });
     return { ok: false, error: "Failed to prepare GST export batch" };
+  }
+}
+
+export async function listGstExports(gstSettingsId: string): Promise<GstServiceResult<Array<Record<string, unknown>>>> {
+  try {
+    const rows = await gstDb.gstExport.findMany({
+      where: { gstSettingsId: String(gstSettingsId).trim() },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+    return { ok: true, data: rows };
+  } catch (error) {
+    console.error("[GST EXPORT] listGstExports failed", { error: error instanceof Error ? error.message : String(error) });
+    return { ok: false, error: "Failed to list GST exports" };
   }
 }

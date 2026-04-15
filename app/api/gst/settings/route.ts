@@ -6,16 +6,16 @@ export const runtime = "nodejs";
 export async function GET() {
   const result = await getActiveGstSettings();
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 404 });
+    return NextResponse.json({ ok: false, error: result.error }, { status: 404 });
   }
 
-  return NextResponse.json({ settings: result.data });
+  return NextResponse.json({ ok: true, settings: result.data });
 }
 
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) {
-    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Invalid JSON payload" }, { status: 400 });
   }
 
   const result = await upsertGstSettings({
@@ -39,8 +39,8 @@ export async function POST(req: NextRequest) {
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 400 });
+    return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
   }
 
-  return NextResponse.json({ settings: result.data }, { status: 201 });
+  return NextResponse.json({ ok: true, settings: result.data }, { status: 201 });
 }

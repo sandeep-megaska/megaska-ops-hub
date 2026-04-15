@@ -69,10 +69,17 @@ export interface GstPartyInput {
   legalName?: string;
   gstin?: string | null;
   stateCode?: string | null;
+  email?: string | null;
+  phone?: string | null;
 }
 
 export interface GstInvoiceDraftInput {
   gstSettingsId?: string;
+  sourceOrderId?: string;
+  sourceOrderNumber?: string;
+  sourceReference?: string;
+  shopifyOrderId?: string;
+  shopifyOrderName?: string;
   documentDate?: Date | string;
   billingStateCode?: string | null;
   shippingStateCode?: string | null;
@@ -80,6 +87,7 @@ export interface GstInvoiceDraftInput {
   supplyType?: GstSupplyType;
   placeOfSupplyStateCode?: string;
   isInterstate?: boolean;
+  reverseCharge?: boolean;
   currency?: string;
   lines: GstDocumentLineInput[];
   metadata?: Record<string, unknown>;
@@ -88,4 +96,18 @@ export interface GstInvoiceDraftInput {
 export interface GstNoteDraftInput extends GstInvoiceDraftInput {
   noteType: Extract<GstDocumentType, "CREDIT_NOTE" | "DEBIT_NOTE">;
   originalDocumentId?: string;
+}
+
+export interface GstReconcileRunInput {
+  gstSettingsId: string;
+  periodStart: Date;
+  periodEnd: Date;
+  sourceSystem: string;
+  sourceDocuments: Array<{
+    documentNumber: string;
+    documentType?: string;
+    documentDate?: string;
+    totalAmount?: number;
+    status?: string;
+  }>;
 }

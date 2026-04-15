@@ -10,7 +10,7 @@ export default function GstAdminPage() {
           generation to checkout, order creation, or refunds automatically.
         </p>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Link href="/admin/gst/settings" className="rounded-2xl border p-4">
             <div className="font-semibold">Settings</div>
             <div className="mt-1 text-sm text-gray-600">Create and update GST settings.</div>
@@ -28,7 +28,17 @@ export default function GstAdminPage() {
 
           <Link href="/admin/gst/reconcile" className="rounded-2xl border p-4">
             <div className="font-semibold">Reconcile</div>
-            <div className="mt-1 text-sm text-gray-600">Run debug reconciliation safely.</div>
+            <div className="mt-1 text-sm text-gray-600">Run debug + persisted reconciliation.</div>
+          </Link>
+
+          <Link href="/admin/gst/documents" className="rounded-2xl border p-4">
+            <div className="font-semibold">Document Viewer</div>
+            <div className="mt-1 text-sm text-gray-600">Fetch invoice/note and PDF payload.</div>
+          </Link>
+
+          <Link href="/admin/gst/exports" className="rounded-2xl border p-4">
+            <div className="font-semibold">Exports</div>
+            <div className="mt-1 text-sm text-gray-600">Run and inspect GST export batches.</div>
           </Link>
         </div>
       </div>
