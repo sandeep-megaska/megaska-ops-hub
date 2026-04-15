@@ -32,6 +32,9 @@ model CustomerProfile {
   walletAccounts      WalletAccount[]
   walletTransactions  WalletTransaction[]
   walletReservations  WalletReservation[]
+  gstDocuments       GstDocument[]
+  gstParties         GstParty[]
+
 }
 
 model AuthSession {
@@ -384,6 +387,10 @@ model GstSettings {
 
   documents             GstDocument[]
   counters              GstCounter[]
+  exports               GstExport[]
+  reconciliationRuns    GstReconciliationRun[]
+  auditLogs             GstAuditLog[]
+
 }
 
 model GstCounter {
@@ -413,6 +420,7 @@ model GstDocument {
   shopifyOrderId         String?
   shopifyOrderName       String?
   customerProfileId      String?
+  customer               CustomerProfile?  @relation(fields: [customerProfileId], references: [id], onDelete: SetNull)
   originalDocumentId     String?
   originalDocument       GstDocument?      @relation("GstDocToOriginal", fields: [originalDocumentId], references: [id])
   derivedNotes           GstDocument[]     @relation("GstDocToOriginal")
@@ -436,6 +444,9 @@ model GstDocument {
   updatedAt              DateTime          @updatedAt
 
   lines                  GstDocumentLine[]
+  exportItems            GstExportItem[]
+  auditLogs              GstAuditLog[]
+  legacyLinks            GstLegacyDocument[]
 
   @@index([gstSettingsId])
   @@index([customerProfileId])
@@ -485,6 +496,8 @@ model GstParty {
   updatedAt           DateTime @updatedAt
 
   customer            CustomerProfile? @relation(fields: [customerProfileId], references: [id], onDelete: SetNull)
+  auditLogs           GstAuditLog[]
+  legacyDocuments     GstLegacyDocument[]
 
   @@index([customerProfileId])
   @@index([legalName])
@@ -508,6 +521,7 @@ model GstExport {
 
   gstSettings         GstSettings @relation(fields: [gstSettingsId], references: [id], onDelete: Cascade)
   items               GstExportItem[]
+  auditLogs           GstAuditLog[]
 
   @@index([gstSettingsId, periodStart, periodEnd])
   @@index([status, createdAt])
@@ -556,6 +570,7 @@ model GstReconciliationRun {
   updatedAt           DateTime @updatedAt
 
   gstSettings         GstSettings @relation(fields: [gstSettingsId], references: [id], onDelete: Cascade)
+  auditLogs           GstAuditLog[]
 
   @@index([gstSettingsId, periodStart, periodEnd])
   @@index([status, startedAt])
