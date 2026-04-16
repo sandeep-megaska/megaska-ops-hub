@@ -68,39 +68,28 @@ export function GstInvoicePreviewForm() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Invoice Draft Workflow</h2>
-        <p className="text-sm text-gray-600">Preview validates classification and tax calculation without reserving a number. Create Draft reserves a GST number and stores a DRAFT document.</p>
-        <div className="grid gap-3 md:grid-cols-2">
-          {[
-            ['Source Order ID', 'sourceOrderId'],
-            ['Order Number', 'sourceOrderNumber'],
-            ['Reference', 'sourceReference'],
-            ['Billing State', 'billingStateCode'],
-            ['Shipping State', 'shippingStateCode'],
-            ['Buyer Legal Name', 'buyerLegalName'],
-            ['Buyer GSTIN', 'buyerGstin'],
-            ['Buyer State', 'buyerStateCode'],
-            ['Item Description', 'description'],
-          ].map(([label, key]) => (
-            <label key={key} className="text-sm">{label}<input className="mt-1 w-full rounded-lg border px-3 py-2" value={String(form[key as keyof InvoiceFormState])} onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))} /></label>
-          ))}
-          <label className="text-sm">Quantity<input type="number" className="mt-1 w-full rounded-lg border px-3 py-2" value={form.quantity} onChange={(e) => setForm((p) => ({ ...p, quantity: Number(e.target.value) }))} /></label>
-          <label className="text-sm">Unit Price<input type="number" className="mt-1 w-full rounded-lg border px-3 py-2" value={form.unitPrice} onChange={(e) => setForm((p) => ({ ...p, unitPrice: Number(e.target.value) }))} /></label>
-          <label className="text-sm">Tax Rate %<input type="number" className="mt-1 w-full rounded-lg border px-3 py-2" value={form.taxRate} onChange={(e) => setForm((p) => ({ ...p, taxRate: Number(e.target.value) }))} /></label>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button disabled={loading} className="rounded-lg border px-4 py-2" onClick={() => void run('preview')}>Preview Invoice</button>
-          <button disabled={loading} className="rounded-lg bg-black px-4 py-2 text-white" onClick={() => void run('draft')}>Create Draft Invoice</button>
-          <button className="rounded-lg border px-4 py-2" onClick={() => setShowRaw((v) => !v)}>{showRaw ? 'Hide' : 'Show'} Raw Payload</button>
-        </div>
-        {numberingHint ? <p className="text-xs text-amber-700">{numberingHint}</p> : null}
-
-        {showRaw ? <pre className="overflow-x-auto rounded-xl border bg-gray-50 p-3 text-xs">{JSON.stringify(payload, null, 2)}</pre> : null}
-      </div>
-      <GstResponseViewer title="Invoice Response" data={result} error={error} />
+   <div className="space-y-6">
+  {/* Section Card */}
+  <div className="rounded-xl border bg-white p-5">
+    <h2 className="text-lg font-semibold">Order Details</h2>
+    <div className="mt-4 grid gap-3 md:grid-cols-2">
+      {/* fields here */}
     </div>
+  </div>
+
+  <div className="rounded-xl border bg-white p-5">
+    <h2 className="text-lg font-semibold">Buyer Details</h2>
+    <div className="mt-4 grid gap-3 md:grid-cols-2">
+      {/* fields here */}
+    </div>
+  </div>
+
+  <div className="rounded-xl border bg-white p-5">
+    <h2 className="text-lg font-semibold">Line Item</h2>
+    <div className="mt-4 grid gap-3 md:grid-cols-2">
+      {/* fields here */}
+    </div>
+  </div>
+</div>
   )
 }
