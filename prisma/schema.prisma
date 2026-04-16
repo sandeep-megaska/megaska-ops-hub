@@ -390,6 +390,9 @@ model GstSettings {
   exports               GstExport[]
   reconciliationRuns    GstReconciliationRun[]
   auditLogs             GstAuditLog[]
+  orderImports          GstOrderImport[]
+  invoiceTemplates      GstInvoiceTemplate[]
+  reportRuns            GstReportRun[]
 
 }
 
@@ -631,4 +634,181 @@ model GstLegacyDocument {
   @@index([legacyDocumentNumber])
   @@index([gstDocumentId])
   @@index([gstPartyId])
+}
+
+model GstHsnCode {
+  id            String          @id @default(uuid())
+  hsnCode       String          @unique
+  description   String
+  isService     Boolean         @default(false)
+  isActive      Boolean
+  effectiveFrom DateTime?       @db.Date
+  effectiveTo   DateTime?       @db.Date
+  metadata      Json?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  slabMaps      GstHsnSlabMap[]
+  productMaps   GstProductTaxMap[]
+}
+
+model GstTaxSlab {
+  id            String          @id @default(uuid())
+  slabCode      String          @unique
+  taxRate       Decimal         @db.Decimal(5, 2)
+  cessRate      Decimal         @default(0) @db.Decimal(5, 2)
+  isActive      Boolean
+  effectiveFrom DateTime?       @db.Date
+  effectiveTo   DateTime?       @db.Date
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  hsnMaps       GstHsnSlabMap[]
+  productMaps   GstProductTaxMap[]
+}
+
+model GstHsnSlabMap {
+  id            String      @id @default(uuid())
+  hsnId         String
+  slabId        String
+  effectiveFrom DateTime?   @db.Date
+  effectiveTo   DateTime?   @db.Date
+  priority      Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  hsn           GstHsnCode  @relation(fields: [hsnId], references: [id], onDelete: Cascade)
+  slab          GstTaxSlab  @relation(fields: [slabId], references: [id], onDelete: Cascade)
+
+  @@index([hsnId])
+  @@index([slabId])
+  @@index([effectiveFrom, effectiveTo])
+  @@unique([hsnId, slabId, effectiveFrom, effectiveTo])
+}
+
+model GstProductTaxMap {
+  id               String      @id @default(uuid())
+  shopifyProductId String
+  shopifyVariantId String?
+  hsnId            String
+  slabId           String
+  source           String
+  status           String
+  effectiveFrom    DateTime?   @db.Date
+  effectiveTo      DateTime?   @db.Date
+  lastValidatedAt  DateTime?
+  metadata         Json?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  hsn              GstHsnCode  @relation(fields: [hsnId], references: [id], onDelete: Restrict)
+  slab             GstTaxSlab  @relation(fields: [slabId], references: [id], onDelete: Restrict)
+
+  @@index([shopifyProductId])
+  @@index([shopifyVariantId])
+  @@index([status])
+  @@unique([shopifyProductId, shopifyVariantId])
+}
+
+model GstOrderImport {
+  id               String               @id @default(uuid())
+  gstSettingsId    String
+  shopifyOrderId   String               @unique
+  shopifyOrderName String
+  orderCreatedAt   DateTime
+  orderCurrency    String
+  orderSubtotal    Decimal              @db.Decimal(14, 2)
+  orderTaxTotal    Decimal              @db.Decimal(14, 2)
+  orderGrandTotal  Decimal              @db.Decimal(14, 2)
+  shippingStateCode String?
+  billingStateCode String?
+  importStatus     String
+  eligibilityStatus String
+  readinessErrors  Json                 @default("[]")
+  snapshot         Json
+  lastSyncedAt     DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  gstSettings      GstSettings          @relation(fields: [gstSettingsId], references: [id], onDelete: Cascade)
+  lines            GstOrderImportLine[]
+
+  @@index([gstSettingsId])
+  @@index([shopifyOrderName])
+  @@index([importStatus, eligibilityStatus])
+  @@index([orderCreatedAt])
+}
+
+model GstOrderImportLine {
+  id               String        @id @default(uuid())
+  gstOrderImportId String
+  lineNumber       Int
+  shopifyLineItemId String?
+  shopifyProductId String?
+  shopifyVariantId String?
+  title            String
+  sku              String?
+  quantity         Decimal       @db.Decimal(14, 3)
+  unitPrice        Decimal       @db.Decimal(14, 2)
+  discount         Decimal       @db.Decimal(14, 2) @default(0)
+  taxableAmount    Decimal       @db.Decimal(14, 2)
+  mappedHsnCode    String?
+  mappedTaxRate    Decimal?      @db.Decimal(5, 2)
+  mappedCessRate   Decimal?      @db.Decimal(5, 2)
+  mappingStatus    String
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  orderImport      GstOrderImport @relation(fields: [gstOrderImportId], references: [id], onDelete: Cascade)
+
+  @@unique([gstOrderImportId, lineNumber])
+  @@index([gstOrderImportId])
+  @@index([shopifyProductId])
+  @@index([shopifyVariantId])
+  @@index([mappingStatus])
+}
+
+model GstInvoiceTemplate {
+  id               String      @id @default(uuid())
+  gstSettingsId    String
+  templateName     String
+  isActive         Boolean
+  isDefault        Boolean
+  headerText       String?
+  footerText       String?
+  declarationText  String?
+  notesText        String?
+  logoFileUrl      String?
+  themeConfig      Json?
+  version          Int
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  gstSettings      GstSettings @relation(fields: [gstSettingsId], references: [id], onDelete: Cascade)
+
+  @@index([gstSettingsId, isActive])
+  @@index([gstSettingsId, isDefault])
+}
+
+model GstReportRun {
+  id            String      @id @default(uuid())
+  gstSettingsId String
+  reportType    String
+  periodStart   DateTime
+  periodEnd     DateTime
+  format        String
+  status        String
+  filters       Json?
+  fileUrl       String?
+  checksum      String?
+  rowCount      Int
+  generatedAt   DateTime?
+  errorMessage  String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  gstSettings   GstSettings @relation(fields: [gstSettingsId], references: [id], onDelete: Cascade)
+
+  @@index([gstSettingsId, reportType, periodStart, periodEnd])
+  @@index([status, createdAt])
 }
