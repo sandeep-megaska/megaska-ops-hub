@@ -86,7 +86,6 @@ export async function buildInvoiceDraft(
     }
 
     const payloadData = payloadValidation.data;
-    const normalizedCurrency = payloadData.normalizedCurrency;
 
     const settingsResult = input.gstSettingsId
       ? await getGstSettingsById(input.gstSettingsId)
@@ -104,9 +103,9 @@ export async function buildInvoiceDraft(
 
     const classification = classifySupply({
       sellerStateCode: settings.stateCode,
-      billingStateCode: input.billingStateCode,
-      shippingStateCode: input.shippingStateCode,
-      buyerGstin: input.buyer?.gstin,
+      billingStateCode: payloadData.normalizedBillingStateCode,
+      shippingStateCode: payloadData.normalizedShippingStateCode,
+      buyerGstin: payloadData.normalizedBuyerGstin,
       explicitSupplyType: input.supplyType,
     });
 
@@ -119,10 +118,7 @@ export async function buildInvoiceDraft(
 
     const classificationData = classification.data;
 
-    const taxResult = computeTotals(
-      input.lines,
-      input.isInterstate ?? classificationData.isInterstate
-    );
+    const taxResult = computeTotals(input.lines, classificationData.isInterstate);
 
     if (!taxResult.ok || !taxResult.data) {
       return {
@@ -148,12 +144,23 @@ export async function buildInvoiceDraft(
 
     const numberingData = numberingResult.data;
 
-    const buyerParty = await ensureBuyerParty(input);
+    const buyerParty = await ensureBuyerParty({
+      ...input,
+      buyer: {
+        ...input.buyer,
+        gstin: payloadData.normalizedBuyerGstin,
+        stateCode: payloadData.normalizedBuyerStateCode,
+      },
+    });
 
     const snapshot = {
       settings,
       classification: classificationData,
-      buyer: input.buyer || {},
+      buyer: {
+        ...(input.buyer || {}),
+        gstin: payloadData.normalizedBuyerGstin,
+        stateCode: payloadData.normalizedBuyerStateCode,
+      },
       buyerParty,
       metadata: input.metadata || {},
       reverseCharge: Boolean(input.reverseCharge),
@@ -183,11 +190,9 @@ export async function buildInvoiceDraft(
           sourceOrderNumber: input.sourceOrderNumber || null,
           sourceReference: input.sourceReference || null,
           supplyType: classificationData.supplyType,
-          placeOfSupplyStateCode:
-            input.placeOfSupplyStateCode ||
-            classificationData.placeOfSupplyStateCode,
-          isInterstate: input.isInterstate ?? classificationData.isInterstate,
-          currency: normalizedCurrency,
+          placeOfSupplyStateCode: classificationData.placeOfSupplyStateCode,
+          isInterstate: classificationData.isInterstate,
+          currency: payloadData.normalizedCurrency,
           taxableAmount: new Prisma.Decimal(taxData.totals.taxableAmount),
           cgstAmount: new Prisma.Decimal(taxData.totals.cgstAmount),
           sgstAmount: new Prisma.Decimal(taxData.totals.sgstAmount),
@@ -261,7 +266,7 @@ export async function getGstInvoiceById(
       },
     });
 
-    if (!document) {
+    if (!document || document.documentType !== "TAX_INVOICE") {
       return { ok: false, error: "GST invoice not found" };
     }
 

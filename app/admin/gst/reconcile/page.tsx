@@ -3,7 +3,7 @@ import { GstShell } from '../../../../components/gst/gst-shell'
 
 export default function GstReconcilePage() {
   return (
-    <GstShell title="Reconciliation Debug">
+    <GstShell title="Reconcile" subtitle="Run reconciliation preview and persist runs with summaries.">
       <GstReconcileForm />
     </GstShell>
   )

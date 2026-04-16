@@ -43,7 +43,6 @@ export async function buildNoteDraft(input: GstNoteDraftInput): Promise<GstServi
 
     const settings = settingsResult.data;
     const payloadData = payloadValidation.data;
-    const normalizedCurrency = payloadData.normalizedCurrency;
     let originalDocument: Record<string, unknown> | undefined;
 
     if (input.originalDocumentId) {
@@ -60,9 +59,9 @@ export async function buildNoteDraft(input: GstNoteDraftInput): Promise<GstServi
     const documentDate = normalizeDate(input.documentDate);
     const classification = classifySupply({
       sellerStateCode: settings.stateCode,
-      billingStateCode: input.billingStateCode,
-      shippingStateCode: input.shippingStateCode,
-      buyerGstin: input.buyer?.gstin,
+      billingStateCode: payloadData.normalizedBillingStateCode,
+      shippingStateCode: payloadData.normalizedShippingStateCode,
+      buyerGstin: payloadData.normalizedBuyerGstin,
       explicitSupplyType: input.supplyType,
     });
 
@@ -71,7 +70,7 @@ export async function buildNoteDraft(input: GstNoteDraftInput): Promise<GstServi
     }
     const classificationData = classification.data;
 
-    const tax = computeTotals(input.lines, input.isInterstate ?? classificationData.isInterstate);
+    const tax = computeTotals(input.lines, classificationData.isInterstate);
     if (!tax.ok || !tax.data) {
       return { ok: false, error: tax.error || "GST note tax computation failed" };
     }
@@ -79,14 +78,18 @@ export async function buildNoteDraft(input: GstNoteDraftInput): Promise<GstServi
 
     const numbering = await reserveGstNumber({ gstSettingsId: settings.id, documentType: input.noteType, documentDate });
     if (!numbering.ok || !numbering.data) {
-      return { ok: false, error: numbering.error || "Unable to reserve note number" };
+      return { ok: false, error: numbering.error || "Failed to reserve GST document number" };
     }
     const numberingData = numbering.data;
 
     const snapshot = {
       settings,
       classification: classificationData,
-      buyer: input.buyer || {},
+      buyer: {
+        ...(input.buyer || {}),
+        gstin: payloadData.normalizedBuyerGstin,
+        stateCode: payloadData.normalizedBuyerStateCode,
+      },
       metadata: input.metadata || {},
       noteType: input.noteType,
       source: {
@@ -116,9 +119,9 @@ export async function buildNoteDraft(input: GstNoteDraftInput): Promise<GstServi
           sourceOrderNumber: input.sourceOrderNumber || null,
           sourceReference: input.sourceReference || null,
           supplyType: classificationData.supplyType,
-          placeOfSupplyStateCode: input.placeOfSupplyStateCode || classificationData.placeOfSupplyStateCode,
-          isInterstate: input.isInterstate ?? classificationData.isInterstate,
-          currency: normalizedCurrency,
+          placeOfSupplyStateCode: classificationData.placeOfSupplyStateCode,
+          isInterstate: classificationData.isInterstate,
+          currency: payloadData.normalizedCurrency,
           taxableAmount: new Prisma.Decimal(taxData.totals.taxableAmount),
           cgstAmount: new Prisma.Decimal(taxData.totals.cgstAmount),
           sgstAmount: new Prisma.Decimal(taxData.totals.sgstAmount),

@@ -96,6 +96,7 @@ export interface GstPrismaClient {
   };
   gstReconciliationRun: {
     create: (args: unknown) => Promise<Record<string, unknown>>;
+    findMany: (args: unknown) => Promise<Array<Record<string, unknown>>>;
   };
   gstAuditLog: {
     create: (args: unknown) => Promise<Record<string, unknown>>;

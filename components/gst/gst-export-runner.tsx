@@ -5,22 +5,17 @@ import { createExport, listExports } from '../../lib/gst-client'
 import { GstResponseViewer } from './gst-response-viewer'
 
 export function GstExportRunner() {
-  const [payload, setPayload] = useState(
-    JSON.stringify({ exportType: 'invoice_register', periodStart: `${new Date().getUTCFullYear()}-04-01T00:00:00.000Z`, periodEnd: new Date().toISOString(), filters: {} }, null, 2),
-  )
+  const [exportType, setExportType] = useState<'invoice_register' | 'notes_register'>('invoice_register')
+  const [periodStart, setPeriodStart] = useState(`${new Date().getUTCFullYear()}-04-01`)
+  const [periodEnd, setPeriodEnd] = useState(new Date().toISOString().slice(0, 10))
   const [result, setResult] = useState<unknown>()
   const [error, setError] = useState<string>()
 
   async function runExport() {
     setError(undefined)
-    try {
-      const parsed = JSON.parse(payload) as Record<string, unknown>
-      const res = await createExport(parsed)
-      if (res.ok) setResult(res.data)
-      else setError(res.error)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid JSON')
-    }
+    const res = await createExport({ exportType, periodStart: `${periodStart}T00:00:00.000Z`, periodEnd: `${periodEnd}T23:59:59.999Z`, filters: {} })
+    if (res.ok) setResult(res.data)
+    else setError(res.error)
   }
 
   async function runList() {
@@ -32,11 +27,17 @@ export function GstExportRunner() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <div className="space-y-3">
-        <textarea className="min-h-[260px] w-full rounded-xl border p-3 font-mono text-xs" value={payload} onChange={(e) => setPayload(e.target.value)} />
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">Export Batches</h2>
+        <p className="text-sm text-gray-600">Generate export batches for invoices or notes and then inspect historical runs.</p>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="text-sm">Export Type<select className="mt-1 w-full rounded-lg border px-3 py-2" value={exportType} onChange={(e) => setExportType(e.target.value as 'invoice_register' | 'notes_register')}><option value="invoice_register">Invoice Register</option><option value="notes_register">Notes Register</option></select></label>
+          <label className="text-sm">Period Start<input type="date" className="mt-1 w-full rounded-lg border px-3 py-2" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} /></label>
+          <label className="text-sm">Period End<input type="date" className="mt-1 w-full rounded-lg border px-3 py-2" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} /></label>
+        </div>
         <div className="flex gap-2">
-          <button className="rounded-xl border px-4 py-2" onClick={() => void runExport()}>Create Export</button>
-          <button className="rounded-xl border px-4 py-2" onClick={() => void runList()}>List Exports</button>
+          <button className="rounded-lg bg-black px-4 py-2 text-white" onClick={() => void runExport()}>Run Export</button>
+          <button className="rounded-lg border px-4 py-2" onClick={() => void runList()}>Load Export History</button>
         </div>
       </div>
       <GstResponseViewer title="Export Response" data={result} error={error} />

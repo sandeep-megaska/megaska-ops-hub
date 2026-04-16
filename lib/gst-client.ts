@@ -43,6 +43,16 @@ export const notePreview = (payload: Record<string, unknown>) => request<{ ok: b
 export const reconcilePreview = (payload: Record<string, unknown>) => request<{ ok: boolean; comparison: Record<string, unknown> }>('/api/gst/debug/reconcile', { method: 'POST', body: JSON.stringify(payload) })
 
 export const runReconciliation = (payload: Record<string, unknown>) => request<{ ok: boolean; reconciliation: Record<string, unknown> }>('/api/gst/reconciliation/runs', { method: 'POST', body: JSON.stringify(payload) })
+export const listReconciliationRuns = () => request<{ ok: boolean; runs: Array<Record<string, unknown>> }>('/api/gst/reconciliation/runs')
 export const createExport = (payload: Record<string, unknown>) => request<{ ok: boolean; export: Record<string, unknown> }>('/api/gst/exports', { method: 'POST', body: JSON.stringify(payload) })
 export const listExports = () => request<{ ok: boolean; exports: Array<Record<string, unknown>> }>('/api/gst/exports')
+export const listDocuments = (query: { documentType?: string; status?: string; search?: string } = {}) => {
+  const params = new URLSearchParams()
+  if (query.documentType) params.set('documentType', query.documentType)
+  if (query.status) params.set('status', query.status)
+  if (query.search) params.set('search', query.search)
+  const search = params.toString()
+  return request<{ ok: boolean; documents: Array<Record<string, unknown>> }>(`/api/gst/documents${search ? `?${search}` : ''}`)
+}
+export const getDocumentById = (id: string) => request<{ ok: boolean; document: Record<string, unknown> }>(`/api/gst/documents/${id}`)
 export const getPdfPayload = (id: string) => request<{ ok: boolean; pdf: Record<string, unknown> }>(`/api/gst/documents/${id}/pdf`)
