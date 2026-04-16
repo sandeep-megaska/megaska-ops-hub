@@ -41,6 +41,9 @@ export function GstExportRunner() {
     Run Export
   </button>
   <button className="rounded-lg border px-5 py-2 hover:bg-gray-100">
+    <p className="text-xs text-gray-500">
+  Export requires at least one GST document in selected period.
+</p>
     View History
   </button>
 </div>
