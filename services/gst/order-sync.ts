@@ -35,6 +35,15 @@ interface ShopifyOrderLike {
   lines?: ShopifyOrderLine[];
 }
 
+interface ImportedOrderLike {
+  importStatus?: string;
+  eligibilityStatus?: string;
+  readinessErrors?: unknown;
+  mappingCompleteness?: number;
+  unmappedSkus?: unknown;
+  warnings?: unknown;
+}
+
 export interface GstOrderSyncSummary {
   fetched: number;
   imported: number;
@@ -86,6 +95,41 @@ function normalizeOrderPayload(order: ShopifyOrderLike): Record<string, unknown>
   };
 }
 
+function listStrings(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((entry) => String(entry || "").trim()).filter(Boolean);
+}
+
+export function deriveSyncReadinessMetrics(order: ImportedOrderLike): {
+  readinessErrors: string[];
+  mappingCompleteness: number;
+  unmappedSkus: string[];
+  warnings: string[];
+  isNotReady: boolean;
+} {
+  const readinessErrors = listStrings(order.readinessErrors);
+  const unmappedSkus = listStrings(order.unmappedSkus);
+  const warnings = listStrings(order.warnings);
+  const mappingCompleteness = Number(order.mappingCompleteness || 0);
+  const eligibilityStatus = String(order.eligibilityStatus || "");
+  const isNotReady = readinessErrors.length > 0 || eligibilityStatus === "REVIEW_REQUIRED" || eligibilityStatus === "NOT_ELIGIBLE";
+
+  return {
+    readinessErrors,
+    mappingCompleteness: Number.isFinite(mappingCompleteness) ? mappingCompleteness : 0,
+    unmappedSkus,
+    warnings,
+    isNotReady,
+  };
+}
+
+export function computeSyncCountersForImportedOrder(order: ImportedOrderLike): { imported: number; notReady: number } {
+  const readiness = deriveSyncReadinessMetrics(order);
+  return { imported: 1, notReady: readiness.isNotReady ? 1 : 0 };
+}
+
 export async function syncOrdersByDateRange(input: SyncFilters): Promise<GstServiceResult<GstOrderSyncSummary>> {
   try {
     const from = parseDate(input.from, "from");
@@ -135,17 +179,20 @@ export async function syncOrdersByDateRange(input: SyncFilters): Promise<GstServ
         continue;
       }
 
-      if (String(result.data.importStatus || "") === "INVOICE_READY") {
-        summary.imported += 1;
-      } else {
-        summary.notReady += 1;
-      }
+      const counters = computeSyncCountersForImportedOrder(result.data);
+      summary.imported += counters.imported;
+      summary.notReady += counters.notReady;
+      const readiness = deriveSyncReadinessMetrics(result.data);
 
       summary.perOrder.push({
         orderName,
         shopifyOrderId,
         status: result.data.importStatus,
         eligibilityStatus: result.data.eligibilityStatus,
+        mappingCompleteness: readiness.mappingCompleteness,
+        readinessErrors: readiness.readinessErrors,
+        unmappedSkus: readiness.unmappedSkus,
+        warnings: readiness.warnings,
       });
     }
 
@@ -196,17 +243,27 @@ export async function syncSingleOrder(input: { orderName?: string; orderNumber?:
       return { ok: false, error: imported.error || "Failed to import single order" } as const;
     }
 
-    const isReady = String(imported.data.importStatus || "") === "INVOICE_READY";
+    const readiness = deriveSyncReadinessMetrics(imported.data);
+    const counters = computeSyncCountersForImportedOrder(imported.data);
     return {
       ok: true,
       data: {
         fetched: 1,
-        imported: isReady ? 1 : 0,
+        imported: counters.imported,
         alreadySynced: 0,
-        notReady: isReady ? 0 : 1,
+        notReady: counters.notReady,
         failed: 0,
         warnings: [],
-        perOrder: [{ orderName: order.name, shopifyOrderId, status: imported.data.importStatus, eligibilityStatus: imported.data.eligibilityStatus }],
+        perOrder: [{
+          orderName: order.name,
+          shopifyOrderId,
+          status: imported.data.importStatus,
+          eligibilityStatus: imported.data.eligibilityStatus,
+          mappingCompleteness: readiness.mappingCompleteness,
+          readinessErrors: readiness.readinessErrors,
+          unmappedSkus: readiness.unmappedSkus,
+          warnings: readiness.warnings,
+        }],
       } satisfies GstOrderSyncSummary,
     } as const;
   } catch (error) {

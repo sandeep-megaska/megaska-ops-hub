@@ -75,6 +75,14 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
       const lines = Array.isArray(row.lines) ? (row.lines as Array<Record<string, unknown>>) : [];
       const mappedLines = lines.filter((line) => String(line.mappingStatus || "") === "MAPPED").length;
       const mappingCompleteness = lines.length === 0 ? 0 : Math.round((mappedLines / lines.length) * 10000) / 100;
+      const unmappedSkus = Array.from(
+        new Set(
+          lines
+            .filter((line) => String(line.mappingStatus || "").toUpperCase() !== "MAPPED")
+            .map((line) => String(line.sku || "").trim())
+            .filter(Boolean),
+        ),
+      );
       const invoice = await dispatchDb.gstDocument.findFirst({
         where: {
           documentType: "TAX_INVOICE",
@@ -86,6 +94,7 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
 
       const readinessErrors = Array.isArray(row.readinessErrors) ? row.readinessErrors : [];
       const readiness = readinessErrors.length === 0 ? "READY" : "NOT_READY";
+      const warnings = unmappedSkus.length > 0 ? ["Missing GST mapping for one or more SKU(s)"] : [];
       const eligibilityStatus = String(row.eligibilityStatus || "");
 
       data.push({
@@ -98,6 +107,9 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
         itemCount: lines.length,
         mappingCompleteness,
         readinessErrors,
+        unmappedSkus,
+        warnings,
+        mappingActionUrl: unmappedSkus.length > 0 ? "/admin/gst/products" : null,
         importStatus: String(row.importStatus || ""),
         eligibilityStatus,
         readiness,
