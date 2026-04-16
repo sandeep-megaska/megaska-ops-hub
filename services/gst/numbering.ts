@@ -1,6 +1,6 @@
 import { GST_DOCUMENT_TYPES } from "./constants";
 import { gstDb } from "./db";
-import type { GstDocumentType, GstServiceResult } from "./types";
+import type { GstDocumentType, GstNumberingStrategy, GstServiceResult } from "./types";
 
 export interface GstNumberRequest {
   gstSettingsId: string;
@@ -14,6 +14,10 @@ export interface GstReservedNumber {
   financialYear: string;
 }
 
+type CounterSchemaProfile = {
+  hasLegacyColumns: boolean;
+};
+
 function normalize(value: string | null | undefined): string {
   return String(value ?? "").trim();
 }
@@ -26,12 +30,44 @@ export function getFinancialYearLabel(documentDate: Date): string {
   return `${String(startYear).slice(-2)}-${String(endYear).slice(-2)}`;
 }
 
+export function getCalendarYearLabel(documentDate: Date): string {
+  return String(documentDate.getUTCFullYear());
+}
+
+export function getMonthlyPeriodLabel(documentDate: Date): string {
+  const year = documentDate.getUTCFullYear();
+  const month = String(documentDate.getUTCMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
 export function formatDocumentSequence(sequence: number): string {
   return String(sequence).padStart(5, "0");
 }
 
 export function buildDocumentNumber(prefix: string, financialYear: string, sequence: number): string {
   return `${prefix}/${financialYear}/${formatDocumentSequence(sequence)}`;
+}
+
+export function getCounterPeriodLabel(
+  strategy: GstNumberingStrategy,
+  documentDate: Date,
+): GstServiceResult<string> {
+  switch (strategy) {
+    case "FINANCIAL_YEAR_SEQUENCE":
+      return { ok: true, data: getFinancialYearLabel(documentDate) };
+    case "CALENDAR_YEAR_SEQUENCE":
+      return { ok: true, data: getCalendarYearLabel(documentDate) };
+    case "MONTHLY_SEQUENCE":
+      return { ok: true, data: getMonthlyPeriodLabel(documentDate) };
+    case "MANUAL":
+      return {
+        ok: false,
+        error:
+          "GST numbering strategy is MANUAL. Automatic draft numbering cannot continue until strategy is updated.",
+      };
+    default:
+      return { ok: false, error: `Unsupported GST numbering strategy: ${String(strategy)}` };
+  }
 }
 
 export function pickPrefix(
@@ -66,6 +102,33 @@ function validateNumberingPrerequisites(request: GstNumberRequest): GstServiceRe
   return { ok: true, data: true };
 }
 
+function getLegacyScope(documentType: GstDocumentType): string {
+  switch (documentType) {
+    case "TAX_INVOICE":
+      return "INVOICE";
+    case "CREDIT_NOTE":
+      return "CREDIT_NOTE";
+    case "DEBIT_NOTE":
+      return "DEBIT_NOTE";
+    default:
+      return documentType;
+  }
+}
+
+async function detectCounterSchemaProfile(): Promise<CounterSchemaProfile> {
+  try {
+    const columns = (await (gstDb as unknown as { $queryRawUnsafe: (q: string) => Promise<Array<{ column_name: string }>> })
+      .$queryRawUnsafe(
+        `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='GstCounter'`,
+      )) as Array<{ column_name: string }>;
+    const names = new Set(columns.map((entry) => String(entry.column_name)));
+    const hasLegacyColumns = names.has("settingsId") || names.has("scope") || names.has("currentValue");
+    return { hasLegacyColumns };
+  } catch {
+    return { hasLegacyColumns: false };
+  }
+}
+
 export async function reserveGstNumber(
   request: GstNumberRequest,
 ): Promise<GstServiceResult<GstReservedNumber>> {
@@ -83,11 +146,19 @@ export async function reserveGstNumber(
         invoicePrefix: true,
         creditNotePrefix: true,
         debitNotePrefix: true,
+        invoiceNumberStrategy: true,
       },
     });
 
     if (!settings) {
       return { ok: false, error: "GST settings not found for numbering" };
+    }
+
+    if (!settings.isActive) {
+      return {
+        ok: false,
+        error: "Selected GST settings are inactive. Activate GST settings before creating draft documents.",
+      };
     }
 
     const prefix = pickPrefix(request.documentType, settings);
@@ -98,9 +169,52 @@ export async function reserveGstNumber(
       };
     }
 
-    const financialYear = getFinancialYearLabel(request.documentDate);
+    const periodLabelResult = getCounterPeriodLabel(settings.invoiceNumberStrategy, request.documentDate);
+    if (!periodLabelResult.ok || !periodLabelResult.data) {
+      return { ok: false, error: periodLabelResult.error || "Unable to resolve GST numbering period" };
+    }
+    const financialYear = periodLabelResult.data;
+    const counterSchemaProfile = await detectCounterSchemaProfile();
 
     const result = await gstDb.$transaction(async (tx) => {
+      if (counterSchemaProfile.hasLegacyColumns) {
+        const legacyScope = getLegacyScope(request.documentType);
+        const rows = (await (
+          tx as unknown as { $queryRawUnsafe: (q: string, ...params: unknown[]) => Promise<Array<{ lastNumber: number }>> }
+        ).$queryRawUnsafe(
+          `INSERT INTO "GstCounter"
+            ("id","settingsId","scope","financialYear","currentValue","prefix","padding","gstSettingsId","documentType","lastNumber","createdAt","updatedAt")
+          VALUES
+            (concat('gstc-', md5(random()::text || clock_timestamp()::text)), $1, $2, $3, 1, $4, 5, $1, $5::"GstDocumentType", 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ON CONFLICT ("settingsId","scope","financialYear")
+          DO UPDATE SET
+            "currentValue" = "GstCounter"."currentValue" + 1,
+            "lastNumber" = COALESCE("GstCounter"."lastNumber", "GstCounter"."currentValue", 0) + 1,
+            "gstSettingsId" = EXCLUDED."gstSettingsId",
+            "documentType" = EXCLUDED."documentType",
+            "prefix" = EXCLUDED."prefix",
+            "padding" = 5,
+            "updatedAt" = CURRENT_TIMESTAMP
+          RETURNING COALESCE("lastNumber","currentValue") AS "lastNumber"`,
+          request.gstSettingsId,
+          legacyScope,
+          financialYear,
+          prefix,
+          request.documentType,
+        )) as Array<{ lastNumber: number }>;
+
+        const legacySequence = Number(rows?.[0]?.lastNumber || 0);
+        if (!Number.isFinite(legacySequence) || legacySequence <= 0) {
+          throw new Error("Legacy GstCounter upsert did not return a valid sequence");
+        }
+
+        return {
+          documentNumber: buildDocumentNumber(prefix, financialYear, legacySequence),
+          sequence: legacySequence,
+          financialYear,
+        };
+      }
+
       await tx.gstCounter.upsert({
         where: {
           gstSettingsId_documentType_financialYear: {
@@ -155,6 +269,10 @@ export async function reserveGstNumber(
       documentType: request.documentType,
     });
 
-    return { ok: false, error: "Failed to reserve GST document number" };
+    return {
+      ok: false,
+      error:
+        "Failed to reserve GST document number. Ensure GST counter schema is initialized for this environment and numbering prefixes are configured.",
+    };
   }
 }
