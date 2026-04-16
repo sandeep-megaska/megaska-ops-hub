@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildShadowInvoiceDraft } from "../../../../../services/gst/shadow";
+import { getActiveGstSettings, getGstSettingsById } from "../../../../../services/gst/settings";
 import type { GstDocumentLineInput } from "../../../../../services/gst/types";
 
 export const runtime = "nodejs";
@@ -29,9 +30,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Invalid JSON payload" }, { status: 400 });
   }
 
+  const settingsResult = body.gstSettingsId
+    ? await getGstSettingsById(String(body.gstSettingsId))
+    : await getActiveGstSettings();
+  if (!settingsResult.ok || !settingsResult.data) {
+    return NextResponse.json(
+      { ok: false, error: settingsResult.error || "Unable to resolve GST settings" },
+      { status: 400 },
+    );
+  }
+
+  const settings = settingsResult.data;
+
   const source = {
     sourceOrderId: String(body.sourceOrderId || ""),
-    sellerStateCode: String(body.sellerStateCode || ""),
+    sellerStateCode: settings.stateCode,
     billingStateCode: body.billingStateCode ? String(body.billingStateCode) : null,
     shippingStateCode: body.shippingStateCode ? String(body.shippingStateCode) : null,
     currency: body.currency ? String(body.currency) : "INR",
