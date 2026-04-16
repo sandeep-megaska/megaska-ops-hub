@@ -14,16 +14,64 @@ export interface GstExportBatchResult {
   };
 }
 
+const ELIGIBLE_EXPORT_STATUSES = ["ISSUED"] as const;
+
+type GstExportErrorCode =
+  | "INVALID_PERIOD"
+  | "NO_DOCUMENTS_IN_PERIOD"
+  | "UNSUPPORTED_DOCUMENT_STATES"
+  | "EXPORT_BATCH_ALREADY_EXISTS"
+  | "EXPORT_BATCH_PERSISTENCE_FAILED"
+  | "EXPORT_BATCH_PREPARATION_FAILED";
+
+function fail(
+  errorCode: GstExportErrorCode,
+  error: string,
+  errorDetails?: Record<string, unknown>,
+): GstServiceResult<GstExportBatchResult> {
+  return { ok: false, errorCode, error, errorDetails };
+}
+
 function exportTypeFilter(exportType: GstExportRequest["exportType"]): string[] {
   return exportType === "notes_register" ? [GST_DOCUMENT_TYPES[1], GST_DOCUMENT_TYPES[2]] : [GST_DOCUMENT_TYPES[0]];
 }
 
 function toAmount(value: unknown): string {
-  return String(value ?? "0");
+  if (typeof value === "number" || typeof value === "bigint") {
+    return String(value);
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value && typeof value === "object" && "toString" in value && typeof value.toString === "function") {
+    return value.toString();
+  }
+  return "0";
 }
 
 function formatDate(value: Date): string {
   return value.toISOString().slice(0, 10);
+}
+
+function normalizePeriod(periodStart: Date, periodEnd: Date): { start: Date; end: Date } | null {
+  if (!(periodStart instanceof Date) || Number.isNaN(periodStart.getTime())) {
+    return null;
+  }
+  if (!(periodEnd instanceof Date) || Number.isNaN(periodEnd.getTime())) {
+    return null;
+  }
+
+  const start = new Date(periodStart);
+  start.setUTCHours(0, 0, 0, 0);
+
+  const end = new Date(periodEnd);
+  end.setUTCHours(23, 59, 59, 999);
+
+  if (start.getTime() > end.getTime()) {
+    return null;
+  }
+
+  return { start, end };
 }
 
 type GstExportRowInput = {
@@ -63,7 +111,7 @@ function buildStableRows(exportType: GstExportRequest["exportType"], documents: 
       cgstAmount: toAmount(doc.cgstAmount),
       sgstAmount: toAmount(doc.sgstAmount),
       igstAmount: toAmount(doc.igstAmount),
-      cessAmount: toAmount(doc.cessAmount || 0),
+      cessAmount: toAmount(doc.cessAmount),
       totalAmount: toAmount(doc.totalAmount),
       lineCount: Array.isArray(doc.lines) ? doc.lines.length : 0,
     }))
@@ -92,36 +140,72 @@ function getHeaders(): string[] {
   ];
 }
 
+function mapPersistenceError(error: unknown): GstServiceResult<GstExportBatchResult> {
+  const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+
+  if (code === "P2002") {
+    return fail("EXPORT_BATCH_ALREADY_EXISTS", "GST export batch already exists for the selected period and export type");
+  }
+
+  return fail("EXPORT_BATCH_PERSISTENCE_FAILED", "Failed to persist GST export batch", {
+    cause: error instanceof Error ? error.message : String(error),
+  });
+}
+
 export async function prepareGstExport(request: GstExportRequest): Promise<GstServiceResult<GstExportBatchResult>> {
   try {
+    const period = normalizePeriod(request.periodStart, request.periodEnd);
+    if (!period) {
+      return fail("INVALID_PERIOD", "Invalid GST export period. Ensure periodStart and periodEnd are valid dates and periodStart <= periodEnd");
+    }
+
     const types = exportTypeFilter(request.exportType);
     const documents = await gstDb.gstDocument.findMany({
       where: {
         gstSettingsId: request.gstSettingsId,
         documentType: { in: types },
-        documentDate: { gte: request.periodStart, lte: request.periodEnd },
+        documentDate: { gte: period.start, lte: period.end },
       },
       orderBy: [{ documentDate: "asc" }, { documentNumber: "asc" }],
       include: { lines: { orderBy: { lineNumber: "asc" } } },
     });
 
-    const rows = buildStableRows(request.exportType, documents);
-
-    const created = await gstDb.$transaction(async (tx) => {
-      const exportBatch = await tx.gstExport.create({
-        data: {
-          gstSettingsId: request.gstSettingsId,
-          exportType: request.exportType,
-          periodStart: request.periodStart,
-          periodEnd: request.periodEnd,
-          status: "GENERATED",
-          filters: request.filters || {},
-          generatedByType: "SYSTEM",
-          generatedAt: new Date(),
-        },
+    if (documents.length === 0) {
+      return fail("NO_DOCUMENTS_IN_PERIOD", "No GST documents found in the selected period for this export type", {
+        exportType: request.exportType,
+        periodStart: period.start.toISOString(),
+        periodEnd: period.end.toISOString(),
       });
+    }
 
-      if (rows.length > 0) {
+    const eligibleDocuments = documents.filter((doc) => ELIGIBLE_EXPORT_STATUSES.includes(doc.status as (typeof ELIGIBLE_EXPORT_STATUSES)[number]));
+
+    if (eligibleDocuments.length === 0) {
+      const statuses = [...new Set(documents.map((doc) => doc.status))].sort();
+      return fail("UNSUPPORTED_DOCUMENT_STATES", "GST documents were found, but none are in an export-eligible state", {
+        eligibleStatuses: [...ELIGIBLE_EXPORT_STATUSES],
+        foundStatuses: statuses,
+      });
+    }
+
+    const rows = buildStableRows(request.exportType, eligibleDocuments);
+
+    let created: { id: string; status: string };
+    try {
+      created = await gstDb.$transaction(async (tx) => {
+        const exportBatch = await tx.gstExport.create({
+          data: {
+            gstSettingsId: request.gstSettingsId,
+            exportType: request.exportType,
+            periodStart: period.start,
+            periodEnd: period.end,
+            status: "GENERATED",
+            filters: request.filters || {},
+            generatedByType: "SYSTEM",
+            generatedAt: new Date(),
+          },
+        });
+
         await tx.gstExportItem.createMany({
           data: rows.map((row, index) => ({
             gstExportId: exportBatch.id,
@@ -134,10 +218,12 @@ export async function prepareGstExport(request: GstExportRequest): Promise<GstSe
             payload: row,
           })),
         });
-      }
 
-      return exportBatch;
-    });
+        return exportBatch;
+      });
+    } catch (error) {
+      return mapPersistenceError(error);
+    }
 
     await writeGstAuditLog(
       {
@@ -146,8 +232,8 @@ export async function prepareGstExport(request: GstExportRequest): Promise<GstSe
         gstExportId: created.id,
         nextState: {
           exportType: request.exportType,
-          periodStart: request.periodStart,
-          periodEnd: request.periodEnd,
+          periodStart: period.start,
+          periodEnd: period.end,
           itemCount: rows.length,
         },
       },
@@ -166,7 +252,9 @@ export async function prepareGstExport(request: GstExportRequest): Promise<GstSe
     };
   } catch (error) {
     console.error("[GST EXPORT] prepareGstExport failed", { error: error instanceof Error ? error.message : String(error) });
-    return { ok: false, error: "Failed to prepare GST export batch" };
+    return fail("EXPORT_BATCH_PREPARATION_FAILED", "Failed to prepare GST export batch", {
+      cause: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 

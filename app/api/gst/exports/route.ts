@@ -4,6 +4,24 @@ import { getActiveGstSettings } from "../../../../services/gst/settings";
 
 export const runtime = "nodejs";
 
+function mapPrepareErrorStatus(errorCode?: string): number {
+  switch (errorCode) {
+    case "INVALID_PERIOD":
+      return 400;
+    case "NO_DOCUMENTS_IN_PERIOD":
+      return 404;
+    case "UNSUPPORTED_DOCUMENT_STATES":
+      return 422;
+    case "EXPORT_BATCH_ALREADY_EXISTS":
+      return 409;
+    case "EXPORT_BATCH_PERSISTENCE_FAILED":
+    case "EXPORT_BATCH_PREPARATION_FAILED":
+      return 500;
+    default:
+      return 400;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const settings = await getActiveGstSettings();
   if (!settings.ok || !settings.data) {
@@ -33,7 +51,7 @@ export async function POST(req: NextRequest) {
   const periodStart = new Date(String(body.periodStart || ""));
   const periodEnd = new Date(String(body.periodEnd || ""));
   if (Number.isNaN(periodStart.getTime()) || Number.isNaN(periodEnd.getTime())) {
-    return NextResponse.json({ ok: false, error: "periodStart and periodEnd are required ISO dates" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "periodStart and periodEnd are required ISO dates", errorCode: "INVALID_PERIOD" }, { status: 400 });
   }
 
   const result = await prepareGstExport({
@@ -45,7 +63,15 @@ export async function POST(req: NextRequest) {
   });
 
   if (!result.ok || !result.data) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: result.error,
+        errorCode: result.errorCode,
+        errorDetails: result.errorDetails,
+      },
+      { status: mapPrepareErrorStatus(result.errorCode) },
+    );
   }
 
   const exportData = result.data;

@@ -40,6 +40,8 @@ export interface GstServiceResult<T> {
   ok: boolean;
   data?: T;
   error?: string;
+  errorCode?: string;
+  errorDetails?: Record<string, unknown>;
 }
 
 export type GstExportType = "invoice_register" | "notes_register";
