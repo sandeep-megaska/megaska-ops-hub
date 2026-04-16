@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { exportUnmappedSkusCsv } from "../../../../../../../services/gst/product-tax-bulk";
+import { exportUnmappedSkusCsv } from "../../../../../../services/gst/product-tax-bulk";
 
 export const runtime = "nodejs";
 
