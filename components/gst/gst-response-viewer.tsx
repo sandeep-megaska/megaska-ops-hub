@@ -1,30 +1,78 @@
 'use client'
 
+import { useState } from 'react'
+
 export function GstResponseViewer({
   title,
   data,
   error,
 }: {
   title: string
-  data?: unknown
+  data?: any
   error?: string
 }) {
+  const [tab, setTab] = useState<'summary' | 'json'>('summary')
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <h3 className="text-lg font-semibold">{title}</h3>
-      {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          <div className="font-medium">Request failed</div>
-          <div className="mt-2 whitespace-pre-wrap break-words">{error}</div>
+
+      {/* Error */}
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
+          <div className="font-semibold">Request Failed</div>
+          <div className="mt-2 text-sm">{error}</div>
         </div>
-      ) : null}
-      {data ? (
-        <div className="space-y-2">
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">Success</div>
-          <pre className="overflow-x-auto rounded-xl border bg-gray-50 p-4 text-xs">{JSON.stringify(data, null, 2)}</pre>
+      )}
+
+      {/* Success */}
+      {data && (
+        <div className="space-y-3">
+          <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-green-800">
+            Success
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-2">
+            <button
+              className={`rounded px-3 py-1 text-sm ${
+                tab === 'summary' ? 'bg-black text-white' : 'border'
+              }`}
+              onClick={() => setTab('summary')}
+            >
+              Summary
+            </button>
+            <button
+              className={`rounded px-3 py-1 text-sm ${
+                tab === 'json' ? 'bg-black text-white' : 'border'
+              }`}
+              onClick={() => setTab('json')}
+            >
+              JSON
+            </button>
+          </div>
+
+          {/* Summary */}
+          {tab === 'summary' && (
+            <div className="rounded-xl border bg-white p-4 text-sm">
+              <pre className="whitespace-pre-wrap">
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            </div>
+          )}
+
+          {/* JSON */}
+          {tab === 'json' && (
+            <pre className="overflow-x-auto rounded-xl border bg-gray-50 p-4 text-xs">
+              {JSON.stringify(data, null, 2)}
+            </pre>
+          )}
         </div>
-      ) : null}
-      {!error && !data ? <p className="text-sm text-gray-500">No response yet.</p> : null}
+      )}
+
+      {!error && !data && (
+        <p className="text-sm text-gray-500">No response yet.</p>
+      )}
     </div>
   )
 }
