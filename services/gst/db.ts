@@ -98,6 +98,12 @@ export interface GstPrismaClient {
     create: (args: unknown) => Promise<Record<string, unknown>>;
     findMany: (args: unknown) => Promise<Array<Record<string, unknown>>>;
   };
+  gstReportRun: {
+    create: (args: unknown) => Promise<Record<string, unknown>>;
+    update: (args: unknown) => Promise<Record<string, unknown>>;
+    findUnique: (args: unknown) => Promise<Record<string, unknown> | null>;
+    findMany: (args: unknown) => Promise<Array<Record<string, unknown>>>;
+  };
   gstAuditLog: {
     create: (args: unknown) => Promise<Record<string, unknown>>;
   };
