@@ -36,8 +36,14 @@ export function GstExportRunner() {
           <label className="text-sm">Period End<input type="date" className="mt-1 w-full rounded-lg border px-3 py-2" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} /></label>
         </div>
         <div className="flex gap-2">
-          <button className="rounded-lg bg-black px-4 py-2 text-white" onClick={() => void runExport()}>Run Export</button>
-          <button className="rounded-lg border px-4 py-2" onClick={() => void runList()}>Load Export History</button>
+         <div className="flex gap-3">
+  <button className="rounded-lg bg-black px-5 py-2 text-white shadow">
+    Run Export
+  </button>
+  <button className="rounded-lg border px-5 py-2 hover:bg-gray-100">
+    View History
+  </button>
+</div>
         </div>
       </div>
       <GstResponseViewer title="Export Response" data={result} error={error} />
