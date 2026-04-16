@@ -17,6 +17,9 @@ export function GstNotePreviewForm() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<unknown>()
   const [error, setError] = useState<string>()
+  const numberingHint = error?.toLowerCase().includes('number')
+    ? 'Draft notes require active GST settings, configured note prefixes, and an initialized GST counter.'
+    : undefined
 
   const payload = useMemo(() => ({
     noteType,
@@ -46,7 +49,7 @@ export function GstNotePreviewForm() {
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Credit / Debit Note Workflow</h2>
-        <p className="text-sm text-gray-600">Use this flow to preview and create DRAFT notes. Numbering is reserved by backend using active GST settings prefixes.</p>
+        <p className="text-sm text-gray-600">Preview computes note totals without reserving numbering. Create Draft reserves numbering in backend using active GST settings.</p>
         <div className="grid gap-3 md:grid-cols-2">
           <label className="text-sm">Note Type
             <select className="mt-1 w-full rounded-lg border px-3 py-2" value={noteType} onChange={(e) => setNoteType(e.target.value as 'CREDIT_NOTE' | 'DEBIT_NOTE')}>
@@ -68,6 +71,7 @@ export function GstNotePreviewForm() {
           <button disabled={loading} className="rounded-lg border px-4 py-2" onClick={() => void run('preview')}>Preview Note</button>
           <button disabled={loading} className="rounded-lg bg-black px-4 py-2 text-white" onClick={() => void run('draft')}>Create Draft Note</button>
         </div>
+        {numberingHint ? <p className="text-xs text-amber-700">{numberingHint}</p> : null}
 
         <pre className="overflow-x-auto rounded-xl border bg-gray-50 p-3 text-xs">{JSON.stringify(payload, null, 2)}</pre>
       </div>

@@ -40,6 +40,9 @@ export function GstInvoicePreviewForm() {
   const [result, setResult] = useState<unknown>()
   const [error, setError] = useState<string>()
   const [showRaw, setShowRaw] = useState(false)
+  const numberingHint = error?.toLowerCase().includes('number')
+    ? 'Draft creation requires active GST settings, valid prefixes, and an initialized GST counter.'
+    : undefined
 
   const payload = useMemo(() => ({
     sourceOrderId: form.sourceOrderId,
@@ -68,7 +71,7 @@ export function GstInvoicePreviewForm() {
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Invoice Draft Workflow</h2>
-        <p className="text-sm text-gray-600">Preview validates classification and tax calculation. Create Draft reserves a GST number and stores a DRAFT document.</p>
+        <p className="text-sm text-gray-600">Preview validates classification and tax calculation without reserving a number. Create Draft reserves a GST number and stores a DRAFT document.</p>
         <div className="grid gap-3 md:grid-cols-2">
           {[
             ['Source Order ID', 'sourceOrderId'],
@@ -93,6 +96,7 @@ export function GstInvoicePreviewForm() {
           <button disabled={loading} className="rounded-lg bg-black px-4 py-2 text-white" onClick={() => void run('draft')}>Create Draft Invoice</button>
           <button className="rounded-lg border px-4 py-2" onClick={() => setShowRaw((v) => !v)}>{showRaw ? 'Hide' : 'Show'} Raw Payload</button>
         </div>
+        {numberingHint ? <p className="text-xs text-amber-700">{numberingHint}</p> : null}
 
         {showRaw ? <pre className="overflow-x-auto rounded-xl border bg-gray-50 p-3 text-xs">{JSON.stringify(payload, null, 2)}</pre> : null}
       </div>
