@@ -1,3 +1,6 @@
+import { gstDb } from "./db";
+import { resolveLineTaxMapping } from "./product-tax-map";
+import { getActiveGstSettings } from "./settings";
 import type { GstServiceResult } from "./types";
 
 export interface GstOrderImportRecord {
@@ -7,6 +10,7 @@ export interface GstOrderImportRecord {
   shopifyOrderName: string;
   importStatus: string;
   eligibilityStatus: string;
+  mappingCompleteness: number;
   orderCreatedAt: Date;
   lastSyncedAt: Date | null;
 }
@@ -30,26 +34,421 @@ export interface MarkOrderDocumentInput {
   gstDocumentId: string;
 }
 
-export async function importOrderByShopifyId(orderId: string): Promise<GstServiceResult<GstOrderImportRecord>> {
-  return { ok: false, error: `Not implemented: importOrderByShopifyId (${orderId})` };
+interface ParsedOrderLine {
+  lineNumber: number;
+  shopifyLineItemId: string | null;
+  shopifyProductId: string | null;
+  shopifyVariantId: string | null;
+  title: string;
+  sku: string | null;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+  taxableAmount: number;
+  mappedHsnCode: string | null;
+  mappedTaxRate: number | null;
+  mappedCessRate: number | null;
+  mappingStatus: "MAPPED" | "UNMAPPED";
 }
 
-export async function syncOrderRange(input: SyncOrderRangeInput): Promise<GstServiceResult<{ queued: boolean }>> {
+type OrderImportDbClient = {
+  gstOrderImport: {
+    findUnique: (args: unknown) => Promise<Record<string, unknown> | null>;
+    create: (args: unknown) => Promise<Record<string, unknown>>;
+    findMany: (args: unknown) => Promise<Array<Record<string, unknown>>>;
+    update: (args: unknown) => Promise<Record<string, unknown>>;
+  };
+  gstOrderImportLine: {
+    createMany: (args: unknown) => Promise<{ count: number }>;
+    findMany: (args: unknown) => Promise<Array<Record<string, unknown>>>;
+    deleteMany: (args: unknown) => Promise<{ count: number }>;
+  };
+  $transaction: <T>(fn: (tx: OrderImportDbClient) => Promise<T>) => Promise<T>;
+};
+
+const orderDb = gstDb as unknown as OrderImportDbClient;
+
+function normalizeString(value: unknown): string {
+  return String(value ?? "").trim();
+}
+
+function parseDate(value: unknown, fallback = new Date()): Date {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value;
+  }
+  const parsed = new Date(String(value ?? ""));
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+}
+
+function parseNumber(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function roundCurrency(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function extractOrderPayload(raw: unknown): Record<string, unknown> | null {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  return raw as Record<string, unknown>;
+}
+
+async function mapLine(line: Record<string, unknown>, index: number): Promise<ParsedOrderLine> {
+  const quantity = parseNumber(line.quantity);
+  const unitPrice = parseNumber(line.unitPrice ?? line.price);
+  const discount = parseNumber(line.discount ?? 0);
+  const taxableAmount = roundCurrency(Math.max(0, quantity * unitPrice - discount));
+
+  const shopifyProductId = normalizeString(line.shopifyProductId || line.productId) || null;
+  const shopifyVariantId = normalizeString(line.shopifyVariantId || line.variantId) || null;
+
+  let mappedHsnCode: string | null = null;
+  let mappedTaxRate: number | null = null;
+  let mappedCessRate: number | null = null;
+  let mappingStatus: "MAPPED" | "UNMAPPED" = "UNMAPPED";
+
+  if (shopifyProductId) {
+    const mapping = await resolveLineTaxMapping({ shopifyProductId, shopifyVariantId });
+    if (mapping.ok && mapping.data) {
+      mappedHsnCode = normalizeString((mapping.data as Record<string, unknown>).hsnId) || null;
+      mappedTaxRate = null;
+      mappedCessRate = null;
+      mappingStatus = "MAPPED";
+    }
+  }
+
+  return {
+    lineNumber: index + 1,
+    shopifyLineItemId: normalizeString(line.shopifyLineItemId || line.id) || null,
+    shopifyProductId,
+    shopifyVariantId,
+    title: normalizeString(line.title) || `Line ${index + 1}`,
+    sku: normalizeString(line.sku) || null,
+    quantity,
+    unitPrice,
+    discount,
+    taxableAmount,
+    mappedHsnCode,
+    mappedTaxRate: mappedTaxRate && mappedTaxRate > 0 ? mappedTaxRate : null,
+    mappedCessRate: mappedCessRate && mappedCessRate > 0 ? mappedCessRate : null,
+    mappingStatus,
+  };
+}
+
+function calculateMappingCompleteness(lines: Array<{ mappingStatus: string }>): number {
+  if (lines.length === 0) {
+    return 0;
+  }
+  const mapped = lines.filter((line) => String(line.mappingStatus).toUpperCase() === "MAPPED").length;
+  return Math.round((mapped / lines.length) * 10000) / 100;
+}
+
+function buildReadiness(
+  order: {
+    orderSubtotal: number;
+    orderTaxTotal: number;
+    orderGrandTotal: number;
+    billingStateCode: string | null;
+    shippingStateCode: string | null;
+  },
+  lines: ParsedOrderLine[],
+): { readinessErrors: string[]; eligibilityStatus: string; importStatus: string } {
+  const readinessErrors: string[] = [];
+
+  if (lines.length === 0) {
+    readinessErrors.push("Order has no line items");
+  }
+
+  if (!order.shippingStateCode && !order.billingStateCode) {
+    readinessErrors.push("At least one of shippingStateCode or billingStateCode is required");
+  }
+
+  if (lines.some((line) => line.mappingStatus !== "MAPPED")) {
+    readinessErrors.push("One or more line items are missing GST product tax mappings");
+  }
+
+  const expectedGrandTotal = roundCurrency(order.orderSubtotal + order.orderTaxTotal);
+  if (Math.abs(expectedGrandTotal - order.orderGrandTotal) > 0.5) {
+    readinessErrors.push("Order amount sanity check failed: subtotal + tax does not match grand total");
+  }
+
+  const hasCritical = readinessErrors.some((error) => error.includes("no line items") || error.includes("amount sanity"));
+  const hasReviewOnly = readinessErrors.length > 0 && !hasCritical;
+
+  const eligibilityStatus = hasCritical ? "NOT_ELIGIBLE" : hasReviewOnly ? "REVIEW_REQUIRED" : "ELIGIBLE";
+  const importStatus = readinessErrors.length === 0 ? "INVOICE_READY" : "IMPORTED";
+
+  return { readinessErrors, eligibilityStatus, importStatus };
+}
+
+function toOrderImportRecord(row: Record<string, unknown>, mappingCompleteness: number): GstOrderImportRecord {
+  return {
+    id: String(row.id),
+    gstSettingsId: String(row.gstSettingsId),
+    shopifyOrderId: String(row.shopifyOrderId),
+    shopifyOrderName: String(row.shopifyOrderName),
+    importStatus: String(row.importStatus),
+    eligibilityStatus: String(row.eligibilityStatus),
+    mappingCompleteness,
+    orderCreatedAt: parseDate(row.orderCreatedAt),
+    lastSyncedAt: row.lastSyncedAt ? parseDate(row.lastSyncedAt, new Date(0)) : null,
+  };
+}
+
+export async function importOrderByShopifyId(
+  orderId: string,
+  orderPayload?: Record<string, unknown> | null,
+): Promise<GstServiceResult<GstOrderImportRecord>> {
+  const shopifyOrderId = normalizeString(orderId);
+  if (!shopifyOrderId) {
+    return { ok: false, error: "shopifyOrderId is required" };
+  }
+
+  const payload = extractOrderPayload(orderPayload);
+  if (!payload) {
+    return { ok: false, error: "order payload is required" };
+  }
+
+  try {
+    const existing = await orderDb.gstOrderImport.findUnique({
+      where: { shopifyOrderId },
+      include: { lines: true },
+    });
+
+    if (existing) {
+      const existingLines = ((existing.lines as Array<Record<string, unknown>> | undefined) || []).map((line) => ({
+        mappingStatus: String(line.mappingStatus || "UNMAPPED"),
+      }));
+      const mappingCompleteness = calculateMappingCompleteness(existingLines);
+      const updated = await orderDb.gstOrderImport.update({
+        where: { id: String(existing.id) },
+        data: { lastSyncedAt: new Date() },
+      });
+      return { ok: true, data: toOrderImportRecord(updated, mappingCompleteness) };
+    }
+
+    const activeSettings = await getActiveGstSettings();
+    if (!activeSettings.ok || !activeSettings.data) {
+      return { ok: false, error: activeSettings.error || "No active GST settings configured" };
+    }
+
+    const rawLines = Array.isArray(payload.lines) ? (payload.lines as Record<string, unknown>[]) : [];
+    const mappedLines: ParsedOrderLine[] = [];
+    for (const [index, line] of rawLines.entries()) {
+      mappedLines.push(await mapLine(line, index));
+    }
+
+    const normalizedOrder = {
+      shopifyOrderName: normalizeString(payload.shopifyOrderName || payload.orderName || payload.name || shopifyOrderId),
+      orderCreatedAt: parseDate(payload.orderCreatedAt || payload.createdAt),
+      orderCurrency: normalizeString(payload.orderCurrency || payload.currency || activeSettings.data.defaultCurrency || "INR") || "INR",
+      orderSubtotal: roundCurrency(parseNumber(payload.orderSubtotal ?? payload.subtotal ?? payload.subtotalPrice)),
+      orderTaxTotal: roundCurrency(parseNumber(payload.orderTaxTotal ?? payload.taxTotal ?? payload.totalTax)),
+      orderGrandTotal: roundCurrency(parseNumber(payload.orderGrandTotal ?? payload.grandTotal ?? payload.totalPrice)),
+      shippingStateCode: normalizeString(payload.shippingStateCode || payload.shippingState) || null,
+      billingStateCode: normalizeString(payload.billingStateCode || payload.billingState) || null,
+    };
+
+    const readiness = buildReadiness(normalizedOrder, mappedLines);
+    const mappingCompleteness = calculateMappingCompleteness(mappedLines);
+
+    const created = await orderDb.$transaction(async (tx) => {
+      const orderImport = await tx.gstOrderImport.create({
+        data: {
+          gstSettingsId: activeSettings.data?.id,
+          shopifyOrderId,
+          shopifyOrderName: normalizedOrder.shopifyOrderName,
+          orderCreatedAt: normalizedOrder.orderCreatedAt,
+          orderCurrency: normalizedOrder.orderCurrency,
+          orderSubtotal: normalizedOrder.orderSubtotal,
+          orderTaxTotal: normalizedOrder.orderTaxTotal,
+          orderGrandTotal: normalizedOrder.orderGrandTotal,
+          shippingStateCode: normalizedOrder.shippingStateCode,
+          billingStateCode: normalizedOrder.billingStateCode,
+          importStatus: readiness.importStatus,
+          eligibilityStatus: readiness.eligibilityStatus,
+          readinessErrors: readiness.readinessErrors,
+          snapshot: payload,
+          lastSyncedAt: new Date(),
+        },
+      });
+
+      if (mappedLines.length > 0) {
+        await tx.gstOrderImportLine.createMany({
+          data: mappedLines.map((line) => ({
+            gstOrderImportId: String(orderImport.id),
+            lineNumber: line.lineNumber,
+            shopifyLineItemId: line.shopifyLineItemId,
+            shopifyProductId: line.shopifyProductId,
+            shopifyVariantId: line.shopifyVariantId,
+            title: line.title,
+            sku: line.sku,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            discount: line.discount,
+            taxableAmount: line.taxableAmount,
+            mappedHsnCode: line.mappedHsnCode,
+            mappedTaxRate: line.mappedTaxRate,
+            mappedCessRate: line.mappedCessRate,
+            mappingStatus: line.mappingStatus,
+          })),
+        });
+      }
+
+      return orderImport;
+    });
+
+    return { ok: true, data: toOrderImportRecord(created, mappingCompleteness) };
+  } catch (error) {
+    console.error("[GST ORDER IMPORT] importOrderByShopifyId failed", {
+      error: error instanceof Error ? error.message : String(error),
+      shopifyOrderId,
+    });
+    return { ok: false, error: "Failed to import order" };
+  }
+}
+
+export async function syncOrderRange(_input: SyncOrderRangeInput): Promise<GstServiceResult<{ queued: boolean }>> {
   return { ok: true, data: { queued: false } };
 }
 
 export async function listImportedOrders(filters: GstOrderImportFilters): Promise<GstServiceResult<GstOrderImportRecord[]>> {
-  return { ok: true, data: [] };
+  try {
+    const where: Record<string, unknown> = {};
+    if (filters.gstSettingsId) {
+      where.gstSettingsId = String(filters.gstSettingsId);
+    }
+    if (filters.importStatus) {
+      where.importStatus = String(filters.importStatus);
+    }
+    if (filters.eligibilityStatus) {
+      where.eligibilityStatus = String(filters.eligibilityStatus);
+    }
+
+    const fromDate = filters.from ? parseDate(filters.from, new Date(0)) : null;
+    const toDate = filters.to ? parseDate(filters.to, new Date()) : null;
+    if (fromDate || toDate) {
+      where.orderCreatedAt = {
+        ...(fromDate ? { gte: fromDate } : {}),
+        ...(toDate ? { lte: toDate } : {}),
+      };
+    }
+
+    const rows = await orderDb.gstOrderImport.findMany({
+      where,
+      include: {
+        lines: {
+          select: {
+            mappingStatus: true,
+          },
+        },
+      },
+      orderBy: [{ orderCreatedAt: "desc" }, { createdAt: "desc" }],
+    });
+
+    const data = rows.map((row) => {
+      const lines = ((row.lines as Array<Record<string, unknown>> | undefined) || []).map((line) => ({
+        mappingStatus: String(line.mappingStatus || "UNMAPPED"),
+      }));
+      return toOrderImportRecord(row, calculateMappingCompleteness(lines));
+    });
+
+    return { ok: true, data };
+  } catch (error) {
+    console.error("[GST ORDER IMPORT] listImportedOrders failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { ok: false, error: "Failed to list imported orders" };
+  }
 }
 
 export async function getImportedOrderDetail(id: string): Promise<GstServiceResult<Record<string, unknown> | null>> {
-  return { ok: true, data: null };
+  const orderImportId = normalizeString(id);
+  if (!orderImportId) {
+    return { ok: false, error: "Order import id is required" };
+  }
+
+  try {
+    const row = await orderDb.gstOrderImport.findUnique({
+      where: { id: orderImportId },
+      include: {
+        lines: {
+          orderBy: { lineNumber: "asc" },
+        },
+      },
+    });
+
+    if (!row) {
+      return { ok: true, data: null };
+    }
+
+    const lines = ((row.lines as Array<Record<string, unknown>> | undefined) || []).map((line) => ({
+      ...line,
+      quantity: parseNumber(line.quantity),
+      unitPrice: parseNumber(line.unitPrice),
+      discount: parseNumber(line.discount),
+      taxableAmount: parseNumber(line.taxableAmount),
+      mappedTaxRate: line.mappedTaxRate == null ? null : parseNumber(line.mappedTaxRate),
+      mappedCessRate: line.mappedCessRate == null ? null : parseNumber(line.mappedCessRate),
+    }));
+
+    const detail = {
+      ...row,
+      mappingCompleteness: calculateMappingCompleteness(lines.map((line) => ({ mappingStatus: String(line.mappingStatus || "UNMAPPED") }))),
+      lines,
+    };
+
+    return { ok: true, data: detail };
+  } catch (error) {
+    console.error("[GST ORDER IMPORT] getImportedOrderDetail failed", {
+      error: error instanceof Error ? error.message : String(error),
+      orderImportId,
+    });
+    return { ok: false, error: "Failed to load imported order detail" };
+  }
 }
 
 export async function markOrderInvoiced(input: MarkOrderDocumentInput): Promise<GstServiceResult<{ updated: boolean }>> {
-  return { ok: false, error: `Not implemented: markOrderInvoiced (${input.gstOrderImportId})` };
+  try {
+    await orderDb.gstOrderImport.update({
+      where: { id: normalizeString(input.gstOrderImportId) },
+      data: {
+        importStatus: "INVOICED",
+        lastSyncedAt: new Date(),
+      },
+    });
+
+    return { ok: true, data: { updated: true } };
+  } catch (error) {
+    console.error("[GST ORDER IMPORT] markOrderInvoiced failed", {
+      error: error instanceof Error ? error.message : String(error),
+      gstOrderImportId: input.gstOrderImportId,
+      gstDocumentId: input.gstDocumentId,
+    });
+    return { ok: false, error: "Failed to mark order invoiced" };
+  }
 }
 
 export async function markOrderNoteIssued(input: MarkOrderDocumentInput): Promise<GstServiceResult<{ updated: boolean }>> {
-  return { ok: false, error: `Not implemented: markOrderNoteIssued (${input.gstOrderImportId})` };
+  try {
+    await orderDb.gstOrderImport.update({
+      where: { id: normalizeString(input.gstOrderImportId) },
+      data: {
+        importStatus: "NOTE_ISSUED",
+        lastSyncedAt: new Date(),
+      },
+    });
+
+    return { ok: true, data: { updated: true } };
+  } catch (error) {
+    console.error("[GST ORDER IMPORT] markOrderNoteIssued failed", {
+      error: error instanceof Error ? error.message : String(error),
+      gstOrderImportId: input.gstOrderImportId,
+      gstDocumentId: input.gstDocumentId,
+    });
+    return { ok: false, error: "Failed to mark order note issued" };
+  }
 }
