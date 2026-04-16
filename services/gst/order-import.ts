@@ -393,11 +393,12 @@ export async function getImportedOrderDetail(id: string): Promise<GstServiceResu
       taxableAmount: parseNumber(line.taxableAmount),
       mappedTaxRate: line.mappedTaxRate == null ? null : parseNumber(line.mappedTaxRate),
       mappedCessRate: line.mappedCessRate == null ? null : parseNumber(line.mappedCessRate),
+      mappingStatus: String(line.mappingStatus || "UNMAPPED"),
     }));
 
     const detail = {
       ...row,
-      mappingCompleteness: calculateMappingCompleteness(lines.map((line) => ({ mappingStatus: String(line.mappingStatus || "UNMAPPED") }))),
+      mappingCompleteness: calculateMappingCompleteness(lines.map((line) => ({ mappingStatus: line.mappingStatus }))),
       lines,
     };
 
