@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listDispatchReadyOrders } from "../../../../../../services/gst/dispatch-batch";
+import { listDispatchReadyOrders } from "../../../../../services/gst/dispatch-batch";
 
 export const runtime = "nodejs";
 

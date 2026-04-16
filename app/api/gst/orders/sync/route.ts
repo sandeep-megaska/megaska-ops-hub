@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { syncOrdersByDateRange } from "../../../../../../services/gst/order-sync";
+import { syncOrdersByDateRange } from "../../../../../services/gst/order-sync";
 
 export const runtime = "nodejs";
 

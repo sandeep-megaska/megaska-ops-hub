@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { applyBulkProductTaxMappings } from "../../../../../../../services/gst/product-tax-bulk";
+import { applyBulkProductTaxMappings } from "../../../../../../services/gst/product-tax-bulk";
 
 export const runtime = "nodejs";
 

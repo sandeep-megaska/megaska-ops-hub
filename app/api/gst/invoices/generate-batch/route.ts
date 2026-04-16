@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateInvoiceBatch } from "../../../../../../services/gst/dispatch-batch";
+import { generateInvoiceBatch } from "../../../../../services/gst/dispatch-batch";
 
 export const runtime = "nodejs";
 

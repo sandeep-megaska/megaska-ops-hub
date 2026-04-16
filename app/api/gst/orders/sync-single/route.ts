@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { syncSingleOrder } from "../../../../../../services/gst/order-sync";
+import { syncSingleOrder } from "../../../../../services/gst/order-sync";
 
 export const runtime = "nodejs";
 
