@@ -56,3 +56,13 @@ export const listDocuments = (query: { documentType?: string; status?: string; s
 }
 export const getDocumentById = (id: string) => request<{ ok: boolean; document: Record<string, unknown> }>(`/api/gst/documents/${id}`)
 export const getPdfPayload = (id: string) => request<{ ok: boolean; pdf: Record<string, unknown> }>(`/api/gst/documents/${id}/pdf`)
+
+export const createReportRun = (payload: Record<string, unknown>) => request<{ ok: boolean; run: Record<string, unknown> }>('/api/gst/reports/runs', { method: 'POST', body: JSON.stringify(payload) })
+export const listReportRuns = (query: { reportType?: string; status?: string } = {}) => {
+  const search = new URLSearchParams()
+  if (query.reportType) search.set('reportType', query.reportType)
+  if (query.status) search.set('status', query.status)
+  const suffix = search.toString() ? `?${search.toString()}` : ''
+  return request<{ ok: boolean; runs: Array<Record<string, unknown>> }>(`/api/gst/reports/runs${suffix}`)
+}
+export const downloadReportRunFile = (id: string) => request<{ ok: boolean; fileUrl: string | null }>(`/api/gst/reports/runs/${id}/download`)

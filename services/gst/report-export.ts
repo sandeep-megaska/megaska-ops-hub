@@ -1,3 +1,5 @@
+import { createHash } from "crypto";
+import { gstDb } from "./db";
 import type { GstServiceResult } from "./types";
 
 export interface GenerateReportRunInput {
@@ -29,18 +31,190 @@ export interface ReportRunFilters {
   status?: string;
 }
 
+type ReportDocument = {
+  id: string;
+  documentType: string;
+  documentNumber: string;
+  documentDate: Date;
+  status: string;
+  taxableAmount: unknown;
+  cgstAmount: unknown;
+  sgstAmount: unknown;
+  igstAmount: unknown;
+  cessAmount?: unknown;
+  totalAmount: unknown;
+};
+
+function toIsoDate(value: Date | string): Date {
+  return value instanceof Date ? value : new Date(value);
+}
+
+function normalizeTypeFilter(reportType: string): string[] | undefined {
+  if (reportType === "invoice_register") return ["TAX_INVOICE"];
+  if (reportType === "notes_register") return ["CREDIT_NOTE", "DEBIT_NOTE"];
+  return undefined;
+}
+
+function csvEscape(value: unknown): string {
+  const raw = String(value ?? "");
+  if (raw.includes('"') || raw.includes(",") || raw.includes("\n")) {
+    return `"${raw.replace(/"/g, '""')}"`;
+  }
+  return raw;
+}
+
+function toCsv(documents: ReportDocument[]): { csv: string; rowCount: number } {
+  const headers = [
+    "gstDocumentId",
+    "documentType",
+    "documentNumber",
+    "documentDate",
+    "status",
+    "taxableAmount",
+    "cgstAmount",
+    "sgstAmount",
+    "igstAmount",
+    "cessAmount",
+    "totalAmount",
+  ];
+
+  const rows = documents
+    .map((doc) => [
+      doc.id,
+      doc.documentType,
+      doc.documentNumber,
+      doc.documentDate.toISOString().slice(0, 10),
+      doc.status,
+      String(doc.taxableAmount ?? "0"),
+      String(doc.cgstAmount ?? "0"),
+      String(doc.sgstAmount ?? "0"),
+      String(doc.igstAmount ?? "0"),
+      String(doc.cessAmount ?? "0"),
+      String(doc.totalAmount ?? "0"),
+    ])
+    .sort((a, b) => a[3].localeCompare(b[3]) || a[2].localeCompare(b[2]));
+
+  const csv = [headers.join(","), ...rows.map((row) => row.map(csvEscape).join(","))].join("\n");
+  return { csv, rowCount: rows.length };
+}
+
+function toDataUrl(csv: string): string {
+  return `data:text/csv;base64,${Buffer.from(csv, "utf-8").toString("base64")}`;
+}
+
+function pickRun(record: Record<string, unknown>): GstReportRunRecord {
+  return {
+    id: String(record.id),
+    gstSettingsId: String(record.gstSettingsId),
+    reportType: String(record.reportType),
+    periodStart: new Date(String(record.periodStart)),
+    periodEnd: new Date(String(record.periodEnd)),
+    format: String(record.format),
+    status: String(record.status),
+    fileUrl: record.fileUrl ? String(record.fileUrl) : null,
+    rowCount: Number(record.rowCount || 0),
+    generatedAt: record.generatedAt ? new Date(String(record.generatedAt)) : null,
+    errorMessage: record.errorMessage ? String(record.errorMessage) : null,
+  };
+}
+
 export async function generateReportRun(input: GenerateReportRunInput): Promise<GstServiceResult<GstReportRunRecord>> {
-  return { ok: false, error: `Not implemented: generateReportRun (${input.reportType})` };
+  const periodStart = toIsoDate(input.periodStart);
+  const periodEnd = toIsoDate(input.periodEnd);
+  if (Number.isNaN(periodStart.getTime()) || Number.isNaN(periodEnd.getTime())) {
+    return { ok: false, error: "periodStart and periodEnd must be valid ISO dates" };
+  }
+
+  if (input.format !== "CSV") {
+    return { ok: false, error: "Only CSV format is supported right now" };
+  }
+
+  const reportRun = await gstDb.gstReportRun.create({
+    data: {
+      gstSettingsId: input.gstSettingsId,
+      reportType: input.reportType,
+      periodStart,
+      periodEnd,
+      format: input.format,
+      status: "PROCESSING",
+      filters: input.filters || {},
+      rowCount: 0,
+    },
+  });
+
+  try {
+    const typeFilter = normalizeTypeFilter(input.reportType);
+    const documents = await gstDb.gstDocument.findMany({
+      where: {
+        gstSettingsId: input.gstSettingsId,
+        documentDate: { gte: periodStart, lte: periodEnd },
+        ...(typeFilter ? { documentType: { in: typeFilter } } : {}),
+      },
+      orderBy: [{ documentDate: "asc" }, { documentNumber: "asc" }],
+    });
+
+    const { csv, rowCount } = toCsv(documents as ReportDocument[]);
+    const checksum = createHash("sha256").update(csv).digest("hex");
+    const fileUrl = toDataUrl(csv);
+
+    const updated = await gstDb.gstReportRun.update({
+      where: { id: reportRun.id },
+      data: {
+        status: "GENERATED",
+        rowCount,
+        fileUrl,
+        checksum,
+        generatedAt: new Date(),
+        errorMessage: null,
+      },
+    });
+
+    return { ok: true, data: pickRun(updated as Record<string, unknown>) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to generate report";
+    await gstDb.gstReportRun.update({
+      where: { id: reportRun.id },
+      data: {
+        status: "FAILED",
+        errorMessage: message,
+        generatedAt: new Date(),
+      },
+    });
+    return { ok: false, error: message };
+  }
 }
 
 export async function getReportRun(id: string): Promise<GstServiceResult<GstReportRunRecord | null>> {
-  return { ok: true, data: null };
+  try {
+    const run = await gstDb.gstReportRun.findUnique({ where: { id: String(id).trim() } });
+    return { ok: true, data: run ? pickRun(run as Record<string, unknown>) : null };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Failed to load report run" };
+  }
 }
 
 export async function listReportRuns(filters: ReportRunFilters): Promise<GstServiceResult<GstReportRunRecord[]>> {
-  return { ok: true, data: [] };
+  try {
+    const where = {
+      ...(filters.gstSettingsId ? { gstSettingsId: String(filters.gstSettingsId).trim() } : {}),
+      ...(filters.reportType ? { reportType: String(filters.reportType).trim() } : {}),
+      ...(filters.status ? { status: String(filters.status).trim() } : {}),
+    };
+
+    const runs = await gstDb.gstReportRun.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+
+    return { ok: true, data: (runs as Record<string, unknown>[]).map(pickRun) };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Failed to list report runs" };
+  }
 }
 
 export async function downloadReportFile(id: string): Promise<GstServiceResult<{ fileUrl: string | null }>> {
-  return { ok: true, data: { fileUrl: null } };
+  const run = await getReportRun(id);
+  if (!run.ok) return { ok: false, error: run.error };
+  return { ok: true, data: { fileUrl: run.data?.fileUrl || null } };
 }
