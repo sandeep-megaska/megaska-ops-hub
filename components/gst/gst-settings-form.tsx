@@ -35,6 +35,51 @@ const initialState: SettingsFormState = {
   isActive: true,
 }
 
+function Section({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string
+  subtitle?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="mb-4">
+        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+        {subtitle ? <p className="mt-1 text-sm text-gray-500">{subtitle}</p> : null}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function Input({
+  label,
+  value,
+  onChange,
+  upper = false,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  upper?: boolean
+}) {
+  return (
+    <label className="block">
+      <div className="mb-1.5 text-sm font-medium text-gray-700">{label}</div>
+      <input
+        className={`w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-gray-500 focus:ring-2 focus:ring-gray-200 ${
+          upper ? 'uppercase' : ''
+        }`}
+        value={value}
+        onChange={(e) => onChange(upper ? e.target.value.toUpperCase() : e.target.value)}
+      />
+    </label>
+  )
+}
+
 export function GstSettingsForm() {
   const [form, setForm] = useState<SettingsFormState>(initialState)
   const [loading, setLoading] = useState(false)
@@ -47,8 +92,13 @@ export function GstSettingsForm() {
       if (!res.ok) return
       const record = (res.data as { settings?: Partial<SettingsFormState> })?.settings
       if (!record) return
-      setForm((prev) => ({ ...prev, ...record, tradeName: record.tradeName || '', pan: record.pan || '' }))
-      setResult(record)
+      setForm((prev) => ({
+        ...prev,
+        ...record,
+        tradeName: record.tradeName || '',
+        pan: record.pan || '',
+      }))
+      setResult(res.data)
     })()
   }, [])
 
@@ -73,37 +123,128 @@ export function GstSettingsForm() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <form onSubmit={onSubmit} className="space-y-4">
-        <h2 className="text-lg font-semibold">Registration & Numbering</h2>
-        <p className="text-sm text-gray-600">Configure active GST registration. Seller state and numbering prefixes are sourced from these settings during document creation.</p>
+    <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+      <form onSubmit={onSubmit} className="space-y-5">
+        <Section
+          title="Registration"
+          subtitle="Store the active GST registration profile used by invoice and note workflows."
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              label="Legal Name"
+              value={form.legalName}
+              onChange={(value) => setForm((p) => ({ ...p, legalName: value }))}
+            />
+            <Input
+              label="Trade Name"
+              value={form.tradeName}
+              onChange={(value) => setForm((p) => ({ ...p, tradeName: value }))}
+            />
+            <Input
+              label="GSTIN"
+              value={form.gstin}
+              upper
+              onChange={(value) => setForm((p) => ({ ...p, gstin: value }))}
+            />
+            <Input
+              label="PAN"
+              value={form.pan}
+              upper
+              onChange={(value) => setForm((p) => ({ ...p, pan: value }))}
+            />
+            <Input
+              label="State Code"
+              value={form.stateCode}
+              onChange={(value) => setForm((p) => ({ ...p, stateCode: value }))}
+            />
+            <Input
+              label="Default Currency"
+              value={form.defaultCurrency}
+              upper
+              onChange={(value) => setForm((p) => ({ ...p, defaultCurrency: value }))}
+            />
+          </div>
+        </Section>
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="text-sm">Legal Name<input className="mt-1 w-full rounded-lg border px-3 py-2" value={form.legalName} onChange={(e) => setForm((p) => ({ ...p, legalName: e.target.value }))} /></label>
-          <label className="text-sm">Trade Name<input className="mt-1 w-full rounded-lg border px-3 py-2" value={form.tradeName} onChange={(e) => setForm((p) => ({ ...p, tradeName: e.target.value }))} /></label>
-          <label className="text-sm">GSTIN<input className="mt-1 w-full rounded-lg border px-3 py-2 uppercase" value={form.gstin} onChange={(e) => setForm((p) => ({ ...p, gstin: e.target.value.toUpperCase() }))} /></label>
-          <label className="text-sm">PAN<input className="mt-1 w-full rounded-lg border px-3 py-2 uppercase" value={form.pan} onChange={(e) => setForm((p) => ({ ...p, pan: e.target.value.toUpperCase() }))} /></label>
-          <label className="text-sm">State Code<input className="mt-1 w-full rounded-lg border px-3 py-2" value={form.stateCode} onChange={(e) => setForm((p) => ({ ...p, stateCode: e.target.value }))} /></label>
-          <label className="text-sm">Default Currency<input className="mt-1 w-full rounded-lg border px-3 py-2 uppercase" value={form.defaultCurrency} onChange={(e) => setForm((p) => ({ ...p, defaultCurrency: e.target.value.toUpperCase() }))} /></label>
-          <label className="text-sm">Invoice Prefix<input className="mt-1 w-full rounded-lg border px-3 py-2 uppercase" value={form.invoicePrefix} onChange={(e) => setForm((p) => ({ ...p, invoicePrefix: e.target.value.toUpperCase() }))} /></label>
-          <label className="text-sm">Credit Note Prefix<input className="mt-1 w-full rounded-lg border px-3 py-2 uppercase" value={form.creditNotePrefix} onChange={(e) => setForm((p) => ({ ...p, creditNotePrefix: e.target.value.toUpperCase() }))} /></label>
-          <label className="text-sm">Debit Note Prefix<input className="mt-1 w-full rounded-lg border px-3 py-2 uppercase" value={form.debitNotePrefix} onChange={(e) => setForm((p) => ({ ...p, debitNotePrefix: e.target.value.toUpperCase() }))} /></label>
-          <label className="text-sm">Numbering Strategy
-            <select className="mt-1 w-full rounded-lg border px-3 py-2" value={form.invoiceNumberStrategy} onChange={(e) => setForm((p) => ({ ...p, invoiceNumberStrategy: e.target.value }))}>
-              <option value="FINANCIAL_YEAR_SEQUENCE">Financial Year Sequence</option>
-              <option value="CALENDAR_YEAR_SEQUENCE">Calendar Year Sequence</option>
-              <option value="MONTHLY_SEQUENCE">Monthly Sequence</option>
-              <option value="MANUAL">Manual</option>
-            </select>
-          </label>
+        <Section
+          title="Numbering Controls"
+          subtitle="Configure document prefixes and strategy used by backend number reservation."
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              label="Invoice Prefix"
+              value={form.invoicePrefix}
+              upper
+              onChange={(value) => setForm((p) => ({ ...p, invoicePrefix: value }))}
+            />
+            <Input
+              label="Credit Note Prefix"
+              value={form.creditNotePrefix}
+              upper
+              onChange={(value) => setForm((p) => ({ ...p, creditNotePrefix: value }))}
+            />
+            <Input
+              label="Debit Note Prefix"
+              value={form.debitNotePrefix}
+              upper
+              onChange={(value) => setForm((p) => ({ ...p, debitNotePrefix: value }))}
+            />
+
+            <label className="block">
+              <div className="mb-1.5 text-sm font-medium text-gray-700">Numbering Strategy</div>
+              <select
+                className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
+                value={form.invoiceNumberStrategy}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, invoiceNumberStrategy: e.target.value }))
+                }
+              >
+                <option value="FINANCIAL_YEAR_SEQUENCE">Financial Year Sequence</option>
+                <option value="CALENDAR_YEAR_SEQUENCE">Calendar Year Sequence</option>
+                <option value="MONTHLY_SEQUENCE">Monthly Sequence</option>
+                <option value="MANUAL">Manual</option>
+              </select>
+            </label>
+          </div>
+        </Section>
+
+        <Section
+          title="Operational Controls"
+          subtitle="Enable production behavior intentionally and keep settings state explicit."
+        >
+          <div className="flex flex-wrap gap-6">
+            <label className="inline-flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                checked={form.einvoiceEnabled}
+                onChange={(e) => setForm((p) => ({ ...p, einvoiceEnabled: e.target.checked }))}
+              />
+              E-invoice enabled
+            </label>
+
+            <label className="inline-flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.checked }))}
+              />
+              Active settings
+            </label>
+          </div>
+        </Section>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={loading}
+            className="rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? 'Saving...' : 'Save GST Settings'}
+          </button>
+          <p className="text-sm text-gray-500">
+            These values drive seller state, numbering, and document generation defaults.
+          </p>
         </div>
-
-        <div className="flex gap-4 text-sm">
-          <label className="inline-flex items-center gap-2"><input type="checkbox" checked={form.einvoiceEnabled} onChange={(e) => setForm((p) => ({ ...p, einvoiceEnabled: e.target.checked }))} />E-invoice enabled</label>
-          <label className="inline-flex items-center gap-2"><input type="checkbox" checked={form.isActive} onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.checked }))} />Active settings</label>
-        </div>
-
-        <button type="submit" disabled={loading} className="rounded-lg bg-black px-4 py-2 text-white">{loading ? 'Saving...' : 'Save GST Settings'}</button>
       </form>
 
       <GstResponseViewer title="Settings API Response" data={result} error={error} />
