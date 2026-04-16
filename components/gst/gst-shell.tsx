@@ -14,6 +14,25 @@ const nav = [
   { href: '/admin/gst/reconcile', label: 'Reconcile' },
 ]
 
+function getModeLabel(mode: string): string {
+  const value = String(mode || '').toLowerCase()
+  if (value === 'true' || value === 'test') return 'Test'
+  if (value === 'live') return 'Live'
+  if (value === 'disabled') return 'Disabled'
+  return mode
+}
+
+function getModeClasses(mode: string): string {
+  const value = String(mode || '').toLowerCase()
+  if (value === 'true' || value === 'test') {
+    return 'bg-amber-100 text-amber-800 border-amber-200'
+  }
+  if (value === 'live') {
+    return 'bg-emerald-100 text-emerald-800 border-emerald-200'
+  }
+  return 'bg-gray-100 text-gray-700 border-gray-200'
+}
+
 export function GstShell({
   title,
   subtitle,
@@ -24,44 +43,74 @@ export function GstShell({
   children: ReactNode
 }) {
   const pathname = usePathname()
+  const enabled = process.env.NEXT_PUBLIC_ENABLE_GST_UI === 'true'
+  const mode = process.env.NEXT_PUBLIC_GST_UI_MODE || 'disabled'
+
+  if (!enabled) {
+    return (
+      <div className="min-h-screen bg-[#f6f6f7] p-6">
+        <div className="mx-auto max-w-5xl rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+          <h1 className="text-2xl font-semibold text-gray-900">GST admin disabled</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Enable NEXT_PUBLIC_ENABLE_GST_UI to access GST admin screens.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Top Bar */}
-      <div className="border-b bg-white px-6 py-4">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-[#f6f6f7]">
+      <div className="border-b border-gray-200 bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-start justify-between gap-4 px-6 py-5">
           <div>
-            <h1 className="text-xl font-semibold">{title}</h1>
-            <p className="text-sm text-gray-500">{subtitle}</p>
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl border border-gray-200 bg-black px-2.5 py-1.5 text-sm font-semibold text-white">
+                GST
+              </div>
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight text-gray-900">{title}</h1>
+                <p className="mt-1 text-sm text-gray-600">
+                  {subtitle || 'Internal GST operations console powered by backend APIs.'}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
-            TEST MODE
+
+          <div
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium uppercase tracking-wide ${getModeClasses(
+              mode
+            )}`}
+          >
+            Mode: {getModeLabel(mode)}
           </div>
         </div>
       </div>
 
-      {/* Navigation */}
-      <div className="border-b bg-white px-6 py-3">
-        <div className="flex flex-wrap gap-2">
-          {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`rounded-lg px-3 py-2 text-sm transition ${
-                pathname === item.href
-                  ? 'bg-black text-white'
-                  : 'border bg-white hover:bg-gray-100'
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
+      <div className="mx-auto max-w-7xl px-6 py-5">
+        <div className="rounded-2xl border border-gray-200 bg-white p-2 shadow-sm">
+          <nav className="flex flex-wrap gap-2">
+            {nav.map((item) => {
+              const active = pathname === item.href
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={[
+                    'rounded-xl px-4 py-2 text-sm font-medium transition',
+                    active
+                      ? 'bg-gray-900 text-white shadow-sm'
+                      : 'text-gray-700 hover:bg-gray-100',
+                  ].join(' ')}
+                >
+                  {item.label}
+                </Link>
+              )
+            })}
+          </nav>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="p-6">
-        <div className="mx-auto max-w-6xl space-y-6">{children}</div>
+        <div className="mt-6">{children}</div>
       </div>
     </div>
   )
