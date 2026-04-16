@@ -106,6 +106,21 @@ export const listImportedOrders = (query: { gstSettingsId?: string; importStatus
 }
 export const importOrder = (payload: Record<string, unknown>) => request<{ ok: boolean; order: Record<string, unknown> }>('/api/gst/orders/import', { method: 'POST', body: JSON.stringify(payload) })
 export const getImportedOrderById = (id: string) => request<{ ok: boolean; data: Record<string, unknown> }>(`/api/gst/orders/${id}`)
+export const syncOrders = (payload: Record<string, unknown>) => request<{ ok: boolean; data: Record<string, unknown>; error: string | null }>('/api/gst/orders/sync', { method: 'POST', body: JSON.stringify(payload) })
+export const syncSingleOrder = (payload: Record<string, unknown>) => request<{ ok: boolean; data: Record<string, unknown>; error: string | null }>('/api/gst/orders/sync-single', { method: 'POST', body: JSON.stringify(payload) })
+export const listDispatchReadyOrders = (query: { from?: string; to?: string; invoiceStatus?: string; readiness?: string } = {}) => {
+  const search = new URLSearchParams()
+  if (query.from) search.set('from', query.from)
+  if (query.to) search.set('to', query.to)
+  if (query.invoiceStatus) search.set('invoiceStatus', query.invoiceStatus)
+  if (query.readiness) search.set('readiness', query.readiness)
+  const suffix = search.toString() ? `?${search.toString()}` : ''
+  return request<{ ok: boolean; data: Array<Record<string, unknown>>; error: string | null }>(`/api/gst/orders/dispatch-ready${suffix}`)
+}
+export const generateBatchInvoices = (payload: Record<string, unknown>) => request<{ ok: boolean; data: Record<string, unknown>; error: string | null }>('/api/gst/invoices/generate-batch', { method: 'POST', body: JSON.stringify(payload) })
+export const preparePrintBatch = (payload: Record<string, unknown>) => request<{ ok: boolean; data: Record<string, unknown>; error: string | null }>('/api/gst/invoices/print-batch', { method: 'POST', body: JSON.stringify(payload) })
+export const bulkPreviewProductMappings = (payload: Record<string, unknown>) => request<{ ok: boolean; data: Record<string, unknown>; error: string | null }>('/api/gst/products/mappings/bulk-preview', { method: 'POST', body: JSON.stringify(payload) })
+export const bulkApplyProductMappings = (payload: Record<string, unknown>) => request<{ ok: boolean; data: Record<string, unknown>; error: string | null }>('/api/gst/products/mappings/bulk-apply', { method: 'POST', body: JSON.stringify(payload) })
 
 export const listTemplates = (query: { gstSettingsId?: string } = {}) => {
   const search = new URLSearchParams()
