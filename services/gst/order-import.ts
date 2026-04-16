@@ -113,7 +113,7 @@ async function mapLine(line: Record<string, unknown>, index: number): Promise<Pa
   if (shopifyProductId) {
     const mapping = await resolveLineTaxMapping({ shopifyProductId, shopifyVariantId });
     if (mapping.ok && mapping.data) {
-      mappedHsnCode = normalizeString((mapping.data as Record<string, unknown>).hsnId) || null;
+      mappedHsnCode = normalizeString(mapping.data.hsnId) || null;
       mappedTaxRate = null;
       mappedCessRate = null;
       mappingStatus = "MAPPED";
