@@ -1,0 +1,259 @@
+import { gstDb } from "./db";
+import type { GstServiceResult } from "./types";
+import { buildInvoiceDraft } from "./invoice";
+import { markOrderInvoiced } from "./order-import";
+
+interface DispatchFilters {
+  from?: string | Date;
+  to?: string | Date;
+  invoiceStatus?: string;
+  readiness?: string;
+  syncRunId?: string;
+}
+
+interface BatchGenerateInput {
+  orderImportIds: string[];
+  templateId?: string;
+  regenerate?: boolean;
+}
+
+interface PrintBatchInput {
+  documentIds?: string[];
+  orderImportIds?: string[];
+}
+
+type DispatchDbClient = {
+  gstOrderImport: {
+    findMany: (args: unknown) => Promise<Array<Record<string, unknown>>>;
+    findUnique: (args: unknown) => Promise<Record<string, unknown> | null>;
+  };
+  gstDocument: {
+    findFirst: (args: unknown) => Promise<Record<string, unknown> | null>;
+    findMany: (args: unknown) => Promise<Array<Record<string, unknown>>>;
+  };
+};
+
+const dispatchDb = gstDb as unknown as DispatchDbClient;
+
+function asDate(value: unknown): Date | null {
+  if (!value) return null;
+  const parsed = value instanceof Date ? value : new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function parseNum(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function parseJson(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+export async function listDispatchReadyOrders(filters: DispatchFilters): Promise<GstServiceResult<Array<Record<string, unknown>>>> {
+  try {
+    const where: Record<string, unknown> = {};
+    if (filters.from || filters.to) {
+      where.orderCreatedAt = {
+        ...(filters.from ? { gte: new Date(String(filters.from)) } : {}),
+        ...(filters.to ? { lte: new Date(String(filters.to)) } : {}),
+      };
+    }
+
+    const rows = await dispatchDb.gstOrderImport.findMany({
+      where,
+      include: {
+        lines: { select: { sku: true, mappingStatus: true } },
+      },
+      orderBy: [{ orderCreatedAt: "desc" }],
+      take: 500,
+    });
+
+    const data: Array<Record<string, unknown>> = [];
+    for (const row of rows) {
+      const orderImportId = String(row.id);
+      const lines = Array.isArray(row.lines) ? (row.lines as Array<Record<string, unknown>>) : [];
+      const mappedLines = lines.filter((line) => String(line.mappingStatus || "") === "MAPPED").length;
+      const mappingCompleteness = lines.length === 0 ? 0 : Math.round((mappedLines / lines.length) * 10000) / 100;
+      const invoice = await dispatchDb.gstDocument.findFirst({
+        where: {
+          documentType: "TAX_INVOICE",
+          OR: [{ sourceOrderId: orderImportId }, { shopifyOrderId: String(row.shopifyOrderId || "") }],
+        },
+        orderBy: [{ createdAt: "desc" }],
+        select: { id: true, documentNumber: true, status: true },
+      });
+
+      const readinessErrors = Array.isArray(row.readinessErrors) ? row.readinessErrors : [];
+      const readiness = readinessErrors.length === 0 ? "READY" : "NOT_READY";
+      const eligibilityStatus = String(row.eligibilityStatus || "");
+
+      data.push({
+        id: orderImportId,
+        orderName: String(row.shopifyOrderName || row.shopifyOrderId || ""),
+        orderNumber: String(row.shopifyOrderName || "").replace(/^#/, ""),
+        orderDate: asDate(row.orderCreatedAt)?.toISOString() || null,
+        customerSummary: String(parseJson(row.snapshot).customerName || "-") || "-",
+        skuCount: new Set(lines.map((line) => String(line.sku || "").trim()).filter(Boolean)).size,
+        itemCount: lines.length,
+        mappingCompleteness,
+        readinessErrors,
+        importStatus: String(row.importStatus || ""),
+        eligibilityStatus,
+        readiness,
+        invoiceStatus: invoice ? String(invoice.status || "") : "NOT_INVOICED",
+        invoiceDocumentId: invoice ? String(invoice.id) : null,
+        invoiceDocumentNumber: invoice ? String(invoice.documentNumber || "") : null,
+      });
+    }
+
+    return {
+      ok: true,
+      data: data.filter((row) => {
+        if (filters.invoiceStatus && String(row.invoiceStatus) !== String(filters.invoiceStatus)) return false;
+        if (filters.readiness && String(row.readiness) !== String(filters.readiness)) return false;
+        return true;
+      }),
+    };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Failed to list dispatch-ready orders" };
+  }
+}
+
+export async function generateInvoiceBatch(input: BatchGenerateInput) {
+  const ids = Array.from(new Set((input.orderImportIds || []).map((id) => String(id).trim()).filter(Boolean)));
+  if (!ids.length) {
+    return { ok: false, error: "orderImportIds[] is required" } as const;
+  }
+
+  const summary = { generated: 0, skippedAlreadyInvoiced: 0, notReady: 0, failed: 0, results: [] as Array<Record<string, unknown>> };
+
+  for (const id of ids) {
+    const order = await dispatchDb.gstOrderImport.findUnique({
+      where: { id },
+      include: { lines: { orderBy: { lineNumber: "asc" } } },
+    });
+
+    if (!order) {
+      summary.failed += 1;
+      summary.results.push({ id, status: "FAILED", error: "Order import not found" });
+      continue;
+    }
+
+    const readinessErrors = Array.isArray(order.readinessErrors) ? order.readinessErrors : [];
+    if (readinessErrors.length > 0) {
+      summary.notReady += 1;
+      summary.results.push({ id, status: "NOT_READY", readinessErrors });
+      continue;
+    }
+
+    const existing = await dispatchDb.gstDocument.findFirst({
+      where: {
+        documentType: "TAX_INVOICE",
+        OR: [{ sourceOrderId: id }, { shopifyOrderId: String(order.shopifyOrderId || "") }],
+      },
+      orderBy: [{ createdAt: "desc" }],
+      select: { id: true, documentNumber: true },
+    });
+
+    if (existing && !input.regenerate) {
+      summary.skippedAlreadyInvoiced += 1;
+      summary.results.push({ id, status: "SKIPPED_ALREADY_INVOICED", documentId: String(existing.id) });
+      continue;
+    }
+
+    const snapshot = parseJson(order.snapshot);
+    const lines = (Array.isArray(order.lines) ? order.lines : []).map((line) => {
+      const row = line as Record<string, unknown>;
+      return {
+        description: String(row.title || row.sku || "Item"),
+        quantity: parseNum(row.quantity),
+        unitPrice: parseNum(row.unitPrice),
+        taxRate: parseNum(row.mappedTaxRate),
+        hsnOrSac: row.mappedHsnCode ? String(row.mappedHsnCode) : undefined,
+        discount: parseNum(row.discount),
+      };
+    });
+
+    const invoice = await buildInvoiceDraft({
+      gstSettingsId: String(order.gstSettingsId || ""),
+      sourceOrderId: String(order.id),
+      sourceOrderNumber: String(order.shopifyOrderName || order.shopifyOrderId || ""),
+      sourceReference: "GST_DISPATCH_BATCH",
+      shopifyOrderId: String(order.shopifyOrderId || ""),
+      shopifyOrderName: String(order.shopifyOrderName || ""),
+      documentDate: asDate(order.orderCreatedAt)?.toISOString() || new Date().toISOString(),
+      billingStateCode: order.billingStateCode ? String(order.billingStateCode) : null,
+      shippingStateCode: order.shippingStateCode ? String(order.shippingStateCode) : null,
+      buyer: {
+        legalName: String(snapshot.customerName || "Customer"),
+        gstin: null,
+        stateCode: (order.shippingStateCode || order.billingStateCode) ? String(order.shippingStateCode || order.billingStateCode) : null,
+      },
+      currency: String(order.orderCurrency || "INR"),
+      lines,
+      metadata: { dispatchBatch: true, templateId: input.templateId || null, gstOrderImportId: String(order.id) },
+    });
+
+    if (!invoice.ok || !invoice.data) {
+      summary.failed += 1;
+      summary.results.push({ id, status: "FAILED", error: invoice.error || "Invoice generation failed" });
+      continue;
+    }
+
+    await markOrderInvoiced({ gstOrderImportId: id, gstDocumentId: invoice.data.id });
+    summary.generated += 1;
+    summary.results.push({ id, status: "GENERATED", documentId: invoice.data.id, documentNumber: invoice.data.documentNumber });
+  }
+
+  return { ok: true, data: summary } as const;
+}
+
+export async function prepareInvoicePrintBatch(input: PrintBatchInput): Promise<GstServiceResult<Record<string, unknown>>> {
+  const documentIds = Array.from(new Set((input.documentIds || []).map((id) => String(id).trim()).filter(Boolean)));
+
+  try {
+    let resolvedDocumentIds = [...documentIds];
+    if (!resolvedDocumentIds.length && (input.orderImportIds || []).length) {
+      const imports = Array.from(new Set((input.orderImportIds || []).map((id) => String(id).trim()).filter(Boolean)));
+      const docs = await dispatchDb.gstDocument.findMany({
+        where: {
+          documentType: "TAX_INVOICE",
+          sourceOrderId: { in: imports },
+        },
+        select: { id: true },
+      });
+      resolvedDocumentIds = docs.map((doc) => String(doc.id));
+    }
+
+    if (!resolvedDocumentIds.length) {
+      return { ok: false, error: "No invoice documents found for print batch" };
+    }
+
+    const documents = await dispatchDb.gstDocument.findMany({
+      where: { id: { in: resolvedDocumentIds } },
+      select: { id: true, documentNumber: true, sourceOrderNumber: true, documentDate: true, status: true },
+      orderBy: [{ documentDate: "asc" }, { documentNumber: "asc" }],
+    });
+
+    const files = documents.map((doc) => ({
+      documentId: String(doc.id),
+      documentNumber: String(doc.documentNumber || ""),
+      sourceOrderNumber: String(doc.sourceOrderNumber || ""),
+      status: String(doc.status || ""),
+      documentDate: asDate(doc.documentDate)?.toISOString() || null,
+      pdfUrl: `/api/gst/documents/${String(doc.id)}/pdf`,
+    }));
+
+    return {
+      ok: true,
+      data: {
+        generatedAt: new Date().toISOString(),
+        count: files.length,
+        manifest: files,
+      },
+    };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Failed to prepare print batch" };
+  }
+}

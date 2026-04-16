@@ -717,6 +717,158 @@ export async function findOrCreateShopifyCustomer(
   };
 }
 
+type GstSyncOrderNode = {
+  id: string;
+  name?: string | null;
+  createdAt?: string | null;
+  displayFinancialStatus?: string | null;
+  displayFulfillmentStatus?: string | null;
+  subtotalPriceSet?: { shopMoney?: { amount?: string | null; currencyCode?: string | null } | null } | null;
+  totalTaxSet?: { shopMoney?: { amount?: string | null } | null } | null;
+  totalPriceSet?: { shopMoney?: { amount?: string | null } | null } | null;
+  customer?: { firstName?: string | null; lastName?: string | null } | null;
+  shippingAddress?: { provinceCode?: string | null } | null;
+  billingAddress?: { provinceCode?: string | null } | null;
+  lineItems?: {
+    nodes?: Array<{
+      id: string;
+      title?: string | null;
+      sku?: string | null;
+      quantity?: number | null;
+      discountedUnitPriceAfterAllDiscountsSet?: { shopMoney?: { amount?: string | null } | null } | null;
+      product?: { id?: string | null } | null;
+      variant?: { id?: string | null } | null;
+    }>;
+  } | null;
+};
+
+function extractShopifyEntityId(gid: string | null | undefined): string {
+  const raw = String(gid || "").trim();
+  if (!raw) return "";
+  if (!raw.includes("/")) return raw;
+  return raw.split("/").pop() || raw;
+}
+
+function normalizeGstSyncOrder(node: GstSyncOrderNode) {
+  return {
+    id: extractShopifyEntityId(node.id),
+    name: String(node.name || "").trim() || extractShopifyEntityId(node.id),
+    createdAt: node.createdAt || new Date().toISOString(),
+    financialStatus: String(node.displayFinancialStatus || "").trim() || null,
+    fulfillmentStatus: String(node.displayFulfillmentStatus || "").trim() || null,
+    currency: String(node.subtotalPriceSet?.shopMoney?.currencyCode || "INR"),
+    subtotalPrice: Number(node.subtotalPriceSet?.shopMoney?.amount || 0),
+    totalTax: Number(node.totalTaxSet?.shopMoney?.amount || 0),
+    totalPrice: Number(node.totalPriceSet?.shopMoney?.amount || 0),
+    shippingStateCode: node.shippingAddress?.provinceCode || null,
+    billingStateCode: node.billingAddress?.provinceCode || null,
+    customerName: [node.customer?.firstName, node.customer?.lastName].filter(Boolean).join(" ").trim() || null,
+    lines: (node.lineItems?.nodes || []).map((line) => ({
+      id: extractShopifyEntityId(line.id),
+      productId: extractShopifyEntityId(line.product?.id || ""),
+      variantId: extractShopifyEntityId(line.variant?.id || ""),
+      title: String(line.title || "Item"),
+      sku: line.sku || null,
+      quantity: Number(line.quantity || 0),
+      price: Number(line.discountedUnitPriceAfterAllDiscountsSet?.shopMoney?.amount || 0),
+      discount: 0,
+    })),
+  };
+}
+
+export async function getShopifyOrdersForGstSync(input: {
+  from: Date;
+  to: Date;
+  financialStatus?: string[];
+  fulfillmentStatus?: string[];
+}) {
+  const filters = [`created_at:>=${input.from.toISOString()}`, `created_at:<=${input.to.toISOString()}`];
+  if ((input.financialStatus || []).length) {
+    filters.push(`(financial_status:${input.financialStatus?.map((s) => s.toLowerCase()).join(" OR financial_status:")})`);
+  }
+  if ((input.fulfillmentStatus || []).length) {
+    filters.push(`(fulfillment_status:${input.fulfillmentStatus?.map((s) => s.toLowerCase()).join(" OR fulfillment_status:")})`);
+  }
+
+  const data = await adminGraphql<{ orders: { nodes: GstSyncOrderNode[] } }>(
+    `
+      query GstOrdersForSync($query: String!) {
+        orders(first: 100, sortKey: CREATED_AT, reverse: true, query: $query) {
+          nodes {
+            id
+            name
+            createdAt
+            displayFinancialStatus
+            displayFulfillmentStatus
+            subtotalPriceSet { shopMoney { amount currencyCode } }
+            totalTaxSet { shopMoney { amount } }
+            totalPriceSet { shopMoney { amount } }
+            customer { firstName lastName }
+            shippingAddress { provinceCode }
+            billingAddress { provinceCode }
+            lineItems(first: 100) {
+              nodes {
+                id
+                title
+                sku
+                quantity
+                discountedUnitPriceAfterAllDiscountsSet { shopMoney { amount } }
+                product { id }
+                variant { id }
+              }
+            }
+          }
+        }
+      }
+    `,
+    { query: filters.join(" ") }
+  );
+
+  return (data.orders.nodes || []).map(normalizeGstSyncOrder);
+}
+
+export async function getSingleShopifyOrderForGstSync(orderNameOrNumber: string) {
+  const key = String(orderNameOrNumber || "").trim();
+  if (!key) return null;
+  const query = key.startsWith("#") ? `name:${key}` : `name:#${key.replace(/^#/, "")}`;
+  const data = await adminGraphql<{ orders: { nodes: GstSyncOrderNode[] } }>(
+    `
+      query GstSingleOrderForSync($query: String!) {
+        orders(first: 1, sortKey: CREATED_AT, reverse: true, query: $query) {
+          nodes {
+            id
+            name
+            createdAt
+            displayFinancialStatus
+            displayFulfillmentStatus
+            subtotalPriceSet { shopMoney { amount currencyCode } }
+            totalTaxSet { shopMoney { amount } }
+            totalPriceSet { shopMoney { amount } }
+            customer { firstName lastName }
+            shippingAddress { provinceCode }
+            billingAddress { provinceCode }
+            lineItems(first: 100) {
+              nodes {
+                id
+                title
+                sku
+                quantity
+                discountedUnitPriceAfterAllDiscountsSet { shopMoney { amount } }
+                product { id }
+                variant { id }
+              }
+            }
+          }
+        }
+      }
+    `,
+    { query }
+  );
+
+  const node = data.orders.nodes[0];
+  return node ? normalizeGstSyncOrder(node) : null;
+}
+
 export async function setOrderMegaskaIdentityMetafields(input: OrderMegaskaIdentityInput) {
   const ownerId = resolveOrderGid(input.orderId);
 
