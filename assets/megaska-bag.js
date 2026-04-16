@@ -2,6 +2,8 @@
   const root = document.getElementById("megaska-bag-root");
   if (!root) return;
 
+  const MEGASKA_FALLBACK_API_BASE = "https://megaska-ops-hub-exs1.vercel.app/api";
+
   const state = {
     pageStatus: "loading",
     cart: null,
@@ -28,6 +30,57 @@
     },
   };
 
+  function getMegaskaApiBase() {
+    const configuredBase = String(window?.MegaskaAuth?.API_BASE || "").trim();
+    return configuredBase || MEGASKA_FALLBACK_API_BASE;
+  }
+
+  async function getSessionToken() {
+    try {
+      if (window.MegaskaAuth) {
+        if (typeof window.MegaskaAuth.getSessionToken === "function") {
+          const token = await window.MegaskaAuth.getSessionToken();
+          if (token) return String(token).trim();
+        }
+        if (typeof window.MegaskaAuth.getToken === "function") {
+          const token = await window.MegaskaAuth.getToken();
+          if (token) return String(token).trim();
+        }
+      }
+    } catch (_error) {}
+
+    try {
+      return String(window.localStorage.getItem("megaska_session_token") || "").trim();
+    } catch (_error) {
+      return "";
+    }
+  }
+
+  async function megaskaApiFetch(path, options) {
+    const normalizedPath = String(path || "").trim().startsWith("/")
+      ? String(path || "").trim()
+      : `/${String(path || "").trim()}`;
+
+    const token = await getSessionToken();
+    const baseHeaders = {
+      Accept: "application/json",
+    };
+
+    if (token) {
+      baseHeaders.Authorization = `Bearer ${token}`;
+    }
+
+    const incomingHeaders = options?.headers || {};
+    const mergedHeaders = Object.assign({}, baseHeaders, incomingHeaders);
+
+    return fetch(
+      `${getMegaskaApiBase()}${normalizedPath}`,
+      Object.assign({}, options || {}, {
+        headers: mergedHeaders,
+      })
+    );
+  }
+
   function formatMoneyFromMinor(amountMinor, currency) {
     const amount = Number(amountMinor || 0) / 100;
     try {
@@ -52,7 +105,10 @@
   }
 
   async function fetchCart() {
-    const res = await fetch("/cart.js", { credentials: "same-origin", headers: { Accept: "application/json" } });
+    const res = await fetch("/cart.js", {
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+    });
     if (!res.ok) throw new Error(`Unable to load cart (${res.status})`);
     return res.json();
   }
@@ -73,32 +129,9 @@
     return changeLineQuantity(lineKey, 0);
   }
 
-  async function getSessionToken() {
-    try {
-      if (window.MegaskaAuth) {
-        if (typeof window.MegaskaAuth.getSessionToken === "function") {
-          const token = await window.MegaskaAuth.getSessionToken();
-          if (token) return String(token).trim();
-        }
-        if (typeof window.MegaskaAuth.getToken === "function") {
-          const token = await window.MegaskaAuth.getToken();
-          if (token) return String(token).trim();
-        }
-      }
-    } catch (_error) {}
-
-    try {
-      return String(window.localStorage.getItem("megaska_session_token") || "").trim();
-    } catch (_error) {
-      return "";
-    }
-  }
-
-  async function fetchDashboardSummary(token) {
-    const res = await fetch("/api/dashboard/summary", {
+  async function fetchDashboardSummary() {
+    const res = await megaskaApiFetch("/dashboard/summary", {
       method: "GET",
-      credentials: "same-origin",
-      headers: Object.assign({ Accept: "application/json" }, token ? { Authorization: `Bearer ${token}` } : {}),
     });
     if (!res.ok) throw new Error(`Dashboard summary unavailable (${res.status})`);
     return res.json();
@@ -116,7 +149,7 @@
     state.customer.sessionActive = true;
     state.wallet.visible = true;
     try {
-      const summary = await fetchDashboardSummary(token);
+      const summary = await fetchDashboardSummary();
       state.customer.dashboard = summary || null;
       state.customer.profile = summary?.customer || null;
 
@@ -346,18 +379,15 @@
     render();
 
     try {
-      const response = await fetch("/api/wallet/apply", {
+      const response = await megaskaApiFetch("/wallet/apply", {
         method: "POST",
-        credentials: "same-origin",
         headers: {
           "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           walletAmount: Number((eligibleMinor / 100).toFixed(2)),
           cartToken: String(state.cart?.token || "").trim() || undefined,
-          sourceFlow: "CHECKOUT",
+          sourceFlow: window?.MegaskaAuth?.WALLET_SOURCE_FLOW || "CHECKOUT",
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -380,7 +410,6 @@
   }
 
   function triggerWalletLoginFlow() {
-    // TODO(Megaska OTP): Wire exact storefront login modal trigger once bag page hook is finalized.
     if (window.MegaskaAuth && typeof window.MegaskaAuth.openOtpModal === "function") {
       window.MegaskaAuth.openOtpModal({ returnTo: "/pages/bag" });
       return;
@@ -511,6 +540,8 @@
     changeLineQuantity,
     removeLine,
     getCheckoutRedirectUrl,
+    getMegaskaApiBase,
+    megaskaApiFetch,
   };
 
   init();
