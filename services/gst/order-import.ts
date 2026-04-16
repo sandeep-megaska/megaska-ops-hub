@@ -10,7 +10,10 @@ export interface GstOrderImportRecord {
   shopifyOrderName: string;
   importStatus: string;
   eligibilityStatus: string;
+  readinessErrors: string[];
   mappingCompleteness: number;
+  unmappedSkus: string[];
+  warnings: string[];
   orderCreatedAt: Date;
   lastSyncedAt: Date | null;
 }
@@ -184,7 +187,29 @@ function buildReadiness(
   return { readinessErrors, eligibilityStatus, importStatus };
 }
 
-function toOrderImportRecord(row: Record<string, unknown>, mappingCompleteness: number): GstOrderImportRecord {
+function listStrings(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((entry) => String(entry || "").trim()).filter(Boolean);
+}
+
+function collectUnmappedSkus(lines: Array<{ mappingStatus: string; sku?: string | null }>): string[] {
+  return Array.from(
+    new Set(
+      lines
+        .filter((line) => String(line.mappingStatus || "").toUpperCase() !== "MAPPED")
+        .map((line) => String(line.sku || "").trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function toOrderImportRecord(
+  row: Record<string, unknown>,
+  options: { mappingCompleteness: number; unmappedSkus?: string[]; warnings?: string[] },
+): GstOrderImportRecord {
   return {
     id: String(row.id),
     gstSettingsId: String(row.gstSettingsId),
@@ -192,7 +217,10 @@ function toOrderImportRecord(row: Record<string, unknown>, mappingCompleteness: 
     shopifyOrderName: String(row.shopifyOrderName),
     importStatus: String(row.importStatus),
     eligibilityStatus: String(row.eligibilityStatus),
-    mappingCompleteness,
+    readinessErrors: listStrings(row.readinessErrors),
+    mappingCompleteness: options.mappingCompleteness,
+    unmappedSkus: options.unmappedSkus || [],
+    warnings: options.warnings || [],
     orderCreatedAt: parseDate(row.orderCreatedAt),
     lastSyncedAt: row.lastSyncedAt ? parseDate(row.lastSyncedAt, new Date(0)) : null,
   };
@@ -221,13 +249,22 @@ export async function importOrderByShopifyId(
     if (existing) {
       const existingLines = ((existing.lines as Array<Record<string, unknown>> | undefined) || []).map((line) => ({
         mappingStatus: String(line.mappingStatus || "UNMAPPED"),
+        sku: line.sku == null ? null : String(line.sku),
       }));
       const mappingCompleteness = calculateMappingCompleteness(existingLines);
+      const unmappedSkus = collectUnmappedSkus(existingLines);
       const updated = await orderDb.gstOrderImport.update({
         where: { id: String(existing.id) },
         data: { lastSyncedAt: new Date() },
       });
-      return { ok: true, data: toOrderImportRecord(updated, mappingCompleteness) };
+      return {
+        ok: true,
+        data: toOrderImportRecord(updated, {
+          mappingCompleteness,
+          unmappedSkus,
+          warnings: unmappedSkus.length > 0 ? ["Missing GST mapping for one or more SKU(s)"] : [],
+        }),
+      };
     }
 
     const activeSettings = await getActiveGstSettings();
@@ -301,7 +338,14 @@ export async function importOrderByShopifyId(
       return orderImport;
     });
 
-    return { ok: true, data: toOrderImportRecord(created, mappingCompleteness) };
+    return {
+      ok: true,
+      data: toOrderImportRecord(created, {
+        mappingCompleteness,
+        unmappedSkus: collectUnmappedSkus(mappedLines),
+        warnings: readiness.readinessErrors.length > 0 ? ["Order imported but requires GST readiness review"] : [],
+      }),
+    };
   } catch (error) {
     console.error("[GST ORDER IMPORT] importOrderByShopifyId failed", {
       error: error instanceof Error ? error.message : String(error),
@@ -352,8 +396,14 @@ export async function listImportedOrders(filters: GstOrderImportFilters): Promis
     const data = rows.map((row) => {
       const lines = ((row.lines as Array<Record<string, unknown>> | undefined) || []).map((line) => ({
         mappingStatus: String(line.mappingStatus || "UNMAPPED"),
+        sku: line.sku == null ? null : String(line.sku),
       }));
-      return toOrderImportRecord(row, calculateMappingCompleteness(lines));
+      const unmappedSkus = collectUnmappedSkus(lines);
+      return toOrderImportRecord(row, {
+        mappingCompleteness: calculateMappingCompleteness(lines),
+        unmappedSkus,
+        warnings: unmappedSkus.length > 0 ? ["Missing GST mapping for one or more SKU(s)"] : [],
+      });
     });
 
     return { ok: true, data };
