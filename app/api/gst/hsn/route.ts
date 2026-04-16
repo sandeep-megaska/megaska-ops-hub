@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { assignSlabToHsn, listHsnCodes, upsertHsnCode } from "../../../../services/gst/hsn";
+import { assignSlabToHsn, deleteHsnCode, listHsnCodes, upsertHsnCode } from "../../../../services/gst/hsn";
 
 export const runtime = "nodejs";
 
@@ -50,4 +50,18 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true, data: result.data }, { status: 201 });
+}
+
+export async function DELETE(req: NextRequest) {
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) {
+    return NextResponse.json({ ok: false, error: "id is required" }, { status: 400 });
+  }
+
+  const result = await deleteHsnCode(id);
+  if (!result.ok) {
+    return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+  }
+
+  return NextResponse.json({ ok: true, data: result.data }, { status: 200 });
 }

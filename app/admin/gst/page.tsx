@@ -6,6 +6,9 @@ const cards = [
   { href: '/admin/gst/invoice-preview', title: 'Invoice', description: 'Preview and create draft tax invoices.' },
   { href: '/admin/gst/note-preview', title: 'Notes', description: 'Preview and create draft credit/debit notes.' },
   { href: '/admin/gst/documents', title: 'Documents', description: 'Browse GST documents and open full document details.' },
+  { href: '/admin/gst/products', title: 'Products', description: 'Manage HSN, GST slabs, assignments, and product mappings.' },
+  { href: '/admin/gst/orders', title: 'Orders', description: 'List imported GST orders and inspect readiness status.' },
+  { href: '/admin/gst/templates', title: 'Templates', description: 'Manage GST invoice templates and preview payloads.' },
   { href: '/admin/gst/exports', title: 'Exports', description: 'Generate GST export batches and review history.' },
   { href: '/admin/gst/reconcile', title: 'Reconcile', description: 'Run reconciliation and inspect run summaries.' },
 ]

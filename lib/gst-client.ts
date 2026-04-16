@@ -66,3 +66,54 @@ export const listReportRuns = (query: { reportType?: string; status?: string } =
   return request<{ ok: boolean; runs: Array<Record<string, unknown>> }>(`/api/gst/reports/runs${suffix}`)
 }
 export const downloadReportRunFile = (id: string) => request<{ ok: boolean; fileUrl: string | null }>(`/api/gst/reports/runs/${id}/download`)
+
+export const listHsnCodes = () => request<{ ok: boolean; data: Array<Record<string, unknown>> }>('/api/gst/hsn')
+export const upsertHsnCode = (payload: Record<string, unknown>) => request<{ ok: boolean; data: Record<string, unknown> }>('/api/gst/hsn', { method: 'POST', body: JSON.stringify(payload) })
+export const deleteHsnCode = (id: string) => request<{ ok: boolean; data: Record<string, unknown> }>(`/api/gst/hsn?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+
+export const listTaxSlabs = () => request<{ ok: boolean; data: Array<Record<string, unknown>> }>('/api/gst/tax-slabs')
+export const upsertTaxSlab = (payload: Record<string, unknown>) => request<{ ok: boolean; data: Record<string, unknown> }>('/api/gst/tax-slabs', { method: 'POST', body: JSON.stringify(payload) })
+export const deleteTaxSlab = (id: string) => request<{ ok: boolean; data: Record<string, unknown> }>(`/api/gst/tax-slabs?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+
+export const assignSlabToHsn = (payload: Record<string, unknown>) => request<{ ok: boolean; data: Record<string, unknown> }>('/api/gst/hsn', { method: 'POST', body: JSON.stringify(payload) })
+
+export const listProductTaxMappings = (query: { status?: string; shopifyProductId?: string; shopifyVariantId?: string; search?: string } = {}) => {
+  const search = new URLSearchParams()
+  if (query.status) search.set('status', query.status)
+  if (query.shopifyProductId) search.set('shopifyProductId', query.shopifyProductId)
+  if (query.shopifyVariantId) search.set('shopifyVariantId', query.shopifyVariantId)
+  if (query.search) search.set('search', query.search)
+  const suffix = search.toString() ? `?${search.toString()}` : ''
+  return request<{ ok: boolean; data: Array<Record<string, unknown>> }>(`/api/gst/products/mappings${suffix}`)
+}
+export const upsertProductTaxMapping = (payload: Record<string, unknown>) => request<{ ok: boolean; data: Record<string, unknown> }>('/api/gst/products/mappings', { method: 'POST', body: JSON.stringify(payload) })
+export const listUnmappedProducts = (query: { search?: string } = {}) => {
+  const search = new URLSearchParams()
+  if (query.search) search.set('search', query.search)
+  const suffix = search.toString() ? `?${search.toString()}` : ''
+  return request<{ ok: boolean; data: Array<Record<string, unknown>> }>(`/api/gst/products/unmapped${suffix}`)
+}
+
+export const listImportedOrders = (query: { gstSettingsId?: string; importStatus?: string; eligibilityStatus?: string; from?: string; to?: string } = {}) => {
+  const search = new URLSearchParams()
+  if (query.gstSettingsId) search.set('gstSettingsId', query.gstSettingsId)
+  if (query.importStatus) search.set('importStatus', query.importStatus)
+  if (query.eligibilityStatus) search.set('eligibilityStatus', query.eligibilityStatus)
+  if (query.from) search.set('from', query.from)
+  if (query.to) search.set('to', query.to)
+  const suffix = search.toString() ? `?${search.toString()}` : ''
+  return request<{ ok: boolean; data: Array<Record<string, unknown>> }>(`/api/gst/orders${suffix}`)
+}
+export const importOrder = (payload: Record<string, unknown>) => request<{ ok: boolean; order: Record<string, unknown> }>('/api/gst/orders/import', { method: 'POST', body: JSON.stringify(payload) })
+export const getImportedOrderById = (id: string) => request<{ ok: boolean; data: Record<string, unknown> }>(`/api/gst/orders/${id}`)
+
+export const listTemplates = (query: { gstSettingsId?: string } = {}) => {
+  const search = new URLSearchParams()
+  if (query.gstSettingsId) search.set('gstSettingsId', query.gstSettingsId)
+  const suffix = search.toString() ? `?${search.toString()}` : ''
+  return request<{ ok: boolean; templates: Array<Record<string, unknown>> }>(`/api/gst/templates${suffix}`)
+}
+export const createTemplate = (payload: Record<string, unknown>) => request<{ ok: boolean; template: Record<string, unknown> }>('/api/gst/templates', { method: 'POST', body: JSON.stringify(payload) })
+export const updateTemplate = (id: string, payload: Record<string, unknown>) => request<{ ok: boolean; template: Record<string, unknown> }>(`/api/gst/templates/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+export const setDefaultTemplate = (id: string) => request<{ ok: boolean; updated: boolean }>(`/api/gst/templates/${id}/set-default`, { method: 'POST' })
+export const previewTemplate = (id: string, payload: Record<string, unknown>) => request<{ ok: boolean; preview: Record<string, unknown> }>(`/api/gst/templates/${id}/preview`, { method: 'POST', body: JSON.stringify(payload) })
