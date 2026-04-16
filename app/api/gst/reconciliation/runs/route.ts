@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GST_DEFAULT_SOURCE_SYSTEM } from "../../../../../services/gst/constants";
 import { createGstReconciliationRun } from "../../../../../services/gst/reconcile";
 import { getActiveGstSettings } from "../../../../../services/gst/settings";
+import { gstDb } from "../../../../../services/gst/db";
 
 export const runtime = "nodejs";
 
@@ -49,4 +50,20 @@ export async function POST(req: NextRequest) {
 
   const reconciliation = result.data;
   return NextResponse.json({ ok: true, reconciliation }, { status: 201 });
+}
+
+
+export async function GET() {
+  const settings = await getActiveGstSettings();
+  if (!settings.ok || !settings.data) {
+    return NextResponse.json({ ok: false, error: settings.error || "Active GST settings not found" }, { status: 404 });
+  }
+
+  const runs = await gstDb.gstReconciliationRun.findMany({
+    where: { gstSettingsId: settings.data.id },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+
+  return NextResponse.json({ ok: true, runs });
 }

@@ -3,7 +3,7 @@ import { GstShell } from '../../../../components/gst/gst-shell'
 
 export default function GstDocumentViewerPage() {
   return (
-    <GstShell title="GST Document Viewer">
+    <GstShell title="Documents" subtitle="List and inspect GST documents and PDF payloads.">
       <GstDocumentViewer />
     </GstShell>
   )

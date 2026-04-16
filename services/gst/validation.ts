@@ -51,23 +51,36 @@ export function validateLineItems(lines: GstDocumentLineInput[]): GstServiceResu
   return { ok: true, data: true };
 }
 
+export interface ValidatedDraftPayload {
+  normalizedCurrency: string;
+  normalizedBillingStateCode: string | null;
+  normalizedShippingStateCode: string | null;
+  normalizedPlaceOfSupplyStateCode: string | null;
+  normalizedBuyerGstin: string | null;
+  normalizedBuyerStateCode: string | null;
+}
+
 export function validateDocumentDraftPayload(
   payload: GstInvoiceDraftInput,
-): GstServiceResult<{ normalizedCurrency: string }> {
+): GstServiceResult<ValidatedDraftPayload> {
   const lineValidation = validateLineItems(payload.lines);
   if (!lineValidation.ok) {
     return { ok: false, error: lineValidation.error || "Invalid GST line items" };
   }
 
-  if (payload.placeOfSupplyStateCode && !isValidStateCode(payload.placeOfSupplyStateCode)) {
+  const billingStateCode = normalize(payload.billingStateCode);
+  const shippingStateCode = normalize(payload.shippingStateCode);
+  const placeOfSupplyStateCode = normalize(payload.placeOfSupplyStateCode);
+
+  if (placeOfSupplyStateCode && !isValidStateCode(placeOfSupplyStateCode)) {
     return { ok: false, error: "placeOfSupplyStateCode must be a valid GST state code" };
   }
 
-  if (payload.billingStateCode && !isValidStateCode(payload.billingStateCode)) {
+  if (billingStateCode && !isValidStateCode(billingStateCode)) {
     return { ok: false, error: "billingStateCode must be a valid GST state code" };
   }
 
-  if (payload.shippingStateCode && !isValidStateCode(payload.shippingStateCode)) {
+  if (shippingStateCode && !isValidStateCode(shippingStateCode)) {
     return { ok: false, error: "shippingStateCode must be a valid GST state code" };
   }
 
@@ -86,5 +99,15 @@ export function validateDocumentDraftPayload(
     return { ok: false, error: "currency must be a 3-letter ISO code" };
   }
 
-  return { ok: true, data: { normalizedCurrency: currency } };
+  return {
+    ok: true,
+    data: {
+      normalizedCurrency: currency,
+      normalizedBillingStateCode: billingStateCode || null,
+      normalizedShippingStateCode: shippingStateCode || null,
+      normalizedPlaceOfSupplyStateCode: placeOfSupplyStateCode || null,
+      normalizedBuyerGstin: buyerGstin || null,
+      normalizedBuyerStateCode: buyerStateCode || null,
+    },
+  };
 }

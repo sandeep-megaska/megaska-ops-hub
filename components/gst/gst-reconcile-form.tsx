@@ -1,18 +1,14 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
-import { reconcilePreview, runReconciliation } from '../../lib/gst-client'
+import { useState } from 'react'
+import { listReconciliationRuns, reconcilePreview, runReconciliation } from '../../lib/gst-client'
 import { GstResponseViewer } from './gst-response-viewer'
 
-const defaultPayload = {
-  periodStart: `${new Date().getUTCFullYear()}-04-01T00:00:00.000Z`,
-  periodEnd: new Date().toISOString(),
-  sourceSystem: 'TEST_STORE',
-  sourceDocuments: [],
-}
-
 export function GstReconcileForm() {
-  const [payload, setPayload] = useState(JSON.stringify(defaultPayload, null, 2))
+  const [periodStart, setPeriodStart] = useState(`${new Date().getUTCFullYear()}-04-01`)
+  const [periodEnd, setPeriodEnd] = useState(new Date().toISOString().slice(0, 10))
+  const [sourceSystem, setSourceSystem] = useState('GST_PORTAL')
+  const [sourceDocumentsJson, setSourceDocumentsJson] = useState('[]')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<unknown>()
   const [error, setError] = useState<string>()
@@ -22,31 +18,48 @@ export function GstReconcileForm() {
     setError(undefined)
 
     try {
-      const parsed = JSON.parse(payload) as Record<string, unknown>
-      const res = action === 'debug' ? await reconcilePreview(parsed) : await runReconciliation(parsed)
+      const sourceDocuments = JSON.parse(sourceDocumentsJson)
+      const payload = {
+        periodStart: `${periodStart}T00:00:00.000Z`,
+        periodEnd: `${periodEnd}T23:59:59.999Z`,
+        sourceSystem,
+        sourceDocuments,
+      }
+      const res = action === 'debug' ? await reconcilePreview(payload) : await runReconciliation(payload)
       if (res.ok) setResult(res.data)
       else setError(res.error)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid JSON')
+      setError(err instanceof Error ? err.message : 'Invalid source documents JSON')
     }
 
     setLoading(false)
   }
 
-  async function onSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    await run('debug')
+  async function loadHistory() {
+    const res = await listReconciliationRuns()
+    if (res.ok) setResult(res.data)
+    else setError(res.error)
   }
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <form onSubmit={onSubmit} className="space-y-4">
-        <textarea className="min-h-[320px] w-full rounded-xl border p-3 font-mono text-xs" value={payload} onChange={(e) => setPayload(e.target.value)} />
-        <div className="flex gap-2">
-          <button type="submit" disabled={loading} className="rounded-xl border px-4 py-2 font-medium">Debug Reconcile</button>
-          <button type="button" disabled={loading} onClick={() => void run('persist')} className="rounded-xl border px-4 py-2 font-medium">Create Run</button>
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">Reconciliation Runs</h2>
+        <p className="text-sm text-gray-600">Preview compares data without persistence. Create Run stores summary and mismatch counts.</p>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="text-sm">Period Start<input type="date" className="mt-1 w-full rounded-lg border px-3 py-2" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} /></label>
+          <label className="text-sm">Period End<input type="date" className="mt-1 w-full rounded-lg border px-3 py-2" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} /></label>
+          <label className="text-sm md:col-span-2">Source System<input className="mt-1 w-full rounded-lg border px-3 py-2" value={sourceSystem} onChange={(e) => setSourceSystem(e.target.value)} /></label>
         </div>
-      </form>
+        <label className="block text-sm">Source Documents JSON
+          <textarea className="mt-1 min-h-[180px] w-full rounded-lg border p-3 font-mono text-xs" value={sourceDocumentsJson} onChange={(e) => setSourceDocumentsJson(e.target.value)} />
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <button disabled={loading} className="rounded-lg border px-4 py-2" onClick={() => void run('debug')}>Preview Reconcile</button>
+          <button disabled={loading} className="rounded-lg bg-black px-4 py-2 text-white" onClick={() => void run('persist')}>Create Reconcile Run</button>
+          <button className="rounded-lg border px-4 py-2" onClick={() => void loadHistory()}>Load Run History</button>
+        </div>
+      </div>
       <GstResponseViewer title="Reconcile Response" data={result} error={error} />
     </div>
   )

@@ -3,7 +3,7 @@ import { GstShell } from '../../../../components/gst/gst-shell'
 
 export default function GstInvoicePreviewPage() {
   return (
-    <GstShell title="Invoice Preview">
+    <GstShell title="Invoice Operations" subtitle="Preview tax calculation and create draft invoices with reserved numbers.">
       <GstInvoicePreviewForm />
     </GstShell>
   )
