@@ -1,108 +1,268 @@
+"use client";
+
 import Link from "next/link";
-import { prisma } from "../../../services/db/prisma";
+import { useEffect, useMemo, useState } from "react";
 
-export const dynamic = "force-dynamic";
-
-type Props = {
-  searchParams: Promise<{
-    status?: string;
-    orderNumber?: string;
-    customerPhone?: string;
-    customerName?: string;
-    startDate?: string;
-    endDate?: string;
-  }>;
+type ExchangeRequest = {
+  id: string;
+  orderNumber?: string | null;
+  customerNameSnapshot?: string | null;
+  customerPhoneSnapshot?: string | null;
+  customerEmailSnapshot?: string | null;
+  status: string;
+  requestedAt?: string | null;
+  createdAt?: string | null;
+  items?: unknown[];
 };
 
-const STATUS_OPTIONS = ["OPEN", "AWAITING_PAYMENT", "PAYMENT_RECEIVED", "APPROVED", "REJECTED", "PICKUP_PENDING", "PICKUP_SCHEDULED", "PICKUP_COMPLETED", "ITEM_RECEIVED", "REPLACEMENT_PROCESSING", "REPLACEMENT_SHIPPED", "CLOSED"];
+function normalizeShopDomain(input: string | null | undefined) {
+  return String(input || "")
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "")
+    .toLowerCase();
+}
 
-export default async function AdminExchangesPage({ searchParams }: Props) {
-  const filters = await searchParams;
+function getShopDomainFromEmbedContext() {
+  if (typeof window === "undefined") return "";
 
-  const requests = await prisma.orderActionRequest.findMany({
-    where: {
-      requestType: "EXCHANGE",
-      ...(filters.status ? { status: filters.status as never } : {}),
-      ...(filters.orderNumber
-        ? { orderNumber: { contains: filters.orderNumber.trim(), mode: "insensitive" } }
-        : {}),
-      ...(filters.customerPhone
-        ? { customerPhoneSnapshot: { contains: filters.customerPhone.trim(), mode: "insensitive" } }
-        : {}),
-      ...(filters.customerName
-        ? { customerNameSnapshot: { contains: filters.customerName.trim(), mode: "insensitive" } }
-        : {}),
-      ...((filters.startDate || filters.endDate)
-        ? {
-            requestedAt: {
-              ...(filters.startDate ? { gte: new Date(`${filters.startDate}T00:00:00.000Z`) } : {}),
-              ...(filters.endDate ? { lte: new Date(`${filters.endDate}T23:59:59.999Z`) } : {}),
-            },
-          }
-        : {}),
-    },
-    include: {
-      items: { take: 1 },
-      payments: { orderBy: { createdAt: "desc" }, take: 1 },
-      shipments: true,
-    },
-    orderBy: { requestedAt: "desc" },
-    take: 300,
-  });
+  const fromShopify = normalizeShopDomain(
+    (window as Window & { Shopify?: { shop?: string } }).Shopify?.shop
+  );
+  if (fromShopify) return fromShopify;
+
+  const fromQuery = normalizeShopDomain(
+    new URLSearchParams(window.location.search).get("shop")
+  );
+  if (fromQuery) return fromQuery;
+
+  const fromHtml = normalizeShopDomain(
+    document.documentElement.getAttribute("data-shop-domain")
+  );
+  if (fromHtml) return fromHtml;
+
+  const fromBody = normalizeShopDomain(
+    document.body.getAttribute("data-shop-domain")
+  );
+  if (fromBody) return fromBody;
+
+  return normalizeShopDomain(localStorage.getItem("megaska_shop_domain"));
+}
+
+export default function AdminExchangesPage() {
+  const [requests, setRequests] = useState<ExchangeRequest[]>([]);
+  const [adminKey, setAdminKey] = useState("");
+  const [shopDomain, setShopDomain] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const stats = useMemo(
+    () => ({
+      total: requests.length,
+      pending: requests.filter((r) =>
+        ["OPEN", "PENDING", "AWAITING_PAYMENT"].includes(r.status)
+      ).length,
+      approved: requests.filter((r) =>
+        ["APPROVED", "COMPLETED"].includes(r.status)
+      ).length,
+    }),
+    [requests]
+  );
+
+  async function loadRequests(key = adminKey, domain = shopDomain) {
+    setError("");
+
+    const cleanKey = key.trim();
+    const cleanDomain = normalizeShopDomain(domain);
+
+    if (!cleanKey) {
+      setError("Admin key is required");
+      return;
+    }
+
+    if (!cleanDomain) {
+      setError("Shop context missing from Shopify embedded app");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      localStorage.setItem("megaska_admin_key", cleanKey);
+      localStorage.setItem("megaska_shop_domain", cleanDomain);
+
+      const res = await fetch("/api/admin/exchange-requests", {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          "x-admin-key": cleanKey,
+          "x-shopify-shop-domain": cleanDomain,
+        },
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to load exchange requests");
+      }
+
+      setRequests(Array.isArray(data?.requests) ? data.requests : []);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load exchange requests"
+      );
+      setRequests([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    const storedKey = localStorage.getItem("megaska_admin_key") || "";
+    const detectedShop = getShopDomainFromEmbedContext();
+
+    setAdminKey(storedKey);
+    setShopDomain(detectedShop);
+
+    if (storedKey && detectedShop) {
+      loadRequests(storedKey, detectedShop);
+    }
+  }, []);
 
   return (
-    <main style={{ padding: 24, display: "grid", gap: 12 }}>
-      <h1>Exchange Requests</h1>
-      <form style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(120px, 1fr))", gap: 8 }}>
-        <select name="status" defaultValue={filters.status || ""}>
-          <option value="">All Statuses</option>
-          {STATUS_OPTIONS.map((status) => (
-            <option key={status} value={status}>
-              {status}
-            </option>
-          ))}
-        </select>
-        <input name="orderNumber" defaultValue={filters.orderNumber || ""} placeholder="Order number" />
-        <input name="customerPhone" defaultValue={filters.customerPhone || ""} placeholder="Phone" />
-        <input name="customerName" defaultValue={filters.customerName || ""} placeholder="Customer name" />
-        <input type="date" name="startDate" defaultValue={filters.startDate || ""} />
-        <input type="date" name="endDate" defaultValue={filters.endDate || ""} />
-        <button type="submit">Apply Filters</button>
-      </form>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            {["Request", "Date", "Order", "Customer", "Phone", "Type", "Status", "Payment", "Reverse", "Forward", "Action"].map((head) => (
-              <th key={head} style={{ borderBottom: "1px solid #ccc", textAlign: "left", padding: 8 }}>
-                {head}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {requests.map((item) => {
-            const reverse = item.shipments.find((shipment) => shipment.direction === "REVERSE_PICKUP");
-            const forward = item.shipments.find((shipment) => shipment.direction === "FORWARD_REPLACEMENT");
-            return (
-              <tr key={item.id}>
-                <td style={{ padding: 8 }}>{item.id.slice(0, 8)}</td>
-                <td style={{ padding: 8 }}>{item.requestedAt.toISOString().slice(0, 10)}</td>
-                <td style={{ padding: 8 }}>{item.orderNumber}</td>
-                <td style={{ padding: 8 }}>{item.customerNameSnapshot || "-"}</td>
-                <td style={{ padding: 8 }}>{item.customerPhoneSnapshot || "-"}</td>
-                <td style={{ padding: 8 }}>{item.requestType}</td>
-                <td style={{ padding: 8 }}>{item.status}</td>
-                <td style={{ padding: 8 }}>{item.payments[0]?.status || "NOT_CREATED"}</td>
-                <td style={{ padding: 8 }}>{reverse?.status || "NOT_STARTED"}</td>
-                <td style={{ padding: 8 }}>{forward?.status || "NOT_STARTED"}</td>
-                <td style={{ padding: 8 }}>
-                  <Link href={`/admin/exchanges/${item.id}`}>Open</Link>
-                </td>
+    <main className="p-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-950">
+          Exchange Requests
+        </h1>
+        <p className="mt-1 text-slate-500">
+          Manage customer exchange requests.
+        </p>
+      </div>
+
+      <div className="mb-6 grid gap-4 md:grid-cols-3">
+        <div className="rounded-xl border bg-white p-5 shadow-sm">
+          <p className="text-sm text-slate-500">Total</p>
+          <p className="mt-1 text-2xl font-bold">{stats.total}</p>
+        </div>
+
+        <div className="rounded-xl border bg-white p-5 shadow-sm">
+          <p className="text-sm text-slate-500">Pending</p>
+          <p className="mt-1 text-2xl font-bold">{stats.pending}</p>
+        </div>
+
+        <div className="rounded-xl border bg-white p-5 shadow-sm">
+          <p className="text-sm text-slate-500">Approved</p>
+          <p className="mt-1 text-2xl font-bold">{stats.approved}</p>
+        </div>
+      </div>
+
+      <div className="mb-6 rounded-xl border bg-white p-5 shadow-sm">
+        <div className="grid gap-4 md:grid-cols-[1fr_auto]">
+          <label className="text-sm">
+            <span className="mb-1 block text-slate-600">Admin Key</span>
+            <input
+              type="password"
+              value={adminKey}
+              onChange={(e) => setAdminKey(e.target.value)}
+              className="w-full rounded-lg border px-3 py-2"
+              placeholder="ADMIN_OPS_KEY"
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={() => loadRequests()}
+            disabled={loading}
+            className="self-end rounded-lg bg-slate-950 px-5 py-2 text-white disabled:opacity-50"
+          >
+            {loading ? "Loading..." : "Load"}
+          </button>
+        </div>
+
+        <p className="mt-3 text-xs text-slate-500">
+          Shop context: {shopDomain || "not detected"}
+        </p>
+      </div>
+
+      {error ? (
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-5 text-red-700">
+          {error}
+        </div>
+      ) : null}
+
+      {!loading && !error && requests.length === 0 ? (
+        <div className="rounded-xl border bg-white p-8 text-slate-500">
+          No exchange requests found.
+        </div>
+      ) : null}
+
+      {requests.length > 0 ? (
+        <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 text-slate-600">
+              <tr>
+                <th className="px-5 py-4">Order</th>
+                <th className="px-5 py-4">Customer</th>
+                <th className="px-5 py-4">Phone</th>
+                <th className="px-5 py-4">Items</th>
+                <th className="px-5 py-4">Status</th>
+                <th className="px-5 py-4">Requested</th>
+                <th className="px-5 py-4 text-right">Action</th>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
+            </thead>
+
+            <tbody>
+              {requests.map((request) => (
+                <tr key={request.id} className="border-t">
+                  <td className="px-5 py-4 font-medium">
+                    {request.orderNumber || "—"}
+                  </td>
+
+                  <td className="px-5 py-4">
+                    {request.customerNameSnapshot ||
+                      request.customerEmailSnapshot ||
+                      "—"}
+                  </td>
+
+                  <td className="px-5 py-4">
+                    {request.customerPhoneSnapshot || "—"}
+                  </td>
+
+                  <td className="px-5 py-4">
+                    {Array.isArray(request.items) ? request.items.length : "—"}
+                  </td>
+
+                  <td className="px-5 py-4">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">
+                      {request.status}
+                    </span>
+                  </td>
+
+                  <td className="px-5 py-4">
+                    {request.requestedAt || request.createdAt
+                      ? new Date(
+                          request.requestedAt || request.createdAt || ""
+                        ).toLocaleString()
+                      : "—"}
+                  </td>
+
+                  <td className="px-5 py-4 text-right">
+                    <Link
+                      href={`/admin/exchanges/${request.id}?shop=${encodeURIComponent(
+                        shopDomain
+                      )}`}
+                      className="font-medium text-indigo-600 hover:underline"
+                    >
+                      View
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </main>
   );
 }

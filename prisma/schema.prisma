@@ -9,7 +9,8 @@ datasource db {
 
 model CustomerProfile {
   id                  String   @id @default(uuid())
-  phoneE164           String   @unique
+  shopId              String?
+  phoneE164           String?
   fullName            String?
   firstName           String?
   lastName            String?
@@ -26,17 +27,22 @@ model CustomerProfile {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
+  shop                Shop? @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
   sessions            AuthSession[]
   otpChallenges       OTPChallenge[]
   orderActionRequests OrderActionRequest[]
   walletAccounts      WalletAccount[]
   walletTransactions  WalletTransaction[]
   walletReservations  WalletReservation[]
-  gstDocuments       GstDocument[]
-  gstParties         GstParty[]
+  gstDocuments        GstDocument[]
+  gstParties          GstParty[]
 
+  @@unique([shopId, shopifyCustomerId])
+  @@index([shopId])
+  @@index([shopId, phoneE164])
+  @@index([shopId, email])
 }
-
 model Shop {
   id                    String   @id @default(uuid())
   shopDomain            String   @unique
@@ -49,13 +55,14 @@ model Shop {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
+  customers             CustomerProfile[]
+  otpChallenges         OTPChallenge[]
   orderActionRequests   OrderActionRequest[]
   walletReservations    WalletReservation[]
   gstSettings           GstSettings[]
   gstProductTaxMaps     GstProductTaxMap[]
   gstOrderImports       GstOrderImport[]
 }
-
 model AuthSession {
   id                  String   @id @default(uuid())
   customerProfileId   String
@@ -69,23 +76,28 @@ model AuthSession {
   customer            CustomerProfile @relation(fields: [customerProfileId], references: [id])
 }
 
-  model OTPChallenge {
-    id              String   @id @default(uuid())
-    phoneE164       String
-  provider        String   // twilio, msg91, mock
-    providerSid     String?
-    status          String   // pending, verified, failed, expired
-    attemptsCount   Int      @default(0)
-    requestedAt     DateTime @default(now())
-    verifiedAt      DateTime?
-    expiresAt       DateTime
-    metadata        Json?
-    createdAt       DateTime @default(now())
+ model OTPChallenge {
+  id                String   @id @default(uuid())
+  shopId            String
+  phoneE164         String
+  provider          String   // twilio, msg91, mock
+  providerSid       String?
+  status            String   // pending, verified, failed, expired
+  attemptsCount     Int      @default(0)
+  requestedAt       DateTime @default(now())
+  verifiedAt        DateTime?
+  expiresAt         DateTime
+  metadata          Json?
+  createdAt         DateTime @default(now())
 
-    customerProfileId String?
-    customer          CustomerProfile? @relation(fields: [customerProfileId], references: [id])
-  }
+  customerProfileId String?
+  customer          CustomerProfile? @relation(fields: [customerProfileId], references: [id])
+  shop              Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
+  @@index([shopId])
+  @@index([shopId, phoneE164])
+  @@index([shopId, phoneE164, status, createdAt])
+}
 model AuditEvent {
   id            String   @id @default(uuid())
   actorType     String   // customer, system, admin

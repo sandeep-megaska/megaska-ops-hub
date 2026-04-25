@@ -5,9 +5,13 @@ import { hashSessionToken } from "../../../../services/auth/session";
 import {
   debugShopifyAdminAuth,
   findShopifyCustomerIdByIdentity,
-  getShopifyCustomerDashboardData,
   isShopifyAdminConfigured,
 } from "../../../../services/shopify/admin";
+import { getMegaskaCustomerDashboardData } from "../../../../services/shopify/dashboard";
+import {
+  ShopResolutionError,
+  requireShopFromRequest,
+} from "../../../../services/shopify/shop";
 import { isCancellationStatusBlocking } from "../../../../services/exchange/cancellation";
 import { ACTIVE_EXCHANGE_STATUSES } from "../../../../services/exchange/lifecycle";
 import { getOrCreateWalletAccount, listWalletTransactions } from "../../../../services/wallet";
@@ -15,30 +19,37 @@ import { getOrCreateWalletAccount, listWalletTransactions } from "../../../../se
 export const runtime = "nodejs";
 
 export async function OPTIONS(req: NextRequest) {
-  return withCors(req, handleOptions(req));
+  return handleOptions(req);
 }
 
 function getSessionToken(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
-  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  const bearerToken = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7).trim()
+    : "";
   const queryToken = req.nextUrl.searchParams.get("token")?.trim() ?? "";
   return bearerToken || queryToken;
 }
 
 export async function GET(req: NextRequest) {
   try {
+    const shop = await requireShopFromRequest(req);
+
     const sessionToken = getSessionToken(req);
     if (!sessionToken) {
-     return withCors(req, NextResponse.json({ error: "Session token required" }, { status: 401 }));
+      return withCors(
+        req,
+        NextResponse.json({ error: "Session token required" }, { status: 401 })
+      );
     }
 
     const now = new Date();
     const session = await prisma.authSession.findFirst({
-      where: {
-        sessionTokenHash: hashSessionToken(sessionToken),
-        revokedAt: null,
-        expiresAt: { gt: now },
-      },
+  where: {
+    sessionTokenHash: hashSessionToken(sessionToken),
+    revokedAt: null,
+    expiresAt: { gt: now },
+  },
       include: {
         customer: true,
       },
@@ -48,7 +59,10 @@ export async function GET(req: NextRequest) {
     });
 
     if (!session) {
-      return withCors(req, NextResponse.json({ error: "Invalid or expired session" }, { status: 401 }));
+      return withCors(
+        req,
+        NextResponse.json({ error: "Invalid or expired session" }, { status: 401 })
+      );
     }
 
     await prisma.authSession.update({
@@ -58,99 +72,58 @@ export async function GET(req: NextRequest) {
 
     const customer = session.customer;
 
-    let resolvedShopifyCustomerId = String(customer.shopifyCustomerId || "").trim();
-    let shopifyDashboard = null;
+  let resolvedShopifyCustomerId = String(customer.shopifyCustomerId || "").trim();
 
-    console.log("[DASHBOARD SUMMARY] start", {
-      customerId: customer.id,
-      phoneE164: customer.phoneE164,
-      email: customer.email,
-      existingShopifyCustomerId: customer.shopifyCustomerId,
-      adminConfigured: isShopifyAdminConfigured(),
+if (isShopifyAdminConfigured()) {
+  let emailMatchId = "";
+  let phoneMatchId = "";
+
+  if (customer.email) {
+    emailMatchId =
+      (await findShopifyCustomerIdByIdentity({
+        shopDomain: shop.shopDomain,
+        email: customer.email,
+      })) || "";
+  }
+
+  if (!emailMatchId && customer.phoneE164) {
+    phoneMatchId =
+      (await findShopifyCustomerIdByIdentity({
+        shopDomain: shop.shopDomain,
+        phoneE164: customer.phoneE164,
+      })) || "";
+  }
+
+  const bestMatch = emailMatchId || phoneMatchId;
+
+  if (bestMatch && bestMatch !== resolvedShopifyCustomerId) {
+    resolvedShopifyCustomerId = bestMatch;
+
+    await prisma.customerProfile.update({
+      where: { id: customer.id },
+      data: { shopifyCustomerId: bestMatch },
     });
+  }
+}
 
-    if (isShopifyAdminConfigured()) {
-      try {
-        try {
-          const authProbe = await debugShopifyAdminAuth();
-          console.log("[SHOPIFY AUTH PROBE] success", {
-            shopName: authProbe?.shop?.name || null,
-            myshopifyDomain: authProbe?.shop?.myshopifyDomain || null,
-          });
-        } catch (error) {
-          console.error("[SHOPIFY AUTH PROBE] failed", {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
+let shopifyDashboard = null;    
 
-        if (!resolvedShopifyCustomerId) {
-          console.log("[DASHBOARD SUMMARY] resolving Shopify customer identity", {
-            email: customer.email || null,
-            phoneE164: customer.phoneE164 || null,
-          });
-
-          if (customer.email) {
-            resolvedShopifyCustomerId =
-              (await findShopifyCustomerIdByIdentity({
-                email: customer.email,
-              })) || "";
-
-            console.log("[DASHBOARD SUMMARY] email lookup result", {
-              email: customer.email,
-              resolvedShopifyCustomerId: resolvedShopifyCustomerId || null,
-            });
-          }
-
-          if (!resolvedShopifyCustomerId && customer.phoneE164) {
-            resolvedShopifyCustomerId =
-              (await findShopifyCustomerIdByIdentity({
-                phoneE164: customer.phoneE164,
-              })) || "";
-
-            console.log("[DASHBOARD SUMMARY] phone lookup result", {
-              phoneE164: customer.phoneE164,
-              resolvedShopifyCustomerId: resolvedShopifyCustomerId || null,
-            });
-          }
-
-          if (resolvedShopifyCustomerId) {
-            await prisma.customerProfile.update({
-              where: { id: customer.id },
-              data: { shopifyCustomerId: resolvedShopifyCustomerId },
-            });
-
-            console.log("[DASHBOARD SUMMARY] saved resolved Shopify customer id", {
-              customerId: customer.id,
-              resolvedShopifyCustomerId,
-            });
-          }
-        }
-
-        if (resolvedShopifyCustomerId) {
-          shopifyDashboard = await getShopifyCustomerDashboardData(resolvedShopifyCustomerId);
-          const dashboard = shopifyDashboard;
-          console.log("[DASHBOARD SUMMARY] dashboard data used", {
-            resolvedShopifyCustomerId,
-            totalOrderCount: dashboard?.totalOrderCount ?? null,
-            recentOrdersCount: dashboard?.recentOrders?.length ?? null,
-            hasDefaultAddress: Boolean(dashboard?.defaultAddress),
-          });
-          console.log("[DASHBOARD SUMMARY] dashboard result", {
-            resolvedShopifyCustomerId,
-            foundEmail: shopifyDashboard?.email || null,
-            totalOrderCount: shopifyDashboard?.totalOrderCount || 0,
-            recentOrdersCount: Array.isArray(shopifyDashboard?.recentOrders)
-              ? shopifyDashboard.recentOrders.length
-              : 0,
-            hasDefaultAddress: Boolean(shopifyDashboard?.defaultAddress),
-          });
-        } else {
-          console.log("[DASHBOARD SUMMARY] no Shopify customer resolved");
-        }
-      } catch (error) {
-        console.error("[DASHBOARD SUMMARY] Shopify customer fetch failed", error);
-      }
-    }
+if (isShopifyAdminConfigured()) {
+  try {
+    shopifyDashboard = await getMegaskaCustomerDashboardData({
+      shopDomain: shop.shopDomain,
+      customerId: resolvedShopifyCustomerId || null,
+      email: customer.email,
+      phoneE164: customer.phoneE164,
+    });
+  } catch (error) {
+    console.error("[DASHBOARD SUMMARY] Shopify dashboard fetch failed", {
+      shopId: shop.id,
+      shopDomain: shop.shopDomain,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
 
     const savedAddressCount = shopifyDashboard?.defaultAddress
       ? 1
@@ -241,7 +214,10 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const openRequests = cancellationRequests.filter((request) => isCancellationStatusBlocking(request.status)).length;
+    const openRequests = cancellationRequests.filter((request) =>
+      isCancellationStatusBlocking(request.status)
+    ).length;
+
     const walletAccount = await getOrCreateWalletAccount(customer.id, "INR");
     const walletTransactions = await listWalletTransactions(customer.id, "INR", 15);
 
@@ -295,14 +271,7 @@ export async function GET(req: NextRequest) {
       },
       stats,
       address: shopifyDashboard?.defaultAddress
-        ? {
-            line1: shopifyDashboard.defaultAddress.address1 || null,
-            line2: shopifyDashboard.defaultAddress.address2 || null,
-            city: shopifyDashboard.defaultAddress.city || null,
-            state: shopifyDashboard.defaultAddress.province || null,
-            postalCode: shopifyDashboard.defaultAddress.zip || null,
-            country: shopifyDashboard.defaultAddress.country || null,
-          }
+        ? shopifyDashboard.defaultAddress
         : customer.addressLine1
           ? {
               line1: customer.addressLine1 || null,
@@ -316,15 +285,10 @@ export async function GET(req: NextRequest) {
       orders,
     };
 
-    console.log("[DASHBOARD SUMMARY] final response shape", {
-      totalOrders: stats.totalOrders,
-      ordersLength: Array.isArray(orders) ? orders.length : null,
-      firstOrderId: Array.isArray(orders) && orders[0] ? orders[0].id : null,
-    });
-
     return withCors(req, NextResponse.json(response));
   } catch (error) {
-    console.error("[DASHBOARD SUMMARY ERROR]", error);
+    const status =
+      error instanceof ShopResolutionError ? error.status : 500;
 
     return withCors(
       req,
@@ -332,7 +296,7 @@ export async function GET(req: NextRequest) {
         {
           error: error instanceof Error ? error.message : "Internal error",
         },
-        { status: 500 }
+        { status }
       )
     );
   }

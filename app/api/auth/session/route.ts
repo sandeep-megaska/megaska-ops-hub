@@ -15,7 +15,6 @@ export async function GET(req: NextRequest) {
       : "";
 
     const queryToken = req.nextUrl.searchParams.get("token")?.trim() ?? "";
-
     const sessionToken = bearerToken || queryToken;
 
     if (!sessionToken) {
@@ -28,12 +27,11 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const sessionTokenHash = hashSessionToken(sessionToken);
     const now = new Date();
 
     const session = await prisma.authSession.findFirst({
       where: {
-        sessionTokenHash,
+        sessionTokenHash: hashSessionToken(sessionToken),
         revokedAt: null,
         expiresAt: {
           gt: now,
