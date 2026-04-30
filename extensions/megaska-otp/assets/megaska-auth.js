@@ -1,5 +1,5 @@
 (function () {
-  const API_BASE = "https://megaska-ops-hub-exs1.vercel.app/api";
+  const API_BASE = "megaska-ops-hub-exs1-git-codex-979865-sandeep-megaskas-projects.vercel.app/api";
   const SESSION_KEY = "megaska_session_token";
   const ACCOUNT_ENTRY_SELECTORS = [
     "[data-megaska-open-login]",
