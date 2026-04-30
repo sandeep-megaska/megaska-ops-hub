@@ -1080,16 +1080,8 @@ function renderSuccessStep(message) {
 
   try {
     await window.MegaskaAuth.verifyOtp(state.normalizedPhone, otp);
-    const refreshedSession = await window.MegaskaAuth.refreshAuthState();
     state.verifying = false;
     state.statusMessage = "";
-
-    const sessionCustomer = refreshedSession?.customer || null;
-
-    if (needsProfileCompletion(sessionCustomer)) {
-      renderProfileStep(sessionCustomer);
-      return;
-    }
 
     hideAccountMenu();
     await syncAccountUiState();
@@ -1101,7 +1093,7 @@ function renderSuccessStep(message) {
       return;
     }
 
-    await resumePendingAction(sessionCustomer);
+    await resumePendingAction();
     renderSuccessStep("Login successful. Welcome to Megaska");
     setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS);
   } catch (error) {
@@ -1764,10 +1756,7 @@ function consumePendingAccountRedirect() {
     console.log("[Megaska OTP] pending intent resumed", { type: action.type });
 
     if (action.type === "navigate" && action.url) {
-      await continueToCheckoutFromPendingAction(
-        preferredCustomer,
-        "pendingAction.navigate.url"
-      );
+      window.location.assign(action.url);
       return;
     }
 
@@ -2228,7 +2217,7 @@ function consumePendingAccountRedirect() {
 
   const gateState = await getMegaskaCheckoutGateState();
   const authenticated = Boolean(gateState?.authenticated || hasKnownMegaskaSession());
-  const accountDestination = resolveAccountDestinationUrl(triggerEl);
+  const accountDestination = resolveAccountDestinationUrl();
 
   if (!authenticated) {
     setPendingAction({
@@ -2285,97 +2274,15 @@ function consumePendingAccountRedirect() {
   }
 
   const isAnchorCheckoutTrigger = triggerEl?.tagName === "A" && Boolean(targetUrl);
-
-  if (isAnchorCheckoutTrigger) {
-    event.preventDefault();
-
-    const customer = await getCurrentMegaskaCustomer();
-    const prefilledUrl = await buildPrefilledCheckoutUrl(targetUrl, customer);
-
-    console.log("[Megaska Checkout Prefill] checkout handoff start", {
-      source: "interceptedCheckoutAnchor.href",
-      detectedCheckoutUrl: prefilledUrl,
-    });
-
-    const handoff = await runBuyerIdentityHandoff(prefilledUrl, customer);
-
-    if (isCheckoutContinuationBlocked(handoff)) {
-      console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
-        reason: handoff.reason || "blocked",
-      });
-      openModal("checkout-gate-blocked");
-      return;
-    }
-
-    if (await tryAutoApplyWalletDiscount(handoff)) {
-      return;
-    }
-
-    const finalTargetUrl = handoff?.checkoutUrl || prefilledUrl;
-
-    window.__megaskaCheckoutDebug = {
-      cartId: handoff?.cartId || null,
-      buyerIdentityPayload: {
-        email: String(handoff?.buyerIdentity?.email || "").trim() || null,
-        phone: String(handoff?.buyerIdentity?.phone || "").trim() || null,
-      },
-      mutationResult: handoff || null,
-      checkoutUrl: finalTargetUrl || null,
-    };
-
-    console.log("[Megaska Checkout Prefill] checkout continuation", {
-      mode: "click",
-      finalCheckoutUrl: finalTargetUrl,
-      mutationWaited: true,
-      debugSurface: "window.__megaskaCheckoutDebug",
-    });
-
-    window.location.assign(finalTargetUrl);
-    return;
-  }
+  if (isAnchorCheckoutTrigger) event.preventDefault();
 
   const checkoutForm =
     triggerEl && typeof triggerEl.closest === "function"
       ? triggerEl.closest("form")
       : null;
 
-  if (checkoutForm) {
-    event.preventDefault();
-
-    const customer = await getCurrentMegaskaCustomer();
-    await applyCheckoutPrefillToForm(checkoutForm, customer);
-
-    const submittedAction = checkoutForm.getAttribute("action") || "/checkout";
-    const prefilledUrl = await buildPrefilledCheckoutUrl("/checkout", customer);
-    const handoff = await runBuyerIdentityHandoff(prefilledUrl, customer);
-
-    if (isCheckoutContinuationBlocked(handoff)) {
-      console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
-        reason: handoff.reason || "blocked",
-      });
-      renderCheckoutGuardError({
-        anchor: checkoutForm,
-        message: "Please verify your mobile number before checkout.",
-      });
-      openModal("checkout-gate-blocked");
-      return;
-    }
-
-    if (await tryAutoApplyWalletDiscount(handoff)) {
-      return;
-    }
-
-    const finalTargetUrl = handoff?.checkoutUrl || prefilledUrl || submittedAction;
-
-    console.log("[Megaska Checkout Prefill] checkout continuation", {
-      mode: "click-form-redirect",
-      formAction: submittedAction,
-      finalCheckoutUrl: finalTargetUrl,
-      prefillApplied: true,
-    });
-
-    window.location.assign(finalTargetUrl);
-  }
+  if (checkoutForm) event.preventDefault();
+  window.location.assign("/checkout");
 	}
 
   function bindGlobalClickInterceptor() {
@@ -2466,40 +2373,7 @@ function consumePendingAccountRedirect() {
       }
 
       event.preventDefault();
-
-      const customer = await getCurrentMegaskaCustomer();
-      await applyCheckoutPrefillToForm(form, customer);
-
-      const submittedAction = form.getAttribute("action") || "/checkout";
-      const prefilledUrl = await buildPrefilledCheckoutUrl(submittedAction, customer);
-      const handoff = await runBuyerIdentityHandoff(prefilledUrl, customer);
-
-      if (isCheckoutContinuationBlocked(handoff)) {
-        console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
-          reason: handoff.reason || "blocked",
-        });
-        renderCheckoutGuardError({
-          anchor: form,
-          message: "Please verify your mobile number before checkout.",
-        });
-        openModal("checkout-gate-blocked");
-        return;
-      }
-
-      if (await tryAutoApplyWalletDiscount(handoff)) {
-        return;
-      }
-
-      const finalTargetUrl = handoff?.checkoutUrl || prefilledUrl || submittedAction;
-
-      console.log("[Megaska Checkout Prefill] checkout continuation", {
-        mode: "form-redirect",
-        finalCheckoutUrl: finalTargetUrl,
-        mutationWaited: true,
-        debugSurface: "window.__megaskaCheckoutDebug",
-      });
-
-      window.location.assign(finalTargetUrl);
+      window.location.assign("/checkout");
     },
     true
   );

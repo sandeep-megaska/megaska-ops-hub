@@ -154,29 +154,6 @@
       return;
     }
 
-    try {
-      if (
-        window.MegaskaAuth &&
-        typeof window.MegaskaAuth.applyCheckoutPrefillToUrl === "function" &&
-        typeof window.MegaskaAuth.applyBuyerIdentityToActiveCart === "function"
-      ) {
-        const prefilledUrl = window.MegaskaAuth.applyCheckoutPrefillToUrl(
-          "/checkout",
-          session.customer
-        );
-
-        const handoff = await window.MegaskaAuth.applyBuyerIdentityToActiveCart(
-          session.customer,
-          { checkoutUrl: prefilledUrl }
-        );
-
-        const finalUrl = handoff?.checkoutUrl || prefilledUrl || fallbackUrl;
-
-        window.location.assign(finalUrl);
-        return;
-      }
-    } catch (_error) {}
-
     window.location.assign(fallbackUrl);
   }
 
