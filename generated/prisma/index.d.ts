@@ -144,6 +144,11 @@ export type GstHsnSlabMap = $Result.DefaultSelection<Prisma.$GstHsnSlabMapPayloa
  */
 export type GstProductTaxMap = $Result.DefaultSelection<Prisma.$GstProductTaxMapPayload>
 /**
+ * Model GstSkuTaxMap
+ * 
+ */
+export type GstSkuTaxMap = $Result.DefaultSelection<Prisma.$GstSkuTaxMapPayload>
+/**
  * Model GstOrderImport
  * 
  */
@@ -790,6 +795,16 @@ export class PrismaClient<
   get gstProductTaxMap(): Prisma.GstProductTaxMapDelegate<ExtArgs, ClientOptions>;
 
   /**
+   * `prisma.gstSkuTaxMap`: Exposes CRUD operations for the **GstSkuTaxMap** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more GstSkuTaxMaps
+    * const gstSkuTaxMaps = await prisma.gstSkuTaxMap.findMany()
+    * ```
+    */
+  get gstSkuTaxMap(): Prisma.GstSkuTaxMapDelegate<ExtArgs, ClientOptions>;
+
+  /**
    * `prisma.gstOrderImport`: Exposes CRUD operations for the **GstOrderImport** model.
     * Example usage:
     * ```ts
@@ -1288,6 +1303,7 @@ export namespace Prisma {
     GstTaxSlab: 'GstTaxSlab',
     GstHsnSlabMap: 'GstHsnSlabMap',
     GstProductTaxMap: 'GstProductTaxMap',
+    GstSkuTaxMap: 'GstSkuTaxMap',
     GstOrderImport: 'GstOrderImport',
     GstOrderImportLine: 'GstOrderImportLine',
     GstInvoiceTemplate: 'GstInvoiceTemplate',
@@ -1307,7 +1323,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "customerProfile" | "shop" | "authSession" | "oTPChallenge" | "auditEvent" | "orderActionRequest" | "orderActionItem" | "requestPayment" | "shipmentTracking" | "walletAccount" | "walletTransaction" | "walletReservation" | "gstSettings" | "gstCounter" | "gstDocument" | "gstDocumentLine" | "gstParty" | "gstExport" | "gstExportItem" | "gstReconciliationRun" | "gstAuditLog" | "gstLegacyDocument" | "gstHsnCode" | "gstTaxSlab" | "gstHsnSlabMap" | "gstProductTaxMap" | "gstOrderImport" | "gstOrderImportLine" | "gstInvoiceTemplate" | "gstReportRun"
+      modelProps: "customerProfile" | "shop" | "authSession" | "oTPChallenge" | "auditEvent" | "orderActionRequest" | "orderActionItem" | "requestPayment" | "shipmentTracking" | "walletAccount" | "walletTransaction" | "walletReservation" | "gstSettings" | "gstCounter" | "gstDocument" | "gstDocumentLine" | "gstParty" | "gstExport" | "gstExportItem" | "gstReconciliationRun" | "gstAuditLog" | "gstLegacyDocument" | "gstHsnCode" | "gstTaxSlab" | "gstHsnSlabMap" | "gstProductTaxMap" | "gstSkuTaxMap" | "gstOrderImport" | "gstOrderImportLine" | "gstInvoiceTemplate" | "gstReportRun"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -3235,6 +3251,80 @@ export namespace Prisma {
           }
         }
       }
+      GstSkuTaxMap: {
+        payload: Prisma.$GstSkuTaxMapPayload<ExtArgs>
+        fields: Prisma.GstSkuTaxMapFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.GstSkuTaxMapFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$GstSkuTaxMapPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.GstSkuTaxMapFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$GstSkuTaxMapPayload>
+          }
+          findFirst: {
+            args: Prisma.GstSkuTaxMapFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$GstSkuTaxMapPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.GstSkuTaxMapFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$GstSkuTaxMapPayload>
+          }
+          findMany: {
+            args: Prisma.GstSkuTaxMapFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$GstSkuTaxMapPayload>[]
+          }
+          create: {
+            args: Prisma.GstSkuTaxMapCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$GstSkuTaxMapPayload>
+          }
+          createMany: {
+            args: Prisma.GstSkuTaxMapCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.GstSkuTaxMapCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$GstSkuTaxMapPayload>[]
+          }
+          delete: {
+            args: Prisma.GstSkuTaxMapDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$GstSkuTaxMapPayload>
+          }
+          update: {
+            args: Prisma.GstSkuTaxMapUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$GstSkuTaxMapPayload>
+          }
+          deleteMany: {
+            args: Prisma.GstSkuTaxMapDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.GstSkuTaxMapUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.GstSkuTaxMapUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$GstSkuTaxMapPayload>[]
+          }
+          upsert: {
+            args: Prisma.GstSkuTaxMapUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$GstSkuTaxMapPayload>
+          }
+          aggregate: {
+            args: Prisma.GstSkuTaxMapAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateGstSkuTaxMap>
+          }
+          groupBy: {
+            args: Prisma.GstSkuTaxMapGroupByArgs<ExtArgs>
+            result: $Utils.Optional<GstSkuTaxMapGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.GstSkuTaxMapCountArgs<ExtArgs>
+            result: $Utils.Optional<GstSkuTaxMapCountAggregateOutputType> | number
+          }
+        }
+      }
       GstOrderImport: {
         payload: Prisma.$GstOrderImportPayload<ExtArgs>
         fields: Prisma.GstOrderImportFieldRefs
@@ -3665,6 +3755,7 @@ export namespace Prisma {
     gstTaxSlab?: GstTaxSlabOmit
     gstHsnSlabMap?: GstHsnSlabMapOmit
     gstProductTaxMap?: GstProductTaxMapOmit
+    gstSkuTaxMap?: GstSkuTaxMapOmit
     gstOrderImport?: GstOrderImportOmit
     gstOrderImportLine?: GstOrderImportLineOmit
     gstInvoiceTemplate?: GstInvoiceTemplateOmit
@@ -3844,19 +3935,23 @@ export namespace Prisma {
 
   export type ShopCountOutputType = {
     customers: number
+    otpChallenges: number
     orderActionRequests: number
     walletReservations: number
     gstSettings: number
     gstProductTaxMaps: number
+    gstSkuTaxMaps: number
     gstOrderImports: number
   }
 
   export type ShopCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     customers?: boolean | ShopCountOutputTypeCountCustomersArgs
+    otpChallenges?: boolean | ShopCountOutputTypeCountOtpChallengesArgs
     orderActionRequests?: boolean | ShopCountOutputTypeCountOrderActionRequestsArgs
     walletReservations?: boolean | ShopCountOutputTypeCountWalletReservationsArgs
     gstSettings?: boolean | ShopCountOutputTypeCountGstSettingsArgs
     gstProductTaxMaps?: boolean | ShopCountOutputTypeCountGstProductTaxMapsArgs
+    gstSkuTaxMaps?: boolean | ShopCountOutputTypeCountGstSkuTaxMapsArgs
     gstOrderImports?: boolean | ShopCountOutputTypeCountGstOrderImportsArgs
   }
 
@@ -3876,6 +3971,13 @@ export namespace Prisma {
    */
   export type ShopCountOutputTypeCountCustomersArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: CustomerProfileWhereInput
+  }
+
+  /**
+   * ShopCountOutputType without action
+   */
+  export type ShopCountOutputTypeCountOtpChallengesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: OTPChallengeWhereInput
   }
 
   /**
@@ -3904,6 +4006,13 @@ export namespace Prisma {
    */
   export type ShopCountOutputTypeCountGstProductTaxMapsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: GstProductTaxMapWhereInput
+  }
+
+  /**
+   * ShopCountOutputType without action
+   */
+  export type ShopCountOutputTypeCountGstSkuTaxMapsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: GstSkuTaxMapWhereInput
   }
 
   /**
@@ -6072,10 +6181,12 @@ export namespace Prisma {
     createdAt?: boolean
     updatedAt?: boolean
     customers?: boolean | Shop$customersArgs<ExtArgs>
+    otpChallenges?: boolean | Shop$otpChallengesArgs<ExtArgs>
     orderActionRequests?: boolean | Shop$orderActionRequestsArgs<ExtArgs>
     walletReservations?: boolean | Shop$walletReservationsArgs<ExtArgs>
     gstSettings?: boolean | Shop$gstSettingsArgs<ExtArgs>
     gstProductTaxMaps?: boolean | Shop$gstProductTaxMapsArgs<ExtArgs>
+    gstSkuTaxMaps?: boolean | Shop$gstSkuTaxMapsArgs<ExtArgs>
     gstOrderImports?: boolean | Shop$gstOrderImportsArgs<ExtArgs>
     _count?: boolean | ShopCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["shop"]>
@@ -6122,10 +6233,12 @@ export namespace Prisma {
   export type ShopOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "shopDomain" | "accessToken" | "storefrontAccessToken" | "scopes" | "isActive" | "installedAt" | "uninstalledAt" | "createdAt" | "updatedAt", ExtArgs["result"]["shop"]>
   export type ShopInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     customers?: boolean | Shop$customersArgs<ExtArgs>
+    otpChallenges?: boolean | Shop$otpChallengesArgs<ExtArgs>
     orderActionRequests?: boolean | Shop$orderActionRequestsArgs<ExtArgs>
     walletReservations?: boolean | Shop$walletReservationsArgs<ExtArgs>
     gstSettings?: boolean | Shop$gstSettingsArgs<ExtArgs>
     gstProductTaxMaps?: boolean | Shop$gstProductTaxMapsArgs<ExtArgs>
+    gstSkuTaxMaps?: boolean | Shop$gstSkuTaxMapsArgs<ExtArgs>
     gstOrderImports?: boolean | Shop$gstOrderImportsArgs<ExtArgs>
     _count?: boolean | ShopCountOutputTypeDefaultArgs<ExtArgs>
   }
@@ -6136,10 +6249,12 @@ export namespace Prisma {
     name: "Shop"
     objects: {
       customers: Prisma.$CustomerProfilePayload<ExtArgs>[]
+      otpChallenges: Prisma.$OTPChallengePayload<ExtArgs>[]
       orderActionRequests: Prisma.$OrderActionRequestPayload<ExtArgs>[]
       walletReservations: Prisma.$WalletReservationPayload<ExtArgs>[]
       gstSettings: Prisma.$GstSettingsPayload<ExtArgs>[]
       gstProductTaxMaps: Prisma.$GstProductTaxMapPayload<ExtArgs>[]
+      gstSkuTaxMaps: Prisma.$GstSkuTaxMapPayload<ExtArgs>[]
       gstOrderImports: Prisma.$GstOrderImportPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
@@ -6548,10 +6663,12 @@ export namespace Prisma {
   export interface Prisma__ShopClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     customers<T extends Shop$customersArgs<ExtArgs> = {}>(args?: Subset<T, Shop$customersArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CustomerProfilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    otpChallenges<T extends Shop$otpChallengesArgs<ExtArgs> = {}>(args?: Subset<T, Shop$otpChallengesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$OTPChallengePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     orderActionRequests<T extends Shop$orderActionRequestsArgs<ExtArgs> = {}>(args?: Subset<T, Shop$orderActionRequestsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$OrderActionRequestPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     walletReservations<T extends Shop$walletReservationsArgs<ExtArgs> = {}>(args?: Subset<T, Shop$walletReservationsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$WalletReservationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     gstSettings<T extends Shop$gstSettingsArgs<ExtArgs> = {}>(args?: Subset<T, Shop$gstSettingsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$GstSettingsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     gstProductTaxMaps<T extends Shop$gstProductTaxMapsArgs<ExtArgs> = {}>(args?: Subset<T, Shop$gstProductTaxMapsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$GstProductTaxMapPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    gstSkuTaxMaps<T extends Shop$gstSkuTaxMapsArgs<ExtArgs> = {}>(args?: Subset<T, Shop$gstSkuTaxMapsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$GstSkuTaxMapPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     gstOrderImports<T extends Shop$gstOrderImportsArgs<ExtArgs> = {}>(args?: Subset<T, Shop$gstOrderImportsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$GstOrderImportPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -7009,6 +7126,30 @@ export namespace Prisma {
   }
 
   /**
+   * Shop.otpChallenges
+   */
+  export type Shop$otpChallengesArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the OTPChallenge
+     */
+    select?: OTPChallengeSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the OTPChallenge
+     */
+    omit?: OTPChallengeOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: OTPChallengeInclude<ExtArgs> | null
+    where?: OTPChallengeWhereInput
+    orderBy?: OTPChallengeOrderByWithRelationInput | OTPChallengeOrderByWithRelationInput[]
+    cursor?: OTPChallengeWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: OTPChallengeScalarFieldEnum | OTPChallengeScalarFieldEnum[]
+  }
+
+  /**
    * Shop.orderActionRequests
    */
   export type Shop$orderActionRequestsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -7102,6 +7243,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: GstProductTaxMapScalarFieldEnum | GstProductTaxMapScalarFieldEnum[]
+  }
+
+  /**
+   * Shop.gstSkuTaxMaps
+   */
+  export type Shop$gstSkuTaxMapsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the GstSkuTaxMap
+     */
+    select?: GstSkuTaxMapSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the GstSkuTaxMap
+     */
+    omit?: GstSkuTaxMapOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: GstSkuTaxMapInclude<ExtArgs> | null
+    where?: GstSkuTaxMapWhereInput
+    orderBy?: GstSkuTaxMapOrderByWithRelationInput | GstSkuTaxMapOrderByWithRelationInput[]
+    cursor?: GstSkuTaxMapWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: GstSkuTaxMapScalarFieldEnum | GstSkuTaxMapScalarFieldEnum[]
   }
 
   /**
@@ -8271,6 +8436,7 @@ export namespace Prisma {
 
   export type OTPChallengeMinAggregateOutputType = {
     id: string | null
+    shopId: string | null
     phoneE164: string | null
     provider: string | null
     providerSid: string | null
@@ -8285,6 +8451,7 @@ export namespace Prisma {
 
   export type OTPChallengeMaxAggregateOutputType = {
     id: string | null
+    shopId: string | null
     phoneE164: string | null
     provider: string | null
     providerSid: string | null
@@ -8299,6 +8466,7 @@ export namespace Prisma {
 
   export type OTPChallengeCountAggregateOutputType = {
     id: number
+    shopId: number
     phoneE164: number
     provider: number
     providerSid: number
@@ -8324,6 +8492,7 @@ export namespace Prisma {
 
   export type OTPChallengeMinAggregateInputType = {
     id?: true
+    shopId?: true
     phoneE164?: true
     provider?: true
     providerSid?: true
@@ -8338,6 +8507,7 @@ export namespace Prisma {
 
   export type OTPChallengeMaxAggregateInputType = {
     id?: true
+    shopId?: true
     phoneE164?: true
     provider?: true
     providerSid?: true
@@ -8352,6 +8522,7 @@ export namespace Prisma {
 
   export type OTPChallengeCountAggregateInputType = {
     id?: true
+    shopId?: true
     phoneE164?: true
     provider?: true
     providerSid?: true
@@ -8454,6 +8625,7 @@ export namespace Prisma {
 
   export type OTPChallengeGroupByOutputType = {
     id: string
+    shopId: string
     phoneE164: string
     provider: string
     providerSid: string | null
@@ -8488,6 +8660,7 @@ export namespace Prisma {
 
   export type OTPChallengeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
+    shopId?: boolean
     phoneE164?: boolean
     provider?: boolean
     providerSid?: boolean
@@ -8500,10 +8673,12 @@ export namespace Prisma {
     createdAt?: boolean
     customerProfileId?: boolean
     customer?: boolean | OTPChallenge$customerArgs<ExtArgs>
+    shop?: boolean | ShopDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["oTPChallenge"]>
 
   export type OTPChallengeSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
+    shopId?: boolean
     phoneE164?: boolean
     provider?: boolean
     providerSid?: boolean
@@ -8516,10 +8691,12 @@ export namespace Prisma {
     createdAt?: boolean
     customerProfileId?: boolean
     customer?: boolean | OTPChallenge$customerArgs<ExtArgs>
+    shop?: boolean | ShopDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["oTPChallenge"]>
 
   export type OTPChallengeSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
+    shopId?: boolean
     phoneE164?: boolean
     provider?: boolean
     providerSid?: boolean
@@ -8532,10 +8709,12 @@ export namespace Prisma {
     createdAt?: boolean
     customerProfileId?: boolean
     customer?: boolean | OTPChallenge$customerArgs<ExtArgs>
+    shop?: boolean | ShopDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["oTPChallenge"]>
 
   export type OTPChallengeSelectScalar = {
     id?: boolean
+    shopId?: boolean
     phoneE164?: boolean
     provider?: boolean
     providerSid?: boolean
@@ -8549,24 +8728,29 @@ export namespace Prisma {
     customerProfileId?: boolean
   }
 
-  export type OTPChallengeOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "phoneE164" | "provider" | "providerSid" | "status" | "attemptsCount" | "requestedAt" | "verifiedAt" | "expiresAt" | "metadata" | "createdAt" | "customerProfileId", ExtArgs["result"]["oTPChallenge"]>
+  export type OTPChallengeOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "shopId" | "phoneE164" | "provider" | "providerSid" | "status" | "attemptsCount" | "requestedAt" | "verifiedAt" | "expiresAt" | "metadata" | "createdAt" | "customerProfileId", ExtArgs["result"]["oTPChallenge"]>
   export type OTPChallengeInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     customer?: boolean | OTPChallenge$customerArgs<ExtArgs>
+    shop?: boolean | ShopDefaultArgs<ExtArgs>
   }
   export type OTPChallengeIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     customer?: boolean | OTPChallenge$customerArgs<ExtArgs>
+    shop?: boolean | ShopDefaultArgs<ExtArgs>
   }
   export type OTPChallengeIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     customer?: boolean | OTPChallenge$customerArgs<ExtArgs>
+    shop?: boolean | ShopDefaultArgs<ExtArgs>
   }
 
   export type $OTPChallengePayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "OTPChallenge"
     objects: {
       customer: Prisma.$CustomerProfilePayload<ExtArgs> | null
+      shop: Prisma.$ShopPayload<ExtArgs>
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
+      shopId: string
       phoneE164: string
       provider: string
       providerSid: string | null
@@ -8973,6 +9157,7 @@ export namespace Prisma {
   export interface Prisma__OTPChallengeClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
     readonly [Symbol.toStringTag]: "PrismaPromise"
     customer<T extends OTPChallenge$customerArgs<ExtArgs> = {}>(args?: Subset<T, OTPChallenge$customerArgs<ExtArgs>>): Prisma__CustomerProfileClient<$Result.GetResult<Prisma.$CustomerProfilePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    shop<T extends ShopDefaultArgs<ExtArgs> = {}>(args?: Subset<T, ShopDefaultArgs<ExtArgs>>): Prisma__ShopClient<$Result.GetResult<Prisma.$ShopPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -9003,6 +9188,7 @@ export namespace Prisma {
    */
   interface OTPChallengeFieldRefs {
     readonly id: FieldRef<"OTPChallenge", 'String'>
+    readonly shopId: FieldRef<"OTPChallenge", 'String'>
     readonly phoneE164: FieldRef<"OTPChallenge", 'String'>
     readonly provider: FieldRef<"OTPChallenge", 'String'>
     readonly providerSid: FieldRef<"OTPChallenge", 'String'>
@@ -19202,6 +19388,7 @@ export namespace Prisma {
     debitNotePrefix: string | null
     invoiceNumberStrategy: $Enums.GstNumberingStrategy | null
     defaultCurrency: string | null
+    priceIncludesTax: boolean | null
     einvoiceEnabled: boolean | null
     isActive: boolean | null
     createdAt: Date | null
@@ -19221,6 +19408,7 @@ export namespace Prisma {
     debitNotePrefix: string | null
     invoiceNumberStrategy: $Enums.GstNumberingStrategy | null
     defaultCurrency: string | null
+    priceIncludesTax: boolean | null
     einvoiceEnabled: boolean | null
     isActive: boolean | null
     createdAt: Date | null
@@ -19240,6 +19428,7 @@ export namespace Prisma {
     debitNotePrefix: number
     invoiceNumberStrategy: number
     defaultCurrency: number
+    priceIncludesTax: number
     einvoiceEnabled: number
     isActive: number
     createdAt: number
@@ -19261,6 +19450,7 @@ export namespace Prisma {
     debitNotePrefix?: true
     invoiceNumberStrategy?: true
     defaultCurrency?: true
+    priceIncludesTax?: true
     einvoiceEnabled?: true
     isActive?: true
     createdAt?: true
@@ -19280,6 +19470,7 @@ export namespace Prisma {
     debitNotePrefix?: true
     invoiceNumberStrategy?: true
     defaultCurrency?: true
+    priceIncludesTax?: true
     einvoiceEnabled?: true
     isActive?: true
     createdAt?: true
@@ -19299,6 +19490,7 @@ export namespace Prisma {
     debitNotePrefix?: true
     invoiceNumberStrategy?: true
     defaultCurrency?: true
+    priceIncludesTax?: true
     einvoiceEnabled?: true
     isActive?: true
     createdAt?: true
@@ -19391,6 +19583,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency: string
+    priceIncludesTax: boolean
     einvoiceEnabled: boolean
     isActive: boolean
     createdAt: Date
@@ -19427,6 +19620,7 @@ export namespace Prisma {
     debitNotePrefix?: boolean
     invoiceNumberStrategy?: boolean
     defaultCurrency?: boolean
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: boolean
@@ -19456,6 +19650,7 @@ export namespace Prisma {
     debitNotePrefix?: boolean
     invoiceNumberStrategy?: boolean
     defaultCurrency?: boolean
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: boolean
@@ -19476,6 +19671,7 @@ export namespace Prisma {
     debitNotePrefix?: boolean
     invoiceNumberStrategy?: boolean
     defaultCurrency?: boolean
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: boolean
@@ -19496,13 +19692,14 @@ export namespace Prisma {
     debitNotePrefix?: boolean
     invoiceNumberStrategy?: boolean
     defaultCurrency?: boolean
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type GstSettingsOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "shopId" | "legalName" | "tradeName" | "gstin" | "pan" | "stateCode" | "invoicePrefix" | "creditNotePrefix" | "debitNotePrefix" | "invoiceNumberStrategy" | "defaultCurrency" | "einvoiceEnabled" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["gstSettings"]>
+  export type GstSettingsOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "shopId" | "legalName" | "tradeName" | "gstin" | "pan" | "stateCode" | "invoicePrefix" | "creditNotePrefix" | "debitNotePrefix" | "invoiceNumberStrategy" | "defaultCurrency" | "priceIncludesTax" | "einvoiceEnabled" | "isActive" | "createdAt" | "updatedAt", ExtArgs["result"]["gstSettings"]>
   export type GstSettingsInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     documents?: boolean | GstSettings$documentsArgs<ExtArgs>
     counters?: boolean | GstSettings$countersArgs<ExtArgs>
@@ -19548,6 +19745,7 @@ export namespace Prisma {
       debitNotePrefix: string
       invoiceNumberStrategy: $Enums.GstNumberingStrategy
       defaultCurrency: string
+      priceIncludesTax: boolean
       einvoiceEnabled: boolean
       isActive: boolean
       createdAt: Date
@@ -19996,6 +20194,7 @@ export namespace Prisma {
     readonly debitNotePrefix: FieldRef<"GstSettings", 'String'>
     readonly invoiceNumberStrategy: FieldRef<"GstSettings", 'GstNumberingStrategy'>
     readonly defaultCurrency: FieldRef<"GstSettings", 'String'>
+    readonly priceIncludesTax: FieldRef<"GstSettings", 'Boolean'>
     readonly einvoiceEnabled: FieldRef<"GstSettings", 'Boolean'>
     readonly isActive: FieldRef<"GstSettings", 'Boolean'>
     readonly createdAt: FieldRef<"GstSettings", 'DateTime'>
@@ -36817,6 +37016,1213 @@ export namespace Prisma {
 
 
   /**
+   * Model GstSkuTaxMap
+   */
+
+  export type AggregateGstSkuTaxMap = {
+    _count: GstSkuTaxMapCountAggregateOutputType | null
+    _avg: GstSkuTaxMapAvgAggregateOutputType | null
+    _sum: GstSkuTaxMapSumAggregateOutputType | null
+    _min: GstSkuTaxMapMinAggregateOutputType | null
+    _max: GstSkuTaxMapMaxAggregateOutputType | null
+  }
+
+  export type GstSkuTaxMapAvgAggregateOutputType = {
+    taxRate: Decimal | null
+    cessRate: Decimal | null
+  }
+
+  export type GstSkuTaxMapSumAggregateOutputType = {
+    taxRate: Decimal | null
+    cessRate: Decimal | null
+  }
+
+  export type GstSkuTaxMapMinAggregateOutputType = {
+    id: string | null
+    shopId: string | null
+    sku: string | null
+    styleCode: string | null
+    hsnCode: string | null
+    taxRate: Decimal | null
+    cessRate: Decimal | null
+    source: string | null
+    status: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type GstSkuTaxMapMaxAggregateOutputType = {
+    id: string | null
+    shopId: string | null
+    sku: string | null
+    styleCode: string | null
+    hsnCode: string | null
+    taxRate: Decimal | null
+    cessRate: Decimal | null
+    source: string | null
+    status: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type GstSkuTaxMapCountAggregateOutputType = {
+    id: number
+    shopId: number
+    sku: number
+    styleCode: number
+    hsnCode: number
+    taxRate: number
+    cessRate: number
+    source: number
+    status: number
+    metadata: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type GstSkuTaxMapAvgAggregateInputType = {
+    taxRate?: true
+    cessRate?: true
+  }
+
+  export type GstSkuTaxMapSumAggregateInputType = {
+    taxRate?: true
+    cessRate?: true
+  }
+
+  export type GstSkuTaxMapMinAggregateInputType = {
+    id?: true
+    shopId?: true
+    sku?: true
+    styleCode?: true
+    hsnCode?: true
+    taxRate?: true
+    cessRate?: true
+    source?: true
+    status?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type GstSkuTaxMapMaxAggregateInputType = {
+    id?: true
+    shopId?: true
+    sku?: true
+    styleCode?: true
+    hsnCode?: true
+    taxRate?: true
+    cessRate?: true
+    source?: true
+    status?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type GstSkuTaxMapCountAggregateInputType = {
+    id?: true
+    shopId?: true
+    sku?: true
+    styleCode?: true
+    hsnCode?: true
+    taxRate?: true
+    cessRate?: true
+    source?: true
+    status?: true
+    metadata?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type GstSkuTaxMapAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which GstSkuTaxMap to aggregate.
+     */
+    where?: GstSkuTaxMapWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of GstSkuTaxMaps to fetch.
+     */
+    orderBy?: GstSkuTaxMapOrderByWithRelationInput | GstSkuTaxMapOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: GstSkuTaxMapWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` GstSkuTaxMaps from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` GstSkuTaxMaps.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned GstSkuTaxMaps
+    **/
+    _count?: true | GstSkuTaxMapCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: GstSkuTaxMapAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: GstSkuTaxMapSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: GstSkuTaxMapMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: GstSkuTaxMapMaxAggregateInputType
+  }
+
+  export type GetGstSkuTaxMapAggregateType<T extends GstSkuTaxMapAggregateArgs> = {
+        [P in keyof T & keyof AggregateGstSkuTaxMap]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateGstSkuTaxMap[P]>
+      : GetScalarType<T[P], AggregateGstSkuTaxMap[P]>
+  }
+
+
+
+
+  export type GstSkuTaxMapGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: GstSkuTaxMapWhereInput
+    orderBy?: GstSkuTaxMapOrderByWithAggregationInput | GstSkuTaxMapOrderByWithAggregationInput[]
+    by: GstSkuTaxMapScalarFieldEnum[] | GstSkuTaxMapScalarFieldEnum
+    having?: GstSkuTaxMapScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: GstSkuTaxMapCountAggregateInputType | true
+    _avg?: GstSkuTaxMapAvgAggregateInputType
+    _sum?: GstSkuTaxMapSumAggregateInputType
+    _min?: GstSkuTaxMapMinAggregateInputType
+    _max?: GstSkuTaxMapMaxAggregateInputType
+  }
+
+  export type GstSkuTaxMapGroupByOutputType = {
+    id: string
+    shopId: string | null
+    sku: string | null
+    styleCode: string | null
+    hsnCode: string
+    taxRate: Decimal
+    cessRate: Decimal
+    source: string
+    status: string
+    metadata: JsonValue | null
+    createdAt: Date
+    updatedAt: Date
+    _count: GstSkuTaxMapCountAggregateOutputType | null
+    _avg: GstSkuTaxMapAvgAggregateOutputType | null
+    _sum: GstSkuTaxMapSumAggregateOutputType | null
+    _min: GstSkuTaxMapMinAggregateOutputType | null
+    _max: GstSkuTaxMapMaxAggregateOutputType | null
+  }
+
+  type GetGstSkuTaxMapGroupByPayload<T extends GstSkuTaxMapGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<GstSkuTaxMapGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof GstSkuTaxMapGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], GstSkuTaxMapGroupByOutputType[P]>
+            : GetScalarType<T[P], GstSkuTaxMapGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type GstSkuTaxMapSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    shopId?: boolean
+    sku?: boolean
+    styleCode?: boolean
+    hsnCode?: boolean
+    taxRate?: boolean
+    cessRate?: boolean
+    source?: boolean
+    status?: boolean
+    metadata?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    shop?: boolean | GstSkuTaxMap$shopArgs<ExtArgs>
+  }, ExtArgs["result"]["gstSkuTaxMap"]>
+
+  export type GstSkuTaxMapSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    shopId?: boolean
+    sku?: boolean
+    styleCode?: boolean
+    hsnCode?: boolean
+    taxRate?: boolean
+    cessRate?: boolean
+    source?: boolean
+    status?: boolean
+    metadata?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    shop?: boolean | GstSkuTaxMap$shopArgs<ExtArgs>
+  }, ExtArgs["result"]["gstSkuTaxMap"]>
+
+  export type GstSkuTaxMapSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    shopId?: boolean
+    sku?: boolean
+    styleCode?: boolean
+    hsnCode?: boolean
+    taxRate?: boolean
+    cessRate?: boolean
+    source?: boolean
+    status?: boolean
+    metadata?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    shop?: boolean | GstSkuTaxMap$shopArgs<ExtArgs>
+  }, ExtArgs["result"]["gstSkuTaxMap"]>
+
+  export type GstSkuTaxMapSelectScalar = {
+    id?: boolean
+    shopId?: boolean
+    sku?: boolean
+    styleCode?: boolean
+    hsnCode?: boolean
+    taxRate?: boolean
+    cessRate?: boolean
+    source?: boolean
+    status?: boolean
+    metadata?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type GstSkuTaxMapOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "shopId" | "sku" | "styleCode" | "hsnCode" | "taxRate" | "cessRate" | "source" | "status" | "metadata" | "createdAt" | "updatedAt", ExtArgs["result"]["gstSkuTaxMap"]>
+  export type GstSkuTaxMapInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    shop?: boolean | GstSkuTaxMap$shopArgs<ExtArgs>
+  }
+  export type GstSkuTaxMapIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    shop?: boolean | GstSkuTaxMap$shopArgs<ExtArgs>
+  }
+  export type GstSkuTaxMapIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    shop?: boolean | GstSkuTaxMap$shopArgs<ExtArgs>
+  }
+
+  export type $GstSkuTaxMapPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "GstSkuTaxMap"
+    objects: {
+      shop: Prisma.$ShopPayload<ExtArgs> | null
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      shopId: string | null
+      sku: string | null
+      styleCode: string | null
+      hsnCode: string
+      taxRate: Prisma.Decimal
+      cessRate: Prisma.Decimal
+      source: string
+      status: string
+      metadata: Prisma.JsonValue | null
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["gstSkuTaxMap"]>
+    composites: {}
+  }
+
+  type GstSkuTaxMapGetPayload<S extends boolean | null | undefined | GstSkuTaxMapDefaultArgs> = $Result.GetResult<Prisma.$GstSkuTaxMapPayload, S>
+
+  type GstSkuTaxMapCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<GstSkuTaxMapFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: GstSkuTaxMapCountAggregateInputType | true
+    }
+
+  export interface GstSkuTaxMapDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['GstSkuTaxMap'], meta: { name: 'GstSkuTaxMap' } }
+    /**
+     * Find zero or one GstSkuTaxMap that matches the filter.
+     * @param {GstSkuTaxMapFindUniqueArgs} args - Arguments to find a GstSkuTaxMap
+     * @example
+     * // Get one GstSkuTaxMap
+     * const gstSkuTaxMap = await prisma.gstSkuTaxMap.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends GstSkuTaxMapFindUniqueArgs>(args: SelectSubset<T, GstSkuTaxMapFindUniqueArgs<ExtArgs>>): Prisma__GstSkuTaxMapClient<$Result.GetResult<Prisma.$GstSkuTaxMapPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one GstSkuTaxMap that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {GstSkuTaxMapFindUniqueOrThrowArgs} args - Arguments to find a GstSkuTaxMap
+     * @example
+     * // Get one GstSkuTaxMap
+     * const gstSkuTaxMap = await prisma.gstSkuTaxMap.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends GstSkuTaxMapFindUniqueOrThrowArgs>(args: SelectSubset<T, GstSkuTaxMapFindUniqueOrThrowArgs<ExtArgs>>): Prisma__GstSkuTaxMapClient<$Result.GetResult<Prisma.$GstSkuTaxMapPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first GstSkuTaxMap that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {GstSkuTaxMapFindFirstArgs} args - Arguments to find a GstSkuTaxMap
+     * @example
+     * // Get one GstSkuTaxMap
+     * const gstSkuTaxMap = await prisma.gstSkuTaxMap.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends GstSkuTaxMapFindFirstArgs>(args?: SelectSubset<T, GstSkuTaxMapFindFirstArgs<ExtArgs>>): Prisma__GstSkuTaxMapClient<$Result.GetResult<Prisma.$GstSkuTaxMapPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first GstSkuTaxMap that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {GstSkuTaxMapFindFirstOrThrowArgs} args - Arguments to find a GstSkuTaxMap
+     * @example
+     * // Get one GstSkuTaxMap
+     * const gstSkuTaxMap = await prisma.gstSkuTaxMap.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends GstSkuTaxMapFindFirstOrThrowArgs>(args?: SelectSubset<T, GstSkuTaxMapFindFirstOrThrowArgs<ExtArgs>>): Prisma__GstSkuTaxMapClient<$Result.GetResult<Prisma.$GstSkuTaxMapPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more GstSkuTaxMaps that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {GstSkuTaxMapFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all GstSkuTaxMaps
+     * const gstSkuTaxMaps = await prisma.gstSkuTaxMap.findMany()
+     * 
+     * // Get first 10 GstSkuTaxMaps
+     * const gstSkuTaxMaps = await prisma.gstSkuTaxMap.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const gstSkuTaxMapWithIdOnly = await prisma.gstSkuTaxMap.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends GstSkuTaxMapFindManyArgs>(args?: SelectSubset<T, GstSkuTaxMapFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$GstSkuTaxMapPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a GstSkuTaxMap.
+     * @param {GstSkuTaxMapCreateArgs} args - Arguments to create a GstSkuTaxMap.
+     * @example
+     * // Create one GstSkuTaxMap
+     * const GstSkuTaxMap = await prisma.gstSkuTaxMap.create({
+     *   data: {
+     *     // ... data to create a GstSkuTaxMap
+     *   }
+     * })
+     * 
+     */
+    create<T extends GstSkuTaxMapCreateArgs>(args: SelectSubset<T, GstSkuTaxMapCreateArgs<ExtArgs>>): Prisma__GstSkuTaxMapClient<$Result.GetResult<Prisma.$GstSkuTaxMapPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many GstSkuTaxMaps.
+     * @param {GstSkuTaxMapCreateManyArgs} args - Arguments to create many GstSkuTaxMaps.
+     * @example
+     * // Create many GstSkuTaxMaps
+     * const gstSkuTaxMap = await prisma.gstSkuTaxMap.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends GstSkuTaxMapCreateManyArgs>(args?: SelectSubset<T, GstSkuTaxMapCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many GstSkuTaxMaps and returns the data saved in the database.
+     * @param {GstSkuTaxMapCreateManyAndReturnArgs} args - Arguments to create many GstSkuTaxMaps.
+     * @example
+     * // Create many GstSkuTaxMaps
+     * const gstSkuTaxMap = await prisma.gstSkuTaxMap.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many GstSkuTaxMaps and only return the `id`
+     * const gstSkuTaxMapWithIdOnly = await prisma.gstSkuTaxMap.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends GstSkuTaxMapCreateManyAndReturnArgs>(args?: SelectSubset<T, GstSkuTaxMapCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$GstSkuTaxMapPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a GstSkuTaxMap.
+     * @param {GstSkuTaxMapDeleteArgs} args - Arguments to delete one GstSkuTaxMap.
+     * @example
+     * // Delete one GstSkuTaxMap
+     * const GstSkuTaxMap = await prisma.gstSkuTaxMap.delete({
+     *   where: {
+     *     // ... filter to delete one GstSkuTaxMap
+     *   }
+     * })
+     * 
+     */
+    delete<T extends GstSkuTaxMapDeleteArgs>(args: SelectSubset<T, GstSkuTaxMapDeleteArgs<ExtArgs>>): Prisma__GstSkuTaxMapClient<$Result.GetResult<Prisma.$GstSkuTaxMapPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one GstSkuTaxMap.
+     * @param {GstSkuTaxMapUpdateArgs} args - Arguments to update one GstSkuTaxMap.
+     * @example
+     * // Update one GstSkuTaxMap
+     * const gstSkuTaxMap = await prisma.gstSkuTaxMap.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends GstSkuTaxMapUpdateArgs>(args: SelectSubset<T, GstSkuTaxMapUpdateArgs<ExtArgs>>): Prisma__GstSkuTaxMapClient<$Result.GetResult<Prisma.$GstSkuTaxMapPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more GstSkuTaxMaps.
+     * @param {GstSkuTaxMapDeleteManyArgs} args - Arguments to filter GstSkuTaxMaps to delete.
+     * @example
+     * // Delete a few GstSkuTaxMaps
+     * const { count } = await prisma.gstSkuTaxMap.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends GstSkuTaxMapDeleteManyArgs>(args?: SelectSubset<T, GstSkuTaxMapDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more GstSkuTaxMaps.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {GstSkuTaxMapUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many GstSkuTaxMaps
+     * const gstSkuTaxMap = await prisma.gstSkuTaxMap.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends GstSkuTaxMapUpdateManyArgs>(args: SelectSubset<T, GstSkuTaxMapUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more GstSkuTaxMaps and returns the data updated in the database.
+     * @param {GstSkuTaxMapUpdateManyAndReturnArgs} args - Arguments to update many GstSkuTaxMaps.
+     * @example
+     * // Update many GstSkuTaxMaps
+     * const gstSkuTaxMap = await prisma.gstSkuTaxMap.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more GstSkuTaxMaps and only return the `id`
+     * const gstSkuTaxMapWithIdOnly = await prisma.gstSkuTaxMap.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends GstSkuTaxMapUpdateManyAndReturnArgs>(args: SelectSubset<T, GstSkuTaxMapUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$GstSkuTaxMapPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one GstSkuTaxMap.
+     * @param {GstSkuTaxMapUpsertArgs} args - Arguments to update or create a GstSkuTaxMap.
+     * @example
+     * // Update or create a GstSkuTaxMap
+     * const gstSkuTaxMap = await prisma.gstSkuTaxMap.upsert({
+     *   create: {
+     *     // ... data to create a GstSkuTaxMap
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the GstSkuTaxMap we want to update
+     *   }
+     * })
+     */
+    upsert<T extends GstSkuTaxMapUpsertArgs>(args: SelectSubset<T, GstSkuTaxMapUpsertArgs<ExtArgs>>): Prisma__GstSkuTaxMapClient<$Result.GetResult<Prisma.$GstSkuTaxMapPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of GstSkuTaxMaps.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {GstSkuTaxMapCountArgs} args - Arguments to filter GstSkuTaxMaps to count.
+     * @example
+     * // Count the number of GstSkuTaxMaps
+     * const count = await prisma.gstSkuTaxMap.count({
+     *   where: {
+     *     // ... the filter for the GstSkuTaxMaps we want to count
+     *   }
+     * })
+    **/
+    count<T extends GstSkuTaxMapCountArgs>(
+      args?: Subset<T, GstSkuTaxMapCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], GstSkuTaxMapCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a GstSkuTaxMap.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {GstSkuTaxMapAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends GstSkuTaxMapAggregateArgs>(args: Subset<T, GstSkuTaxMapAggregateArgs>): Prisma.PrismaPromise<GetGstSkuTaxMapAggregateType<T>>
+
+    /**
+     * Group by GstSkuTaxMap.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {GstSkuTaxMapGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends GstSkuTaxMapGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: GstSkuTaxMapGroupByArgs['orderBy'] }
+        : { orderBy?: GstSkuTaxMapGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, GstSkuTaxMapGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetGstSkuTaxMapGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the GstSkuTaxMap model
+   */
+  readonly fields: GstSkuTaxMapFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for GstSkuTaxMap.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__GstSkuTaxMapClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    shop<T extends GstSkuTaxMap$shopArgs<ExtArgs> = {}>(args?: Subset<T, GstSkuTaxMap$shopArgs<ExtArgs>>): Prisma__ShopClient<$Result.GetResult<Prisma.$ShopPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the GstSkuTaxMap model
+   */
+  interface GstSkuTaxMapFieldRefs {
+    readonly id: FieldRef<"GstSkuTaxMap", 'String'>
+    readonly shopId: FieldRef<"GstSkuTaxMap", 'String'>
+    readonly sku: FieldRef<"GstSkuTaxMap", 'String'>
+    readonly styleCode: FieldRef<"GstSkuTaxMap", 'String'>
+    readonly hsnCode: FieldRef<"GstSkuTaxMap", 'String'>
+    readonly taxRate: FieldRef<"GstSkuTaxMap", 'Decimal'>
+    readonly cessRate: FieldRef<"GstSkuTaxMap", 'Decimal'>
+    readonly source: FieldRef<"GstSkuTaxMap", 'String'>
+    readonly status: FieldRef<"GstSkuTaxMap", 'String'>
+    readonly metadata: FieldRef<"GstSkuTaxMap", 'Json'>
+    readonly createdAt: FieldRef<"GstSkuTaxMap", 'DateTime'>
+    readonly updatedAt: FieldRef<"GstSkuTaxMap", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * GstSkuTaxMap findUnique
+   */
+  export type GstSkuTaxMapFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the GstSkuTaxMap
+     */
+    select?: GstSkuTaxMapSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the GstSkuTaxMap
+     */
+    omit?: GstSkuTaxMapOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: GstSkuTaxMapInclude<ExtArgs> | null
+    /**
+     * Filter, which GstSkuTaxMap to fetch.
+     */
+    where: GstSkuTaxMapWhereUniqueInput
+  }
+
+  /**
+   * GstSkuTaxMap findUniqueOrThrow
+   */
+  export type GstSkuTaxMapFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the GstSkuTaxMap
+     */
+    select?: GstSkuTaxMapSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the GstSkuTaxMap
+     */
+    omit?: GstSkuTaxMapOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: GstSkuTaxMapInclude<ExtArgs> | null
+    /**
+     * Filter, which GstSkuTaxMap to fetch.
+     */
+    where: GstSkuTaxMapWhereUniqueInput
+  }
+
+  /**
+   * GstSkuTaxMap findFirst
+   */
+  export type GstSkuTaxMapFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the GstSkuTaxMap
+     */
+    select?: GstSkuTaxMapSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the GstSkuTaxMap
+     */
+    omit?: GstSkuTaxMapOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: GstSkuTaxMapInclude<ExtArgs> | null
+    /**
+     * Filter, which GstSkuTaxMap to fetch.
+     */
+    where?: GstSkuTaxMapWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of GstSkuTaxMaps to fetch.
+     */
+    orderBy?: GstSkuTaxMapOrderByWithRelationInput | GstSkuTaxMapOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for GstSkuTaxMaps.
+     */
+    cursor?: GstSkuTaxMapWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` GstSkuTaxMaps from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` GstSkuTaxMaps.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of GstSkuTaxMaps.
+     */
+    distinct?: GstSkuTaxMapScalarFieldEnum | GstSkuTaxMapScalarFieldEnum[]
+  }
+
+  /**
+   * GstSkuTaxMap findFirstOrThrow
+   */
+  export type GstSkuTaxMapFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the GstSkuTaxMap
+     */
+    select?: GstSkuTaxMapSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the GstSkuTaxMap
+     */
+    omit?: GstSkuTaxMapOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: GstSkuTaxMapInclude<ExtArgs> | null
+    /**
+     * Filter, which GstSkuTaxMap to fetch.
+     */
+    where?: GstSkuTaxMapWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of GstSkuTaxMaps to fetch.
+     */
+    orderBy?: GstSkuTaxMapOrderByWithRelationInput | GstSkuTaxMapOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for GstSkuTaxMaps.
+     */
+    cursor?: GstSkuTaxMapWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` GstSkuTaxMaps from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` GstSkuTaxMaps.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of GstSkuTaxMaps.
+     */
+    distinct?: GstSkuTaxMapScalarFieldEnum | GstSkuTaxMapScalarFieldEnum[]
+  }
+
+  /**
+   * GstSkuTaxMap findMany
+   */
+  export type GstSkuTaxMapFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the GstSkuTaxMap
+     */
+    select?: GstSkuTaxMapSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the GstSkuTaxMap
+     */
+    omit?: GstSkuTaxMapOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: GstSkuTaxMapInclude<ExtArgs> | null
+    /**
+     * Filter, which GstSkuTaxMaps to fetch.
+     */
+    where?: GstSkuTaxMapWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of GstSkuTaxMaps to fetch.
+     */
+    orderBy?: GstSkuTaxMapOrderByWithRelationInput | GstSkuTaxMapOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing GstSkuTaxMaps.
+     */
+    cursor?: GstSkuTaxMapWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` GstSkuTaxMaps from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` GstSkuTaxMaps.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of GstSkuTaxMaps.
+     */
+    distinct?: GstSkuTaxMapScalarFieldEnum | GstSkuTaxMapScalarFieldEnum[]
+  }
+
+  /**
+   * GstSkuTaxMap create
+   */
+  export type GstSkuTaxMapCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the GstSkuTaxMap
+     */
+    select?: GstSkuTaxMapSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the GstSkuTaxMap
+     */
+    omit?: GstSkuTaxMapOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: GstSkuTaxMapInclude<ExtArgs> | null
+    /**
+     * The data needed to create a GstSkuTaxMap.
+     */
+    data: XOR<GstSkuTaxMapCreateInput, GstSkuTaxMapUncheckedCreateInput>
+  }
+
+  /**
+   * GstSkuTaxMap createMany
+   */
+  export type GstSkuTaxMapCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many GstSkuTaxMaps.
+     */
+    data: GstSkuTaxMapCreateManyInput | GstSkuTaxMapCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * GstSkuTaxMap createManyAndReturn
+   */
+  export type GstSkuTaxMapCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the GstSkuTaxMap
+     */
+    select?: GstSkuTaxMapSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the GstSkuTaxMap
+     */
+    omit?: GstSkuTaxMapOmit<ExtArgs> | null
+    /**
+     * The data used to create many GstSkuTaxMaps.
+     */
+    data: GstSkuTaxMapCreateManyInput | GstSkuTaxMapCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: GstSkuTaxMapIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * GstSkuTaxMap update
+   */
+  export type GstSkuTaxMapUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the GstSkuTaxMap
+     */
+    select?: GstSkuTaxMapSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the GstSkuTaxMap
+     */
+    omit?: GstSkuTaxMapOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: GstSkuTaxMapInclude<ExtArgs> | null
+    /**
+     * The data needed to update a GstSkuTaxMap.
+     */
+    data: XOR<GstSkuTaxMapUpdateInput, GstSkuTaxMapUncheckedUpdateInput>
+    /**
+     * Choose, which GstSkuTaxMap to update.
+     */
+    where: GstSkuTaxMapWhereUniqueInput
+  }
+
+  /**
+   * GstSkuTaxMap updateMany
+   */
+  export type GstSkuTaxMapUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update GstSkuTaxMaps.
+     */
+    data: XOR<GstSkuTaxMapUpdateManyMutationInput, GstSkuTaxMapUncheckedUpdateManyInput>
+    /**
+     * Filter which GstSkuTaxMaps to update
+     */
+    where?: GstSkuTaxMapWhereInput
+    /**
+     * Limit how many GstSkuTaxMaps to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * GstSkuTaxMap updateManyAndReturn
+   */
+  export type GstSkuTaxMapUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the GstSkuTaxMap
+     */
+    select?: GstSkuTaxMapSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the GstSkuTaxMap
+     */
+    omit?: GstSkuTaxMapOmit<ExtArgs> | null
+    /**
+     * The data used to update GstSkuTaxMaps.
+     */
+    data: XOR<GstSkuTaxMapUpdateManyMutationInput, GstSkuTaxMapUncheckedUpdateManyInput>
+    /**
+     * Filter which GstSkuTaxMaps to update
+     */
+    where?: GstSkuTaxMapWhereInput
+    /**
+     * Limit how many GstSkuTaxMaps to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: GstSkuTaxMapIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * GstSkuTaxMap upsert
+   */
+  export type GstSkuTaxMapUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the GstSkuTaxMap
+     */
+    select?: GstSkuTaxMapSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the GstSkuTaxMap
+     */
+    omit?: GstSkuTaxMapOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: GstSkuTaxMapInclude<ExtArgs> | null
+    /**
+     * The filter to search for the GstSkuTaxMap to update in case it exists.
+     */
+    where: GstSkuTaxMapWhereUniqueInput
+    /**
+     * In case the GstSkuTaxMap found by the `where` argument doesn't exist, create a new GstSkuTaxMap with this data.
+     */
+    create: XOR<GstSkuTaxMapCreateInput, GstSkuTaxMapUncheckedCreateInput>
+    /**
+     * In case the GstSkuTaxMap was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<GstSkuTaxMapUpdateInput, GstSkuTaxMapUncheckedUpdateInput>
+  }
+
+  /**
+   * GstSkuTaxMap delete
+   */
+  export type GstSkuTaxMapDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the GstSkuTaxMap
+     */
+    select?: GstSkuTaxMapSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the GstSkuTaxMap
+     */
+    omit?: GstSkuTaxMapOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: GstSkuTaxMapInclude<ExtArgs> | null
+    /**
+     * Filter which GstSkuTaxMap to delete.
+     */
+    where: GstSkuTaxMapWhereUniqueInput
+  }
+
+  /**
+   * GstSkuTaxMap deleteMany
+   */
+  export type GstSkuTaxMapDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which GstSkuTaxMaps to delete
+     */
+    where?: GstSkuTaxMapWhereInput
+    /**
+     * Limit how many GstSkuTaxMaps to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * GstSkuTaxMap.shop
+   */
+  export type GstSkuTaxMap$shopArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Shop
+     */
+    select?: ShopSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Shop
+     */
+    omit?: ShopOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: ShopInclude<ExtArgs> | null
+    where?: ShopWhereInput
+  }
+
+  /**
+   * GstSkuTaxMap without action
+   */
+  export type GstSkuTaxMapDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the GstSkuTaxMap
+     */
+    select?: GstSkuTaxMapSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the GstSkuTaxMap
+     */
+    omit?: GstSkuTaxMapOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: GstSkuTaxMapInclude<ExtArgs> | null
+  }
+
+
+  /**
    * Model GstOrderImport
    */
 
@@ -41945,6 +43351,7 @@ export namespace Prisma {
 
   export const OTPChallengeScalarFieldEnum: {
     id: 'id',
+    shopId: 'shopId',
     phoneE164: 'phoneE164',
     provider: 'provider',
     providerSid: 'providerSid',
@@ -42132,6 +43539,7 @@ export namespace Prisma {
     debitNotePrefix: 'debitNotePrefix',
     invoiceNumberStrategy: 'invoiceNumberStrategy',
     defaultCurrency: 'defaultCurrency',
+    priceIncludesTax: 'priceIncludesTax',
     einvoiceEnabled: 'einvoiceEnabled',
     isActive: 'isActive',
     createdAt: 'createdAt',
@@ -42391,6 +43799,24 @@ export namespace Prisma {
   };
 
   export type GstProductTaxMapScalarFieldEnum = (typeof GstProductTaxMapScalarFieldEnum)[keyof typeof GstProductTaxMapScalarFieldEnum]
+
+
+  export const GstSkuTaxMapScalarFieldEnum: {
+    id: 'id',
+    shopId: 'shopId',
+    sku: 'sku',
+    styleCode: 'styleCode',
+    hsnCode: 'hsnCode',
+    taxRate: 'taxRate',
+    cessRate: 'cessRate',
+    source: 'source',
+    status: 'status',
+    metadata: 'metadata',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type GstSkuTaxMapScalarFieldEnum = (typeof GstSkuTaxMapScalarFieldEnum)[keyof typeof GstSkuTaxMapScalarFieldEnum]
 
 
   export const GstOrderImportScalarFieldEnum: {
@@ -43028,10 +44454,12 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Shop"> | Date | string
     updatedAt?: DateTimeFilter<"Shop"> | Date | string
     customers?: CustomerProfileListRelationFilter
+    otpChallenges?: OTPChallengeListRelationFilter
     orderActionRequests?: OrderActionRequestListRelationFilter
     walletReservations?: WalletReservationListRelationFilter
     gstSettings?: GstSettingsListRelationFilter
     gstProductTaxMaps?: GstProductTaxMapListRelationFilter
+    gstSkuTaxMaps?: GstSkuTaxMapListRelationFilter
     gstOrderImports?: GstOrderImportListRelationFilter
   }
 
@@ -43047,10 +44475,12 @@ export namespace Prisma {
     createdAt?: SortOrder
     updatedAt?: SortOrder
     customers?: CustomerProfileOrderByRelationAggregateInput
+    otpChallenges?: OTPChallengeOrderByRelationAggregateInput
     orderActionRequests?: OrderActionRequestOrderByRelationAggregateInput
     walletReservations?: WalletReservationOrderByRelationAggregateInput
     gstSettings?: GstSettingsOrderByRelationAggregateInput
     gstProductTaxMaps?: GstProductTaxMapOrderByRelationAggregateInput
+    gstSkuTaxMaps?: GstSkuTaxMapOrderByRelationAggregateInput
     gstOrderImports?: GstOrderImportOrderByRelationAggregateInput
   }
 
@@ -43069,10 +44499,12 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Shop"> | Date | string
     updatedAt?: DateTimeFilter<"Shop"> | Date | string
     customers?: CustomerProfileListRelationFilter
+    otpChallenges?: OTPChallengeListRelationFilter
     orderActionRequests?: OrderActionRequestListRelationFilter
     walletReservations?: WalletReservationListRelationFilter
     gstSettings?: GstSettingsListRelationFilter
     gstProductTaxMaps?: GstProductTaxMapListRelationFilter
+    gstSkuTaxMaps?: GstSkuTaxMapListRelationFilter
     gstOrderImports?: GstOrderImportListRelationFilter
   }, "id" | "shopDomain">
 
@@ -43183,6 +44615,7 @@ export namespace Prisma {
     OR?: OTPChallengeWhereInput[]
     NOT?: OTPChallengeWhereInput | OTPChallengeWhereInput[]
     id?: StringFilter<"OTPChallenge"> | string
+    shopId?: StringFilter<"OTPChallenge"> | string
     phoneE164?: StringFilter<"OTPChallenge"> | string
     provider?: StringFilter<"OTPChallenge"> | string
     providerSid?: StringNullableFilter<"OTPChallenge"> | string | null
@@ -43195,10 +44628,12 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"OTPChallenge"> | Date | string
     customerProfileId?: StringNullableFilter<"OTPChallenge"> | string | null
     customer?: XOR<CustomerProfileNullableScalarRelationFilter, CustomerProfileWhereInput> | null
+    shop?: XOR<ShopScalarRelationFilter, ShopWhereInput>
   }
 
   export type OTPChallengeOrderByWithRelationInput = {
     id?: SortOrder
+    shopId?: SortOrder
     phoneE164?: SortOrder
     provider?: SortOrder
     providerSid?: SortOrderInput | SortOrder
@@ -43211,6 +44646,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     customerProfileId?: SortOrderInput | SortOrder
     customer?: CustomerProfileOrderByWithRelationInput
+    shop?: ShopOrderByWithRelationInput
   }
 
   export type OTPChallengeWhereUniqueInput = Prisma.AtLeast<{
@@ -43218,6 +44654,7 @@ export namespace Prisma {
     AND?: OTPChallengeWhereInput | OTPChallengeWhereInput[]
     OR?: OTPChallengeWhereInput[]
     NOT?: OTPChallengeWhereInput | OTPChallengeWhereInput[]
+    shopId?: StringFilter<"OTPChallenge"> | string
     phoneE164?: StringFilter<"OTPChallenge"> | string
     provider?: StringFilter<"OTPChallenge"> | string
     providerSid?: StringNullableFilter<"OTPChallenge"> | string | null
@@ -43230,10 +44667,12 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"OTPChallenge"> | Date | string
     customerProfileId?: StringNullableFilter<"OTPChallenge"> | string | null
     customer?: XOR<CustomerProfileNullableScalarRelationFilter, CustomerProfileWhereInput> | null
+    shop?: XOR<ShopScalarRelationFilter, ShopWhereInput>
   }, "id">
 
   export type OTPChallengeOrderByWithAggregationInput = {
     id?: SortOrder
+    shopId?: SortOrder
     phoneE164?: SortOrder
     provider?: SortOrder
     providerSid?: SortOrderInput | SortOrder
@@ -43257,6 +44696,7 @@ export namespace Prisma {
     OR?: OTPChallengeScalarWhereWithAggregatesInput[]
     NOT?: OTPChallengeScalarWhereWithAggregatesInput | OTPChallengeScalarWhereWithAggregatesInput[]
     id?: StringWithAggregatesFilter<"OTPChallenge"> | string
+    shopId?: StringWithAggregatesFilter<"OTPChallenge"> | string
     phoneE164?: StringWithAggregatesFilter<"OTPChallenge"> | string
     provider?: StringWithAggregatesFilter<"OTPChallenge"> | string
     providerSid?: StringNullableWithAggregatesFilter<"OTPChallenge"> | string | null
@@ -44113,6 +45553,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFilter<"GstSettings"> | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFilter<"GstSettings"> | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFilter<"GstSettings"> | string
+    priceIncludesTax?: BoolFilter<"GstSettings"> | boolean
     einvoiceEnabled?: BoolFilter<"GstSettings"> | boolean
     isActive?: BoolFilter<"GstSettings"> | boolean
     createdAt?: DateTimeFilter<"GstSettings"> | Date | string
@@ -44141,6 +45582,7 @@ export namespace Prisma {
     debitNotePrefix?: SortOrder
     invoiceNumberStrategy?: SortOrder
     defaultCurrency?: SortOrder
+    priceIncludesTax?: SortOrder
     einvoiceEnabled?: SortOrder
     isActive?: SortOrder
     createdAt?: SortOrder
@@ -44172,6 +45614,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFilter<"GstSettings"> | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFilter<"GstSettings"> | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFilter<"GstSettings"> | string
+    priceIncludesTax?: BoolFilter<"GstSettings"> | boolean
     einvoiceEnabled?: BoolFilter<"GstSettings"> | boolean
     isActive?: BoolFilter<"GstSettings"> | boolean
     createdAt?: DateTimeFilter<"GstSettings"> | Date | string
@@ -44200,6 +45643,7 @@ export namespace Prisma {
     debitNotePrefix?: SortOrder
     invoiceNumberStrategy?: SortOrder
     defaultCurrency?: SortOrder
+    priceIncludesTax?: SortOrder
     einvoiceEnabled?: SortOrder
     isActive?: SortOrder
     createdAt?: SortOrder
@@ -44225,6 +45669,7 @@ export namespace Prisma {
     debitNotePrefix?: StringWithAggregatesFilter<"GstSettings"> | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyWithAggregatesFilter<"GstSettings"> | $Enums.GstNumberingStrategy
     defaultCurrency?: StringWithAggregatesFilter<"GstSettings"> | string
+    priceIncludesTax?: BoolWithAggregatesFilter<"GstSettings"> | boolean
     einvoiceEnabled?: BoolWithAggregatesFilter<"GstSettings"> | boolean
     isActive?: BoolWithAggregatesFilter<"GstSettings"> | boolean
     createdAt?: DateTimeWithAggregatesFilter<"GstSettings"> | Date | string
@@ -45581,6 +47026,98 @@ export namespace Prisma {
     updatedAt?: DateTimeWithAggregatesFilter<"GstProductTaxMap"> | Date | string
   }
 
+  export type GstSkuTaxMapWhereInput = {
+    AND?: GstSkuTaxMapWhereInput | GstSkuTaxMapWhereInput[]
+    OR?: GstSkuTaxMapWhereInput[]
+    NOT?: GstSkuTaxMapWhereInput | GstSkuTaxMapWhereInput[]
+    id?: StringFilter<"GstSkuTaxMap"> | string
+    shopId?: StringNullableFilter<"GstSkuTaxMap"> | string | null
+    sku?: StringNullableFilter<"GstSkuTaxMap"> | string | null
+    styleCode?: StringNullableFilter<"GstSkuTaxMap"> | string | null
+    hsnCode?: StringFilter<"GstSkuTaxMap"> | string
+    taxRate?: DecimalFilter<"GstSkuTaxMap"> | Decimal | DecimalJsLike | number | string
+    cessRate?: DecimalFilter<"GstSkuTaxMap"> | Decimal | DecimalJsLike | number | string
+    source?: StringFilter<"GstSkuTaxMap"> | string
+    status?: StringFilter<"GstSkuTaxMap"> | string
+    metadata?: JsonNullableFilter<"GstSkuTaxMap">
+    createdAt?: DateTimeFilter<"GstSkuTaxMap"> | Date | string
+    updatedAt?: DateTimeFilter<"GstSkuTaxMap"> | Date | string
+    shop?: XOR<ShopNullableScalarRelationFilter, ShopWhereInput> | null
+  }
+
+  export type GstSkuTaxMapOrderByWithRelationInput = {
+    id?: SortOrder
+    shopId?: SortOrderInput | SortOrder
+    sku?: SortOrderInput | SortOrder
+    styleCode?: SortOrderInput | SortOrder
+    hsnCode?: SortOrder
+    taxRate?: SortOrder
+    cessRate?: SortOrder
+    source?: SortOrder
+    status?: SortOrder
+    metadata?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    shop?: ShopOrderByWithRelationInput
+  }
+
+  export type GstSkuTaxMapWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: GstSkuTaxMapWhereInput | GstSkuTaxMapWhereInput[]
+    OR?: GstSkuTaxMapWhereInput[]
+    NOT?: GstSkuTaxMapWhereInput | GstSkuTaxMapWhereInput[]
+    shopId?: StringNullableFilter<"GstSkuTaxMap"> | string | null
+    sku?: StringNullableFilter<"GstSkuTaxMap"> | string | null
+    styleCode?: StringNullableFilter<"GstSkuTaxMap"> | string | null
+    hsnCode?: StringFilter<"GstSkuTaxMap"> | string
+    taxRate?: DecimalFilter<"GstSkuTaxMap"> | Decimal | DecimalJsLike | number | string
+    cessRate?: DecimalFilter<"GstSkuTaxMap"> | Decimal | DecimalJsLike | number | string
+    source?: StringFilter<"GstSkuTaxMap"> | string
+    status?: StringFilter<"GstSkuTaxMap"> | string
+    metadata?: JsonNullableFilter<"GstSkuTaxMap">
+    createdAt?: DateTimeFilter<"GstSkuTaxMap"> | Date | string
+    updatedAt?: DateTimeFilter<"GstSkuTaxMap"> | Date | string
+    shop?: XOR<ShopNullableScalarRelationFilter, ShopWhereInput> | null
+  }, "id">
+
+  export type GstSkuTaxMapOrderByWithAggregationInput = {
+    id?: SortOrder
+    shopId?: SortOrderInput | SortOrder
+    sku?: SortOrderInput | SortOrder
+    styleCode?: SortOrderInput | SortOrder
+    hsnCode?: SortOrder
+    taxRate?: SortOrder
+    cessRate?: SortOrder
+    source?: SortOrder
+    status?: SortOrder
+    metadata?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: GstSkuTaxMapCountOrderByAggregateInput
+    _avg?: GstSkuTaxMapAvgOrderByAggregateInput
+    _max?: GstSkuTaxMapMaxOrderByAggregateInput
+    _min?: GstSkuTaxMapMinOrderByAggregateInput
+    _sum?: GstSkuTaxMapSumOrderByAggregateInput
+  }
+
+  export type GstSkuTaxMapScalarWhereWithAggregatesInput = {
+    AND?: GstSkuTaxMapScalarWhereWithAggregatesInput | GstSkuTaxMapScalarWhereWithAggregatesInput[]
+    OR?: GstSkuTaxMapScalarWhereWithAggregatesInput[]
+    NOT?: GstSkuTaxMapScalarWhereWithAggregatesInput | GstSkuTaxMapScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"GstSkuTaxMap"> | string
+    shopId?: StringNullableWithAggregatesFilter<"GstSkuTaxMap"> | string | null
+    sku?: StringNullableWithAggregatesFilter<"GstSkuTaxMap"> | string | null
+    styleCode?: StringNullableWithAggregatesFilter<"GstSkuTaxMap"> | string | null
+    hsnCode?: StringWithAggregatesFilter<"GstSkuTaxMap"> | string
+    taxRate?: DecimalWithAggregatesFilter<"GstSkuTaxMap"> | Decimal | DecimalJsLike | number | string
+    cessRate?: DecimalWithAggregatesFilter<"GstSkuTaxMap"> | Decimal | DecimalJsLike | number | string
+    source?: StringWithAggregatesFilter<"GstSkuTaxMap"> | string
+    status?: StringWithAggregatesFilter<"GstSkuTaxMap"> | string
+    metadata?: JsonNullableWithAggregatesFilter<"GstSkuTaxMap">
+    createdAt?: DateTimeWithAggregatesFilter<"GstSkuTaxMap"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"GstSkuTaxMap"> | Date | string
+  }
+
   export type GstOrderImportWhereInput = {
     AND?: GstOrderImportWhereInput | GstOrderImportWhereInput[]
     OR?: GstOrderImportWhereInput[]
@@ -46237,10 +47774,12 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     customers?: CustomerProfileCreateNestedManyWithoutShopInput
+    otpChallenges?: OTPChallengeCreateNestedManyWithoutShopInput
     orderActionRequests?: OrderActionRequestCreateNestedManyWithoutShopInput
     walletReservations?: WalletReservationCreateNestedManyWithoutShopInput
     gstSettings?: GstSettingsCreateNestedManyWithoutShopInput
     gstProductTaxMaps?: GstProductTaxMapCreateNestedManyWithoutShopInput
+    gstSkuTaxMaps?: GstSkuTaxMapCreateNestedManyWithoutShopInput
     gstOrderImports?: GstOrderImportCreateNestedManyWithoutShopInput
   }
 
@@ -46256,10 +47795,12 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     customers?: CustomerProfileUncheckedCreateNestedManyWithoutShopInput
+    otpChallenges?: OTPChallengeUncheckedCreateNestedManyWithoutShopInput
     orderActionRequests?: OrderActionRequestUncheckedCreateNestedManyWithoutShopInput
     walletReservations?: WalletReservationUncheckedCreateNestedManyWithoutShopInput
     gstSettings?: GstSettingsUncheckedCreateNestedManyWithoutShopInput
     gstProductTaxMaps?: GstProductTaxMapUncheckedCreateNestedManyWithoutShopInput
+    gstSkuTaxMaps?: GstSkuTaxMapUncheckedCreateNestedManyWithoutShopInput
     gstOrderImports?: GstOrderImportUncheckedCreateNestedManyWithoutShopInput
   }
 
@@ -46275,10 +47816,12 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     customers?: CustomerProfileUpdateManyWithoutShopNestedInput
+    otpChallenges?: OTPChallengeUpdateManyWithoutShopNestedInput
     orderActionRequests?: OrderActionRequestUpdateManyWithoutShopNestedInput
     walletReservations?: WalletReservationUpdateManyWithoutShopNestedInput
     gstSettings?: GstSettingsUpdateManyWithoutShopNestedInput
     gstProductTaxMaps?: GstProductTaxMapUpdateManyWithoutShopNestedInput
+    gstSkuTaxMaps?: GstSkuTaxMapUpdateManyWithoutShopNestedInput
     gstOrderImports?: GstOrderImportUpdateManyWithoutShopNestedInput
   }
 
@@ -46294,10 +47837,12 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     customers?: CustomerProfileUncheckedUpdateManyWithoutShopNestedInput
+    otpChallenges?: OTPChallengeUncheckedUpdateManyWithoutShopNestedInput
     orderActionRequests?: OrderActionRequestUncheckedUpdateManyWithoutShopNestedInput
     walletReservations?: WalletReservationUncheckedUpdateManyWithoutShopNestedInput
     gstSettings?: GstSettingsUncheckedUpdateManyWithoutShopNestedInput
     gstProductTaxMaps?: GstProductTaxMapUncheckedUpdateManyWithoutShopNestedInput
+    gstSkuTaxMaps?: GstSkuTaxMapUncheckedUpdateManyWithoutShopNestedInput
     gstOrderImports?: GstOrderImportUncheckedUpdateManyWithoutShopNestedInput
   }
 
@@ -46429,10 +47974,12 @@ export namespace Prisma {
     metadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
     customer?: CustomerProfileCreateNestedOneWithoutOtpChallengesInput
+    shop: ShopCreateNestedOneWithoutOtpChallengesInput
   }
 
   export type OTPChallengeUncheckedCreateInput = {
     id?: string
+    shopId: string
     phoneE164: string
     provider: string
     providerSid?: string | null
@@ -46459,10 +48006,12 @@ export namespace Prisma {
     metadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     customer?: CustomerProfileUpdateOneWithoutOtpChallengesNestedInput
+    shop?: ShopUpdateOneRequiredWithoutOtpChallengesNestedInput
   }
 
   export type OTPChallengeUncheckedUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
+    shopId?: StringFieldUpdateOperationsInput | string
     phoneE164?: StringFieldUpdateOperationsInput | string
     provider?: StringFieldUpdateOperationsInput | string
     providerSid?: NullableStringFieldUpdateOperationsInput | string | null
@@ -46478,6 +48027,7 @@ export namespace Prisma {
 
   export type OTPChallengeCreateManyInput = {
     id?: string
+    shopId: string
     phoneE164: string
     provider: string
     providerSid?: string | null
@@ -46507,6 +48057,7 @@ export namespace Prisma {
 
   export type OTPChallengeUncheckedUpdateManyInput = {
     id?: StringFieldUpdateOperationsInput | string
+    shopId?: StringFieldUpdateOperationsInput | string
     phoneE164?: StringFieldUpdateOperationsInput | string
     provider?: StringFieldUpdateOperationsInput | string
     providerSid?: NullableStringFieldUpdateOperationsInput | string | null
@@ -47479,6 +49030,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -47507,6 +49059,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -47533,6 +49086,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -47561,6 +49115,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -47588,6 +49143,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -47606,6 +49162,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -47625,6 +49182,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -49156,6 +50714,110 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type GstSkuTaxMapCreateInput = {
+    id?: string
+    sku?: string | null
+    styleCode?: string | null
+    hsnCode: string
+    taxRate: Decimal | DecimalJsLike | number | string
+    cessRate?: Decimal | DecimalJsLike | number | string
+    source?: string
+    status?: string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    shop?: ShopCreateNestedOneWithoutGstSkuTaxMapsInput
+  }
+
+  export type GstSkuTaxMapUncheckedCreateInput = {
+    id?: string
+    shopId?: string | null
+    sku?: string | null
+    styleCode?: string | null
+    hsnCode: string
+    taxRate: Decimal | DecimalJsLike | number | string
+    cessRate?: Decimal | DecimalJsLike | number | string
+    source?: string
+    status?: string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type GstSkuTaxMapUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    sku?: NullableStringFieldUpdateOperationsInput | string | null
+    styleCode?: NullableStringFieldUpdateOperationsInput | string | null
+    hsnCode?: StringFieldUpdateOperationsInput | string
+    taxRate?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    cessRate?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    source?: StringFieldUpdateOperationsInput | string
+    status?: StringFieldUpdateOperationsInput | string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    shop?: ShopUpdateOneWithoutGstSkuTaxMapsNestedInput
+  }
+
+  export type GstSkuTaxMapUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    shopId?: NullableStringFieldUpdateOperationsInput | string | null
+    sku?: NullableStringFieldUpdateOperationsInput | string | null
+    styleCode?: NullableStringFieldUpdateOperationsInput | string | null
+    hsnCode?: StringFieldUpdateOperationsInput | string
+    taxRate?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    cessRate?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    source?: StringFieldUpdateOperationsInput | string
+    status?: StringFieldUpdateOperationsInput | string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type GstSkuTaxMapCreateManyInput = {
+    id?: string
+    shopId?: string | null
+    sku?: string | null
+    styleCode?: string | null
+    hsnCode: string
+    taxRate: Decimal | DecimalJsLike | number | string
+    cessRate?: Decimal | DecimalJsLike | number | string
+    source?: string
+    status?: string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type GstSkuTaxMapUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    sku?: NullableStringFieldUpdateOperationsInput | string | null
+    styleCode?: NullableStringFieldUpdateOperationsInput | string | null
+    hsnCode?: StringFieldUpdateOperationsInput | string
+    taxRate?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    cessRate?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    source?: StringFieldUpdateOperationsInput | string
+    status?: StringFieldUpdateOperationsInput | string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type GstSkuTaxMapUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    shopId?: NullableStringFieldUpdateOperationsInput | string | null
+    sku?: NullableStringFieldUpdateOperationsInput | string | null
+    styleCode?: NullableStringFieldUpdateOperationsInput | string | null
+    hsnCode?: StringFieldUpdateOperationsInput | string
+    taxRate?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    cessRate?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    source?: StringFieldUpdateOperationsInput | string
+    status?: StringFieldUpdateOperationsInput | string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type GstOrderImportCreateInput = {
     id?: string
     shopifyOrderId: string
@@ -49998,6 +51660,12 @@ export namespace Prisma {
     none?: GstProductTaxMapWhereInput
   }
 
+  export type GstSkuTaxMapListRelationFilter = {
+    every?: GstSkuTaxMapWhereInput
+    some?: GstSkuTaxMapWhereInput
+    none?: GstSkuTaxMapWhereInput
+  }
+
   export type GstOrderImportListRelationFilter = {
     every?: GstOrderImportWhereInput
     some?: GstOrderImportWhereInput
@@ -50013,6 +51681,10 @@ export namespace Prisma {
   }
 
   export type GstProductTaxMapOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type GstSkuTaxMapOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
@@ -50144,8 +51816,14 @@ export namespace Prisma {
     isNot?: CustomerProfileWhereInput | null
   }
 
+  export type ShopScalarRelationFilter = {
+    is?: ShopWhereInput
+    isNot?: ShopWhereInput
+  }
+
   export type OTPChallengeCountOrderByAggregateInput = {
     id?: SortOrder
+    shopId?: SortOrder
     phoneE164?: SortOrder
     provider?: SortOrder
     providerSid?: SortOrder
@@ -50165,6 +51843,7 @@ export namespace Prisma {
 
   export type OTPChallengeMaxOrderByAggregateInput = {
     id?: SortOrder
+    shopId?: SortOrder
     phoneE164?: SortOrder
     provider?: SortOrder
     providerSid?: SortOrder
@@ -50179,6 +51858,7 @@ export namespace Prisma {
 
   export type OTPChallengeMinOrderByAggregateInput = {
     id?: SortOrder
+    shopId?: SortOrder
     phoneE164?: SortOrder
     provider?: SortOrder
     providerSid?: SortOrder
@@ -51032,6 +52712,7 @@ export namespace Prisma {
     debitNotePrefix?: SortOrder
     invoiceNumberStrategy?: SortOrder
     defaultCurrency?: SortOrder
+    priceIncludesTax?: SortOrder
     einvoiceEnabled?: SortOrder
     isActive?: SortOrder
     createdAt?: SortOrder
@@ -51051,6 +52732,7 @@ export namespace Prisma {
     debitNotePrefix?: SortOrder
     invoiceNumberStrategy?: SortOrder
     defaultCurrency?: SortOrder
+    priceIncludesTax?: SortOrder
     einvoiceEnabled?: SortOrder
     isActive?: SortOrder
     createdAt?: SortOrder
@@ -51070,6 +52752,7 @@ export namespace Prisma {
     debitNotePrefix?: SortOrder
     invoiceNumberStrategy?: SortOrder
     defaultCurrency?: SortOrder
+    priceIncludesTax?: SortOrder
     einvoiceEnabled?: SortOrder
     isActive?: SortOrder
     createdAt?: SortOrder
@@ -52087,6 +53770,59 @@ export namespace Prisma {
     updatedAt?: SortOrder
   }
 
+  export type GstSkuTaxMapCountOrderByAggregateInput = {
+    id?: SortOrder
+    shopId?: SortOrder
+    sku?: SortOrder
+    styleCode?: SortOrder
+    hsnCode?: SortOrder
+    taxRate?: SortOrder
+    cessRate?: SortOrder
+    source?: SortOrder
+    status?: SortOrder
+    metadata?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type GstSkuTaxMapAvgOrderByAggregateInput = {
+    taxRate?: SortOrder
+    cessRate?: SortOrder
+  }
+
+  export type GstSkuTaxMapMaxOrderByAggregateInput = {
+    id?: SortOrder
+    shopId?: SortOrder
+    sku?: SortOrder
+    styleCode?: SortOrder
+    hsnCode?: SortOrder
+    taxRate?: SortOrder
+    cessRate?: SortOrder
+    source?: SortOrder
+    status?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type GstSkuTaxMapMinOrderByAggregateInput = {
+    id?: SortOrder
+    shopId?: SortOrder
+    sku?: SortOrder
+    styleCode?: SortOrder
+    hsnCode?: SortOrder
+    taxRate?: SortOrder
+    cessRate?: SortOrder
+    source?: SortOrder
+    status?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type GstSkuTaxMapSumOrderByAggregateInput = {
+    taxRate?: SortOrder
+    cessRate?: SortOrder
+  }
+
   export type GstOrderImportLineListRelationFilter = {
     every?: GstOrderImportLineWhereInput
     some?: GstOrderImportLineWhereInput
@@ -52788,6 +54524,13 @@ export namespace Prisma {
     connect?: CustomerProfileWhereUniqueInput | CustomerProfileWhereUniqueInput[]
   }
 
+  export type OTPChallengeCreateNestedManyWithoutShopInput = {
+    create?: XOR<OTPChallengeCreateWithoutShopInput, OTPChallengeUncheckedCreateWithoutShopInput> | OTPChallengeCreateWithoutShopInput[] | OTPChallengeUncheckedCreateWithoutShopInput[]
+    connectOrCreate?: OTPChallengeCreateOrConnectWithoutShopInput | OTPChallengeCreateOrConnectWithoutShopInput[]
+    createMany?: OTPChallengeCreateManyShopInputEnvelope
+    connect?: OTPChallengeWhereUniqueInput | OTPChallengeWhereUniqueInput[]
+  }
+
   export type OrderActionRequestCreateNestedManyWithoutShopInput = {
     create?: XOR<OrderActionRequestCreateWithoutShopInput, OrderActionRequestUncheckedCreateWithoutShopInput> | OrderActionRequestCreateWithoutShopInput[] | OrderActionRequestUncheckedCreateWithoutShopInput[]
     connectOrCreate?: OrderActionRequestCreateOrConnectWithoutShopInput | OrderActionRequestCreateOrConnectWithoutShopInput[]
@@ -52816,6 +54559,13 @@ export namespace Prisma {
     connect?: GstProductTaxMapWhereUniqueInput | GstProductTaxMapWhereUniqueInput[]
   }
 
+  export type GstSkuTaxMapCreateNestedManyWithoutShopInput = {
+    create?: XOR<GstSkuTaxMapCreateWithoutShopInput, GstSkuTaxMapUncheckedCreateWithoutShopInput> | GstSkuTaxMapCreateWithoutShopInput[] | GstSkuTaxMapUncheckedCreateWithoutShopInput[]
+    connectOrCreate?: GstSkuTaxMapCreateOrConnectWithoutShopInput | GstSkuTaxMapCreateOrConnectWithoutShopInput[]
+    createMany?: GstSkuTaxMapCreateManyShopInputEnvelope
+    connect?: GstSkuTaxMapWhereUniqueInput | GstSkuTaxMapWhereUniqueInput[]
+  }
+
   export type GstOrderImportCreateNestedManyWithoutShopInput = {
     create?: XOR<GstOrderImportCreateWithoutShopInput, GstOrderImportUncheckedCreateWithoutShopInput> | GstOrderImportCreateWithoutShopInput[] | GstOrderImportUncheckedCreateWithoutShopInput[]
     connectOrCreate?: GstOrderImportCreateOrConnectWithoutShopInput | GstOrderImportCreateOrConnectWithoutShopInput[]
@@ -52828,6 +54578,13 @@ export namespace Prisma {
     connectOrCreate?: CustomerProfileCreateOrConnectWithoutShopInput | CustomerProfileCreateOrConnectWithoutShopInput[]
     createMany?: CustomerProfileCreateManyShopInputEnvelope
     connect?: CustomerProfileWhereUniqueInput | CustomerProfileWhereUniqueInput[]
+  }
+
+  export type OTPChallengeUncheckedCreateNestedManyWithoutShopInput = {
+    create?: XOR<OTPChallengeCreateWithoutShopInput, OTPChallengeUncheckedCreateWithoutShopInput> | OTPChallengeCreateWithoutShopInput[] | OTPChallengeUncheckedCreateWithoutShopInput[]
+    connectOrCreate?: OTPChallengeCreateOrConnectWithoutShopInput | OTPChallengeCreateOrConnectWithoutShopInput[]
+    createMany?: OTPChallengeCreateManyShopInputEnvelope
+    connect?: OTPChallengeWhereUniqueInput | OTPChallengeWhereUniqueInput[]
   }
 
   export type OrderActionRequestUncheckedCreateNestedManyWithoutShopInput = {
@@ -52858,6 +54615,13 @@ export namespace Prisma {
     connect?: GstProductTaxMapWhereUniqueInput | GstProductTaxMapWhereUniqueInput[]
   }
 
+  export type GstSkuTaxMapUncheckedCreateNestedManyWithoutShopInput = {
+    create?: XOR<GstSkuTaxMapCreateWithoutShopInput, GstSkuTaxMapUncheckedCreateWithoutShopInput> | GstSkuTaxMapCreateWithoutShopInput[] | GstSkuTaxMapUncheckedCreateWithoutShopInput[]
+    connectOrCreate?: GstSkuTaxMapCreateOrConnectWithoutShopInput | GstSkuTaxMapCreateOrConnectWithoutShopInput[]
+    createMany?: GstSkuTaxMapCreateManyShopInputEnvelope
+    connect?: GstSkuTaxMapWhereUniqueInput | GstSkuTaxMapWhereUniqueInput[]
+  }
+
   export type GstOrderImportUncheckedCreateNestedManyWithoutShopInput = {
     create?: XOR<GstOrderImportCreateWithoutShopInput, GstOrderImportUncheckedCreateWithoutShopInput> | GstOrderImportCreateWithoutShopInput[] | GstOrderImportUncheckedCreateWithoutShopInput[]
     connectOrCreate?: GstOrderImportCreateOrConnectWithoutShopInput | GstOrderImportCreateOrConnectWithoutShopInput[]
@@ -52881,6 +54645,20 @@ export namespace Prisma {
     update?: CustomerProfileUpdateWithWhereUniqueWithoutShopInput | CustomerProfileUpdateWithWhereUniqueWithoutShopInput[]
     updateMany?: CustomerProfileUpdateManyWithWhereWithoutShopInput | CustomerProfileUpdateManyWithWhereWithoutShopInput[]
     deleteMany?: CustomerProfileScalarWhereInput | CustomerProfileScalarWhereInput[]
+  }
+
+  export type OTPChallengeUpdateManyWithoutShopNestedInput = {
+    create?: XOR<OTPChallengeCreateWithoutShopInput, OTPChallengeUncheckedCreateWithoutShopInput> | OTPChallengeCreateWithoutShopInput[] | OTPChallengeUncheckedCreateWithoutShopInput[]
+    connectOrCreate?: OTPChallengeCreateOrConnectWithoutShopInput | OTPChallengeCreateOrConnectWithoutShopInput[]
+    upsert?: OTPChallengeUpsertWithWhereUniqueWithoutShopInput | OTPChallengeUpsertWithWhereUniqueWithoutShopInput[]
+    createMany?: OTPChallengeCreateManyShopInputEnvelope
+    set?: OTPChallengeWhereUniqueInput | OTPChallengeWhereUniqueInput[]
+    disconnect?: OTPChallengeWhereUniqueInput | OTPChallengeWhereUniqueInput[]
+    delete?: OTPChallengeWhereUniqueInput | OTPChallengeWhereUniqueInput[]
+    connect?: OTPChallengeWhereUniqueInput | OTPChallengeWhereUniqueInput[]
+    update?: OTPChallengeUpdateWithWhereUniqueWithoutShopInput | OTPChallengeUpdateWithWhereUniqueWithoutShopInput[]
+    updateMany?: OTPChallengeUpdateManyWithWhereWithoutShopInput | OTPChallengeUpdateManyWithWhereWithoutShopInput[]
+    deleteMany?: OTPChallengeScalarWhereInput | OTPChallengeScalarWhereInput[]
   }
 
   export type OrderActionRequestUpdateManyWithoutShopNestedInput = {
@@ -52939,6 +54717,20 @@ export namespace Prisma {
     deleteMany?: GstProductTaxMapScalarWhereInput | GstProductTaxMapScalarWhereInput[]
   }
 
+  export type GstSkuTaxMapUpdateManyWithoutShopNestedInput = {
+    create?: XOR<GstSkuTaxMapCreateWithoutShopInput, GstSkuTaxMapUncheckedCreateWithoutShopInput> | GstSkuTaxMapCreateWithoutShopInput[] | GstSkuTaxMapUncheckedCreateWithoutShopInput[]
+    connectOrCreate?: GstSkuTaxMapCreateOrConnectWithoutShopInput | GstSkuTaxMapCreateOrConnectWithoutShopInput[]
+    upsert?: GstSkuTaxMapUpsertWithWhereUniqueWithoutShopInput | GstSkuTaxMapUpsertWithWhereUniqueWithoutShopInput[]
+    createMany?: GstSkuTaxMapCreateManyShopInputEnvelope
+    set?: GstSkuTaxMapWhereUniqueInput | GstSkuTaxMapWhereUniqueInput[]
+    disconnect?: GstSkuTaxMapWhereUniqueInput | GstSkuTaxMapWhereUniqueInput[]
+    delete?: GstSkuTaxMapWhereUniqueInput | GstSkuTaxMapWhereUniqueInput[]
+    connect?: GstSkuTaxMapWhereUniqueInput | GstSkuTaxMapWhereUniqueInput[]
+    update?: GstSkuTaxMapUpdateWithWhereUniqueWithoutShopInput | GstSkuTaxMapUpdateWithWhereUniqueWithoutShopInput[]
+    updateMany?: GstSkuTaxMapUpdateManyWithWhereWithoutShopInput | GstSkuTaxMapUpdateManyWithWhereWithoutShopInput[]
+    deleteMany?: GstSkuTaxMapScalarWhereInput | GstSkuTaxMapScalarWhereInput[]
+  }
+
   export type GstOrderImportUpdateManyWithoutShopNestedInput = {
     create?: XOR<GstOrderImportCreateWithoutShopInput, GstOrderImportUncheckedCreateWithoutShopInput> | GstOrderImportCreateWithoutShopInput[] | GstOrderImportUncheckedCreateWithoutShopInput[]
     connectOrCreate?: GstOrderImportCreateOrConnectWithoutShopInput | GstOrderImportCreateOrConnectWithoutShopInput[]
@@ -52965,6 +54757,20 @@ export namespace Prisma {
     update?: CustomerProfileUpdateWithWhereUniqueWithoutShopInput | CustomerProfileUpdateWithWhereUniqueWithoutShopInput[]
     updateMany?: CustomerProfileUpdateManyWithWhereWithoutShopInput | CustomerProfileUpdateManyWithWhereWithoutShopInput[]
     deleteMany?: CustomerProfileScalarWhereInput | CustomerProfileScalarWhereInput[]
+  }
+
+  export type OTPChallengeUncheckedUpdateManyWithoutShopNestedInput = {
+    create?: XOR<OTPChallengeCreateWithoutShopInput, OTPChallengeUncheckedCreateWithoutShopInput> | OTPChallengeCreateWithoutShopInput[] | OTPChallengeUncheckedCreateWithoutShopInput[]
+    connectOrCreate?: OTPChallengeCreateOrConnectWithoutShopInput | OTPChallengeCreateOrConnectWithoutShopInput[]
+    upsert?: OTPChallengeUpsertWithWhereUniqueWithoutShopInput | OTPChallengeUpsertWithWhereUniqueWithoutShopInput[]
+    createMany?: OTPChallengeCreateManyShopInputEnvelope
+    set?: OTPChallengeWhereUniqueInput | OTPChallengeWhereUniqueInput[]
+    disconnect?: OTPChallengeWhereUniqueInput | OTPChallengeWhereUniqueInput[]
+    delete?: OTPChallengeWhereUniqueInput | OTPChallengeWhereUniqueInput[]
+    connect?: OTPChallengeWhereUniqueInput | OTPChallengeWhereUniqueInput[]
+    update?: OTPChallengeUpdateWithWhereUniqueWithoutShopInput | OTPChallengeUpdateWithWhereUniqueWithoutShopInput[]
+    updateMany?: OTPChallengeUpdateManyWithWhereWithoutShopInput | OTPChallengeUpdateManyWithWhereWithoutShopInput[]
+    deleteMany?: OTPChallengeScalarWhereInput | OTPChallengeScalarWhereInput[]
   }
 
   export type OrderActionRequestUncheckedUpdateManyWithoutShopNestedInput = {
@@ -53023,6 +54829,20 @@ export namespace Prisma {
     deleteMany?: GstProductTaxMapScalarWhereInput | GstProductTaxMapScalarWhereInput[]
   }
 
+  export type GstSkuTaxMapUncheckedUpdateManyWithoutShopNestedInput = {
+    create?: XOR<GstSkuTaxMapCreateWithoutShopInput, GstSkuTaxMapUncheckedCreateWithoutShopInput> | GstSkuTaxMapCreateWithoutShopInput[] | GstSkuTaxMapUncheckedCreateWithoutShopInput[]
+    connectOrCreate?: GstSkuTaxMapCreateOrConnectWithoutShopInput | GstSkuTaxMapCreateOrConnectWithoutShopInput[]
+    upsert?: GstSkuTaxMapUpsertWithWhereUniqueWithoutShopInput | GstSkuTaxMapUpsertWithWhereUniqueWithoutShopInput[]
+    createMany?: GstSkuTaxMapCreateManyShopInputEnvelope
+    set?: GstSkuTaxMapWhereUniqueInput | GstSkuTaxMapWhereUniqueInput[]
+    disconnect?: GstSkuTaxMapWhereUniqueInput | GstSkuTaxMapWhereUniqueInput[]
+    delete?: GstSkuTaxMapWhereUniqueInput | GstSkuTaxMapWhereUniqueInput[]
+    connect?: GstSkuTaxMapWhereUniqueInput | GstSkuTaxMapWhereUniqueInput[]
+    update?: GstSkuTaxMapUpdateWithWhereUniqueWithoutShopInput | GstSkuTaxMapUpdateWithWhereUniqueWithoutShopInput[]
+    updateMany?: GstSkuTaxMapUpdateManyWithWhereWithoutShopInput | GstSkuTaxMapUpdateManyWithWhereWithoutShopInput[]
+    deleteMany?: GstSkuTaxMapScalarWhereInput | GstSkuTaxMapScalarWhereInput[]
+  }
+
   export type GstOrderImportUncheckedUpdateManyWithoutShopNestedInput = {
     create?: XOR<GstOrderImportCreateWithoutShopInput, GstOrderImportUncheckedCreateWithoutShopInput> | GstOrderImportCreateWithoutShopInput[] | GstOrderImportUncheckedCreateWithoutShopInput[]
     connectOrCreate?: GstOrderImportCreateOrConnectWithoutShopInput | GstOrderImportCreateOrConnectWithoutShopInput[]
@@ -53057,6 +54877,12 @@ export namespace Prisma {
     connect?: CustomerProfileWhereUniqueInput
   }
 
+  export type ShopCreateNestedOneWithoutOtpChallengesInput = {
+    create?: XOR<ShopCreateWithoutOtpChallengesInput, ShopUncheckedCreateWithoutOtpChallengesInput>
+    connectOrCreate?: ShopCreateOrConnectWithoutOtpChallengesInput
+    connect?: ShopWhereUniqueInput
+  }
+
   export type IntFieldUpdateOperationsInput = {
     set?: number
     increment?: number
@@ -53073,6 +54899,14 @@ export namespace Prisma {
     delete?: CustomerProfileWhereInput | boolean
     connect?: CustomerProfileWhereUniqueInput
     update?: XOR<XOR<CustomerProfileUpdateToOneWithWhereWithoutOtpChallengesInput, CustomerProfileUpdateWithoutOtpChallengesInput>, CustomerProfileUncheckedUpdateWithoutOtpChallengesInput>
+  }
+
+  export type ShopUpdateOneRequiredWithoutOtpChallengesNestedInput = {
+    create?: XOR<ShopCreateWithoutOtpChallengesInput, ShopUncheckedCreateWithoutOtpChallengesInput>
+    connectOrCreate?: ShopCreateOrConnectWithoutOtpChallengesInput
+    upsert?: ShopUpsertWithoutOtpChallengesInput
+    connect?: ShopWhereUniqueInput
+    update?: XOR<XOR<ShopUpdateToOneWithWhereWithoutOtpChallengesInput, ShopUpdateWithoutOtpChallengesInput>, ShopUncheckedUpdateWithoutOtpChallengesInput>
   }
 
   export type CustomerProfileCreateNestedOneWithoutOrderActionRequestsInput = {
@@ -54799,6 +56633,22 @@ export namespace Prisma {
     update?: XOR<XOR<ShopUpdateToOneWithWhereWithoutGstProductTaxMapsInput, ShopUpdateWithoutGstProductTaxMapsInput>, ShopUncheckedUpdateWithoutGstProductTaxMapsInput>
   }
 
+  export type ShopCreateNestedOneWithoutGstSkuTaxMapsInput = {
+    create?: XOR<ShopCreateWithoutGstSkuTaxMapsInput, ShopUncheckedCreateWithoutGstSkuTaxMapsInput>
+    connectOrCreate?: ShopCreateOrConnectWithoutGstSkuTaxMapsInput
+    connect?: ShopWhereUniqueInput
+  }
+
+  export type ShopUpdateOneWithoutGstSkuTaxMapsNestedInput = {
+    create?: XOR<ShopCreateWithoutGstSkuTaxMapsInput, ShopUncheckedCreateWithoutGstSkuTaxMapsInput>
+    connectOrCreate?: ShopCreateOrConnectWithoutGstSkuTaxMapsInput
+    upsert?: ShopUpsertWithoutGstSkuTaxMapsInput
+    disconnect?: ShopWhereInput | boolean
+    delete?: ShopWhereInput | boolean
+    connect?: ShopWhereUniqueInput
+    update?: XOR<XOR<ShopUpdateToOneWithWhereWithoutGstSkuTaxMapsInput, ShopUpdateWithoutGstSkuTaxMapsInput>, ShopUncheckedUpdateWithoutGstSkuTaxMapsInput>
+  }
+
   export type GstSettingsCreateNestedOneWithoutOrderImportsInput = {
     create?: XOR<GstSettingsCreateWithoutOrderImportsInput, GstSettingsUncheckedCreateWithoutOrderImportsInput>
     connectOrCreate?: GstSettingsCreateOrConnectWithoutOrderImportsInput
@@ -55529,10 +57379,12 @@ export namespace Prisma {
     uninstalledAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    otpChallenges?: OTPChallengeCreateNestedManyWithoutShopInput
     orderActionRequests?: OrderActionRequestCreateNestedManyWithoutShopInput
     walletReservations?: WalletReservationCreateNestedManyWithoutShopInput
     gstSettings?: GstSettingsCreateNestedManyWithoutShopInput
     gstProductTaxMaps?: GstProductTaxMapCreateNestedManyWithoutShopInput
+    gstSkuTaxMaps?: GstSkuTaxMapCreateNestedManyWithoutShopInput
     gstOrderImports?: GstOrderImportCreateNestedManyWithoutShopInput
   }
 
@@ -55547,10 +57399,12 @@ export namespace Prisma {
     uninstalledAt?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
+    otpChallenges?: OTPChallengeUncheckedCreateNestedManyWithoutShopInput
     orderActionRequests?: OrderActionRequestUncheckedCreateNestedManyWithoutShopInput
     walletReservations?: WalletReservationUncheckedCreateNestedManyWithoutShopInput
     gstSettings?: GstSettingsUncheckedCreateNestedManyWithoutShopInput
     gstProductTaxMaps?: GstProductTaxMapUncheckedCreateNestedManyWithoutShopInput
+    gstSkuTaxMaps?: GstSkuTaxMapUncheckedCreateNestedManyWithoutShopInput
     gstOrderImports?: GstOrderImportUncheckedCreateNestedManyWithoutShopInput
   }
 
@@ -55601,10 +57455,12 @@ export namespace Prisma {
     expiresAt: Date | string
     metadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
+    shop: ShopCreateNestedOneWithoutOtpChallengesInput
   }
 
   export type OTPChallengeUncheckedCreateWithoutCustomerInput = {
     id?: string
+    shopId: string
     phoneE164: string
     provider: string
     providerSid?: string | null
@@ -55961,10 +57817,12 @@ export namespace Prisma {
     uninstalledAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    otpChallenges?: OTPChallengeUpdateManyWithoutShopNestedInput
     orderActionRequests?: OrderActionRequestUpdateManyWithoutShopNestedInput
     walletReservations?: WalletReservationUpdateManyWithoutShopNestedInput
     gstSettings?: GstSettingsUpdateManyWithoutShopNestedInput
     gstProductTaxMaps?: GstProductTaxMapUpdateManyWithoutShopNestedInput
+    gstSkuTaxMaps?: GstSkuTaxMapUpdateManyWithoutShopNestedInput
     gstOrderImports?: GstOrderImportUpdateManyWithoutShopNestedInput
   }
 
@@ -55979,10 +57837,12 @@ export namespace Prisma {
     uninstalledAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    otpChallenges?: OTPChallengeUncheckedUpdateManyWithoutShopNestedInput
     orderActionRequests?: OrderActionRequestUncheckedUpdateManyWithoutShopNestedInput
     walletReservations?: WalletReservationUncheckedUpdateManyWithoutShopNestedInput
     gstSettings?: GstSettingsUncheckedUpdateManyWithoutShopNestedInput
     gstProductTaxMaps?: GstProductTaxMapUncheckedUpdateManyWithoutShopNestedInput
+    gstSkuTaxMaps?: GstSkuTaxMapUncheckedUpdateManyWithoutShopNestedInput
     gstOrderImports?: GstOrderImportUncheckedUpdateManyWithoutShopNestedInput
   }
 
@@ -56037,6 +57897,7 @@ export namespace Prisma {
     OR?: OTPChallengeScalarWhereInput[]
     NOT?: OTPChallengeScalarWhereInput | OTPChallengeScalarWhereInput[]
     id?: StringFilter<"OTPChallenge"> | string
+    shopId?: StringFilter<"OTPChallenge"> | string
     phoneE164?: StringFilter<"OTPChallenge"> | string
     provider?: StringFilter<"OTPChallenge"> | string
     providerSid?: StringNullableFilter<"OTPChallenge"> | string | null
@@ -56350,6 +58211,46 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type OTPChallengeCreateWithoutShopInput = {
+    id?: string
+    phoneE164: string
+    provider: string
+    providerSid?: string | null
+    status: string
+    attemptsCount?: number
+    requestedAt?: Date | string
+    verifiedAt?: Date | string | null
+    expiresAt: Date | string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    customer?: CustomerProfileCreateNestedOneWithoutOtpChallengesInput
+  }
+
+  export type OTPChallengeUncheckedCreateWithoutShopInput = {
+    id?: string
+    phoneE164: string
+    provider: string
+    providerSid?: string | null
+    status: string
+    attemptsCount?: number
+    requestedAt?: Date | string
+    verifiedAt?: Date | string | null
+    expiresAt: Date | string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    customerProfileId?: string | null
+  }
+
+  export type OTPChallengeCreateOrConnectWithoutShopInput = {
+    where: OTPChallengeWhereUniqueInput
+    create: XOR<OTPChallengeCreateWithoutShopInput, OTPChallengeUncheckedCreateWithoutShopInput>
+  }
+
+  export type OTPChallengeCreateManyShopInputEnvelope = {
+    data: OTPChallengeCreateManyShopInput | OTPChallengeCreateManyShopInput[]
+    skipDuplicates?: boolean
+  }
+
   export type OrderActionRequestCreateWithoutShopInput = {
     id?: string
     requestType?: $Enums.RequestType
@@ -56474,6 +58375,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -56500,6 +58402,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -56563,6 +58466,44 @@ export namespace Prisma {
 
   export type GstProductTaxMapCreateManyShopInputEnvelope = {
     data: GstProductTaxMapCreateManyShopInput | GstProductTaxMapCreateManyShopInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type GstSkuTaxMapCreateWithoutShopInput = {
+    id?: string
+    sku?: string | null
+    styleCode?: string | null
+    hsnCode: string
+    taxRate: Decimal | DecimalJsLike | number | string
+    cessRate?: Decimal | DecimalJsLike | number | string
+    source?: string
+    status?: string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type GstSkuTaxMapUncheckedCreateWithoutShopInput = {
+    id?: string
+    sku?: string | null
+    styleCode?: string | null
+    hsnCode: string
+    taxRate: Decimal | DecimalJsLike | number | string
+    cessRate?: Decimal | DecimalJsLike | number | string
+    source?: string
+    status?: string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type GstSkuTaxMapCreateOrConnectWithoutShopInput = {
+    where: GstSkuTaxMapWhereUniqueInput
+    create: XOR<GstSkuTaxMapCreateWithoutShopInput, GstSkuTaxMapUncheckedCreateWithoutShopInput>
+  }
+
+  export type GstSkuTaxMapCreateManyShopInputEnvelope = {
+    data: GstSkuTaxMapCreateManyShopInput | GstSkuTaxMapCreateManyShopInput[]
     skipDuplicates?: boolean
   }
 
@@ -56660,6 +58601,22 @@ export namespace Prisma {
     updatedAt?: DateTimeFilter<"CustomerProfile"> | Date | string
   }
 
+  export type OTPChallengeUpsertWithWhereUniqueWithoutShopInput = {
+    where: OTPChallengeWhereUniqueInput
+    update: XOR<OTPChallengeUpdateWithoutShopInput, OTPChallengeUncheckedUpdateWithoutShopInput>
+    create: XOR<OTPChallengeCreateWithoutShopInput, OTPChallengeUncheckedCreateWithoutShopInput>
+  }
+
+  export type OTPChallengeUpdateWithWhereUniqueWithoutShopInput = {
+    where: OTPChallengeWhereUniqueInput
+    data: XOR<OTPChallengeUpdateWithoutShopInput, OTPChallengeUncheckedUpdateWithoutShopInput>
+  }
+
+  export type OTPChallengeUpdateManyWithWhereWithoutShopInput = {
+    where: OTPChallengeScalarWhereInput
+    data: XOR<OTPChallengeUpdateManyMutationInput, OTPChallengeUncheckedUpdateManyWithoutShopInput>
+  }
+
   export type OrderActionRequestUpsertWithWhereUniqueWithoutShopInput = {
     where: OrderActionRequestWhereUniqueInput
     update: XOR<OrderActionRequestUpdateWithoutShopInput, OrderActionRequestUncheckedUpdateWithoutShopInput>
@@ -56724,6 +58681,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFilter<"GstSettings"> | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFilter<"GstSettings"> | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFilter<"GstSettings"> | string
+    priceIncludesTax?: BoolFilter<"GstSettings"> | boolean
     einvoiceEnabled?: BoolFilter<"GstSettings"> | boolean
     isActive?: BoolFilter<"GstSettings"> | boolean
     createdAt?: DateTimeFilter<"GstSettings"> | Date | string
@@ -56764,6 +58722,40 @@ export namespace Prisma {
     metadata?: JsonNullableFilter<"GstProductTaxMap">
     createdAt?: DateTimeFilter<"GstProductTaxMap"> | Date | string
     updatedAt?: DateTimeFilter<"GstProductTaxMap"> | Date | string
+  }
+
+  export type GstSkuTaxMapUpsertWithWhereUniqueWithoutShopInput = {
+    where: GstSkuTaxMapWhereUniqueInput
+    update: XOR<GstSkuTaxMapUpdateWithoutShopInput, GstSkuTaxMapUncheckedUpdateWithoutShopInput>
+    create: XOR<GstSkuTaxMapCreateWithoutShopInput, GstSkuTaxMapUncheckedCreateWithoutShopInput>
+  }
+
+  export type GstSkuTaxMapUpdateWithWhereUniqueWithoutShopInput = {
+    where: GstSkuTaxMapWhereUniqueInput
+    data: XOR<GstSkuTaxMapUpdateWithoutShopInput, GstSkuTaxMapUncheckedUpdateWithoutShopInput>
+  }
+
+  export type GstSkuTaxMapUpdateManyWithWhereWithoutShopInput = {
+    where: GstSkuTaxMapScalarWhereInput
+    data: XOR<GstSkuTaxMapUpdateManyMutationInput, GstSkuTaxMapUncheckedUpdateManyWithoutShopInput>
+  }
+
+  export type GstSkuTaxMapScalarWhereInput = {
+    AND?: GstSkuTaxMapScalarWhereInput | GstSkuTaxMapScalarWhereInput[]
+    OR?: GstSkuTaxMapScalarWhereInput[]
+    NOT?: GstSkuTaxMapScalarWhereInput | GstSkuTaxMapScalarWhereInput[]
+    id?: StringFilter<"GstSkuTaxMap"> | string
+    shopId?: StringNullableFilter<"GstSkuTaxMap"> | string | null
+    sku?: StringNullableFilter<"GstSkuTaxMap"> | string | null
+    styleCode?: StringNullableFilter<"GstSkuTaxMap"> | string | null
+    hsnCode?: StringFilter<"GstSkuTaxMap"> | string
+    taxRate?: DecimalFilter<"GstSkuTaxMap"> | Decimal | DecimalJsLike | number | string
+    cessRate?: DecimalFilter<"GstSkuTaxMap"> | Decimal | DecimalJsLike | number | string
+    source?: StringFilter<"GstSkuTaxMap"> | string
+    status?: StringFilter<"GstSkuTaxMap"> | string
+    metadata?: JsonNullableFilter<"GstSkuTaxMap">
+    createdAt?: DateTimeFilter<"GstSkuTaxMap"> | Date | string
+    updatedAt?: DateTimeFilter<"GstSkuTaxMap"> | Date | string
   }
 
   export type GstOrderImportUpsertWithWhereUniqueWithoutShopInput = {
@@ -56996,6 +58988,51 @@ export namespace Prisma {
     create: XOR<CustomerProfileCreateWithoutOtpChallengesInput, CustomerProfileUncheckedCreateWithoutOtpChallengesInput>
   }
 
+  export type ShopCreateWithoutOtpChallengesInput = {
+    id?: string
+    shopDomain: string
+    accessToken?: string | null
+    storefrontAccessToken?: string | null
+    scopes?: string | null
+    isActive?: boolean
+    installedAt?: Date | string | null
+    uninstalledAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    customers?: CustomerProfileCreateNestedManyWithoutShopInput
+    orderActionRequests?: OrderActionRequestCreateNestedManyWithoutShopInput
+    walletReservations?: WalletReservationCreateNestedManyWithoutShopInput
+    gstSettings?: GstSettingsCreateNestedManyWithoutShopInput
+    gstProductTaxMaps?: GstProductTaxMapCreateNestedManyWithoutShopInput
+    gstSkuTaxMaps?: GstSkuTaxMapCreateNestedManyWithoutShopInput
+    gstOrderImports?: GstOrderImportCreateNestedManyWithoutShopInput
+  }
+
+  export type ShopUncheckedCreateWithoutOtpChallengesInput = {
+    id?: string
+    shopDomain: string
+    accessToken?: string | null
+    storefrontAccessToken?: string | null
+    scopes?: string | null
+    isActive?: boolean
+    installedAt?: Date | string | null
+    uninstalledAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    customers?: CustomerProfileUncheckedCreateNestedManyWithoutShopInput
+    orderActionRequests?: OrderActionRequestUncheckedCreateNestedManyWithoutShopInput
+    walletReservations?: WalletReservationUncheckedCreateNestedManyWithoutShopInput
+    gstSettings?: GstSettingsUncheckedCreateNestedManyWithoutShopInput
+    gstProductTaxMaps?: GstProductTaxMapUncheckedCreateNestedManyWithoutShopInput
+    gstSkuTaxMaps?: GstSkuTaxMapUncheckedCreateNestedManyWithoutShopInput
+    gstOrderImports?: GstOrderImportUncheckedCreateNestedManyWithoutShopInput
+  }
+
+  export type ShopCreateOrConnectWithoutOtpChallengesInput = {
+    where: ShopWhereUniqueInput
+    create: XOR<ShopCreateWithoutOtpChallengesInput, ShopUncheckedCreateWithoutOtpChallengesInput>
+  }
+
   export type CustomerProfileUpsertWithoutOtpChallengesInput = {
     update: XOR<CustomerProfileUpdateWithoutOtpChallengesInput, CustomerProfileUncheckedUpdateWithoutOtpChallengesInput>
     create: XOR<CustomerProfileCreateWithoutOtpChallengesInput, CustomerProfileUncheckedCreateWithoutOtpChallengesInput>
@@ -57061,6 +59098,57 @@ export namespace Prisma {
     walletReservations?: WalletReservationUncheckedUpdateManyWithoutCustomerNestedInput
     gstDocuments?: GstDocumentUncheckedUpdateManyWithoutCustomerNestedInput
     gstParties?: GstPartyUncheckedUpdateManyWithoutCustomerNestedInput
+  }
+
+  export type ShopUpsertWithoutOtpChallengesInput = {
+    update: XOR<ShopUpdateWithoutOtpChallengesInput, ShopUncheckedUpdateWithoutOtpChallengesInput>
+    create: XOR<ShopCreateWithoutOtpChallengesInput, ShopUncheckedCreateWithoutOtpChallengesInput>
+    where?: ShopWhereInput
+  }
+
+  export type ShopUpdateToOneWithWhereWithoutOtpChallengesInput = {
+    where?: ShopWhereInput
+    data: XOR<ShopUpdateWithoutOtpChallengesInput, ShopUncheckedUpdateWithoutOtpChallengesInput>
+  }
+
+  export type ShopUpdateWithoutOtpChallengesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    shopDomain?: StringFieldUpdateOperationsInput | string
+    accessToken?: NullableStringFieldUpdateOperationsInput | string | null
+    storefrontAccessToken?: NullableStringFieldUpdateOperationsInput | string | null
+    scopes?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    installedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    uninstalledAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    customers?: CustomerProfileUpdateManyWithoutShopNestedInput
+    orderActionRequests?: OrderActionRequestUpdateManyWithoutShopNestedInput
+    walletReservations?: WalletReservationUpdateManyWithoutShopNestedInput
+    gstSettings?: GstSettingsUpdateManyWithoutShopNestedInput
+    gstProductTaxMaps?: GstProductTaxMapUpdateManyWithoutShopNestedInput
+    gstSkuTaxMaps?: GstSkuTaxMapUpdateManyWithoutShopNestedInput
+    gstOrderImports?: GstOrderImportUpdateManyWithoutShopNestedInput
+  }
+
+  export type ShopUncheckedUpdateWithoutOtpChallengesInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    shopDomain?: StringFieldUpdateOperationsInput | string
+    accessToken?: NullableStringFieldUpdateOperationsInput | string | null
+    storefrontAccessToken?: NullableStringFieldUpdateOperationsInput | string | null
+    scopes?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    installedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    uninstalledAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    customers?: CustomerProfileUncheckedUpdateManyWithoutShopNestedInput
+    orderActionRequests?: OrderActionRequestUncheckedUpdateManyWithoutShopNestedInput
+    walletReservations?: WalletReservationUncheckedUpdateManyWithoutShopNestedInput
+    gstSettings?: GstSettingsUncheckedUpdateManyWithoutShopNestedInput
+    gstProductTaxMaps?: GstProductTaxMapUncheckedUpdateManyWithoutShopNestedInput
+    gstSkuTaxMaps?: GstSkuTaxMapUncheckedUpdateManyWithoutShopNestedInput
+    gstOrderImports?: GstOrderImportUncheckedUpdateManyWithoutShopNestedInput
   }
 
   export type CustomerProfileCreateWithoutOrderActionRequestsInput = {
@@ -57136,9 +59224,11 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     customers?: CustomerProfileCreateNestedManyWithoutShopInput
+    otpChallenges?: OTPChallengeCreateNestedManyWithoutShopInput
     walletReservations?: WalletReservationCreateNestedManyWithoutShopInput
     gstSettings?: GstSettingsCreateNestedManyWithoutShopInput
     gstProductTaxMaps?: GstProductTaxMapCreateNestedManyWithoutShopInput
+    gstSkuTaxMaps?: GstSkuTaxMapCreateNestedManyWithoutShopInput
     gstOrderImports?: GstOrderImportCreateNestedManyWithoutShopInput
   }
 
@@ -57154,9 +59244,11 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     customers?: CustomerProfileUncheckedCreateNestedManyWithoutShopInput
+    otpChallenges?: OTPChallengeUncheckedCreateNestedManyWithoutShopInput
     walletReservations?: WalletReservationUncheckedCreateNestedManyWithoutShopInput
     gstSettings?: GstSettingsUncheckedCreateNestedManyWithoutShopInput
     gstProductTaxMaps?: GstProductTaxMapUncheckedCreateNestedManyWithoutShopInput
+    gstSkuTaxMaps?: GstSkuTaxMapUncheckedCreateNestedManyWithoutShopInput
     gstOrderImports?: GstOrderImportUncheckedCreateNestedManyWithoutShopInput
   }
 
@@ -57379,9 +59471,11 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     customers?: CustomerProfileUpdateManyWithoutShopNestedInput
+    otpChallenges?: OTPChallengeUpdateManyWithoutShopNestedInput
     walletReservations?: WalletReservationUpdateManyWithoutShopNestedInput
     gstSettings?: GstSettingsUpdateManyWithoutShopNestedInput
     gstProductTaxMaps?: GstProductTaxMapUpdateManyWithoutShopNestedInput
+    gstSkuTaxMaps?: GstSkuTaxMapUpdateManyWithoutShopNestedInput
     gstOrderImports?: GstOrderImportUpdateManyWithoutShopNestedInput
   }
 
@@ -57397,9 +59491,11 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     customers?: CustomerProfileUncheckedUpdateManyWithoutShopNestedInput
+    otpChallenges?: OTPChallengeUncheckedUpdateManyWithoutShopNestedInput
     walletReservations?: WalletReservationUncheckedUpdateManyWithoutShopNestedInput
     gstSettings?: GstSettingsUncheckedUpdateManyWithoutShopNestedInput
     gstProductTaxMaps?: GstProductTaxMapUncheckedUpdateManyWithoutShopNestedInput
+    gstSkuTaxMaps?: GstSkuTaxMapUncheckedUpdateManyWithoutShopNestedInput
     gstOrderImports?: GstOrderImportUncheckedUpdateManyWithoutShopNestedInput
   }
 
@@ -58398,9 +60494,11 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     customers?: CustomerProfileCreateNestedManyWithoutShopInput
+    otpChallenges?: OTPChallengeCreateNestedManyWithoutShopInput
     orderActionRequests?: OrderActionRequestCreateNestedManyWithoutShopInput
     gstSettings?: GstSettingsCreateNestedManyWithoutShopInput
     gstProductTaxMaps?: GstProductTaxMapCreateNestedManyWithoutShopInput
+    gstSkuTaxMaps?: GstSkuTaxMapCreateNestedManyWithoutShopInput
     gstOrderImports?: GstOrderImportCreateNestedManyWithoutShopInput
   }
 
@@ -58416,9 +60514,11 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     customers?: CustomerProfileUncheckedCreateNestedManyWithoutShopInput
+    otpChallenges?: OTPChallengeUncheckedCreateNestedManyWithoutShopInput
     orderActionRequests?: OrderActionRequestUncheckedCreateNestedManyWithoutShopInput
     gstSettings?: GstSettingsUncheckedCreateNestedManyWithoutShopInput
     gstProductTaxMaps?: GstProductTaxMapUncheckedCreateNestedManyWithoutShopInput
+    gstSkuTaxMaps?: GstSkuTaxMapUncheckedCreateNestedManyWithoutShopInput
     gstOrderImports?: GstOrderImportUncheckedCreateNestedManyWithoutShopInput
   }
 
@@ -58548,9 +60648,11 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     customers?: CustomerProfileUpdateManyWithoutShopNestedInput
+    otpChallenges?: OTPChallengeUpdateManyWithoutShopNestedInput
     orderActionRequests?: OrderActionRequestUpdateManyWithoutShopNestedInput
     gstSettings?: GstSettingsUpdateManyWithoutShopNestedInput
     gstProductTaxMaps?: GstProductTaxMapUpdateManyWithoutShopNestedInput
+    gstSkuTaxMaps?: GstSkuTaxMapUpdateManyWithoutShopNestedInput
     gstOrderImports?: GstOrderImportUpdateManyWithoutShopNestedInput
   }
 
@@ -58566,9 +60668,11 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     customers?: CustomerProfileUncheckedUpdateManyWithoutShopNestedInput
+    otpChallenges?: OTPChallengeUncheckedUpdateManyWithoutShopNestedInput
     orderActionRequests?: OrderActionRequestUncheckedUpdateManyWithoutShopNestedInput
     gstSettings?: GstSettingsUncheckedUpdateManyWithoutShopNestedInput
     gstProductTaxMaps?: GstProductTaxMapUncheckedUpdateManyWithoutShopNestedInput
+    gstSkuTaxMaps?: GstSkuTaxMapUncheckedUpdateManyWithoutShopNestedInput
     gstOrderImports?: GstOrderImportUncheckedUpdateManyWithoutShopNestedInput
   }
 
@@ -58966,9 +61070,11 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     customers?: CustomerProfileCreateNestedManyWithoutShopInput
+    otpChallenges?: OTPChallengeCreateNestedManyWithoutShopInput
     orderActionRequests?: OrderActionRequestCreateNestedManyWithoutShopInput
     walletReservations?: WalletReservationCreateNestedManyWithoutShopInput
     gstProductTaxMaps?: GstProductTaxMapCreateNestedManyWithoutShopInput
+    gstSkuTaxMaps?: GstSkuTaxMapCreateNestedManyWithoutShopInput
     gstOrderImports?: GstOrderImportCreateNestedManyWithoutShopInput
   }
 
@@ -58984,9 +61090,11 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     customers?: CustomerProfileUncheckedCreateNestedManyWithoutShopInput
+    otpChallenges?: OTPChallengeUncheckedCreateNestedManyWithoutShopInput
     orderActionRequests?: OrderActionRequestUncheckedCreateNestedManyWithoutShopInput
     walletReservations?: WalletReservationUncheckedCreateNestedManyWithoutShopInput
     gstProductTaxMaps?: GstProductTaxMapUncheckedCreateNestedManyWithoutShopInput
+    gstSkuTaxMaps?: GstSkuTaxMapUncheckedCreateNestedManyWithoutShopInput
     gstOrderImports?: GstOrderImportUncheckedCreateNestedManyWithoutShopInput
   }
 
@@ -59260,9 +61368,11 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     customers?: CustomerProfileUpdateManyWithoutShopNestedInput
+    otpChallenges?: OTPChallengeUpdateManyWithoutShopNestedInput
     orderActionRequests?: OrderActionRequestUpdateManyWithoutShopNestedInput
     walletReservations?: WalletReservationUpdateManyWithoutShopNestedInput
     gstProductTaxMaps?: GstProductTaxMapUpdateManyWithoutShopNestedInput
+    gstSkuTaxMaps?: GstSkuTaxMapUpdateManyWithoutShopNestedInput
     gstOrderImports?: GstOrderImportUpdateManyWithoutShopNestedInput
   }
 
@@ -59278,9 +61388,11 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     customers?: CustomerProfileUncheckedUpdateManyWithoutShopNestedInput
+    otpChallenges?: OTPChallengeUncheckedUpdateManyWithoutShopNestedInput
     orderActionRequests?: OrderActionRequestUncheckedUpdateManyWithoutShopNestedInput
     walletReservations?: WalletReservationUncheckedUpdateManyWithoutShopNestedInput
     gstProductTaxMaps?: GstProductTaxMapUncheckedUpdateManyWithoutShopNestedInput
+    gstSkuTaxMaps?: GstSkuTaxMapUncheckedUpdateManyWithoutShopNestedInput
     gstOrderImports?: GstOrderImportUncheckedUpdateManyWithoutShopNestedInput
   }
 
@@ -59296,6 +61408,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -59323,6 +61436,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -59364,6 +61478,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -59391,6 +61506,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -59416,6 +61532,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -59443,6 +61560,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -59872,6 +61990,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -59899,6 +62018,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -60613,6 +62733,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -60640,6 +62761,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -60761,6 +62883,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -60788,6 +62911,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -61093,6 +63217,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -61120,6 +63245,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -61201,6 +63327,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -61228,6 +63355,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -61269,6 +63397,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -61296,6 +63425,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -61533,6 +63663,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -61560,6 +63691,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -62471,9 +64603,11 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     customers?: CustomerProfileCreateNestedManyWithoutShopInput
+    otpChallenges?: OTPChallengeCreateNestedManyWithoutShopInput
     orderActionRequests?: OrderActionRequestCreateNestedManyWithoutShopInput
     walletReservations?: WalletReservationCreateNestedManyWithoutShopInput
     gstSettings?: GstSettingsCreateNestedManyWithoutShopInput
+    gstSkuTaxMaps?: GstSkuTaxMapCreateNestedManyWithoutShopInput
     gstOrderImports?: GstOrderImportCreateNestedManyWithoutShopInput
   }
 
@@ -62489,9 +64623,11 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     customers?: CustomerProfileUncheckedCreateNestedManyWithoutShopInput
+    otpChallenges?: OTPChallengeUncheckedCreateNestedManyWithoutShopInput
     orderActionRequests?: OrderActionRequestUncheckedCreateNestedManyWithoutShopInput
     walletReservations?: WalletReservationUncheckedCreateNestedManyWithoutShopInput
     gstSettings?: GstSettingsUncheckedCreateNestedManyWithoutShopInput
+    gstSkuTaxMaps?: GstSkuTaxMapUncheckedCreateNestedManyWithoutShopInput
     gstOrderImports?: GstOrderImportUncheckedCreateNestedManyWithoutShopInput
   }
 
@@ -62599,9 +64735,11 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     customers?: CustomerProfileUpdateManyWithoutShopNestedInput
+    otpChallenges?: OTPChallengeUpdateManyWithoutShopNestedInput
     orderActionRequests?: OrderActionRequestUpdateManyWithoutShopNestedInput
     walletReservations?: WalletReservationUpdateManyWithoutShopNestedInput
     gstSettings?: GstSettingsUpdateManyWithoutShopNestedInput
+    gstSkuTaxMaps?: GstSkuTaxMapUpdateManyWithoutShopNestedInput
     gstOrderImports?: GstOrderImportUpdateManyWithoutShopNestedInput
   }
 
@@ -62617,9 +64755,107 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     customers?: CustomerProfileUncheckedUpdateManyWithoutShopNestedInput
+    otpChallenges?: OTPChallengeUncheckedUpdateManyWithoutShopNestedInput
     orderActionRequests?: OrderActionRequestUncheckedUpdateManyWithoutShopNestedInput
     walletReservations?: WalletReservationUncheckedUpdateManyWithoutShopNestedInput
     gstSettings?: GstSettingsUncheckedUpdateManyWithoutShopNestedInput
+    gstSkuTaxMaps?: GstSkuTaxMapUncheckedUpdateManyWithoutShopNestedInput
+    gstOrderImports?: GstOrderImportUncheckedUpdateManyWithoutShopNestedInput
+  }
+
+  export type ShopCreateWithoutGstSkuTaxMapsInput = {
+    id?: string
+    shopDomain: string
+    accessToken?: string | null
+    storefrontAccessToken?: string | null
+    scopes?: string | null
+    isActive?: boolean
+    installedAt?: Date | string | null
+    uninstalledAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    customers?: CustomerProfileCreateNestedManyWithoutShopInput
+    otpChallenges?: OTPChallengeCreateNestedManyWithoutShopInput
+    orderActionRequests?: OrderActionRequestCreateNestedManyWithoutShopInput
+    walletReservations?: WalletReservationCreateNestedManyWithoutShopInput
+    gstSettings?: GstSettingsCreateNestedManyWithoutShopInput
+    gstProductTaxMaps?: GstProductTaxMapCreateNestedManyWithoutShopInput
+    gstOrderImports?: GstOrderImportCreateNestedManyWithoutShopInput
+  }
+
+  export type ShopUncheckedCreateWithoutGstSkuTaxMapsInput = {
+    id?: string
+    shopDomain: string
+    accessToken?: string | null
+    storefrontAccessToken?: string | null
+    scopes?: string | null
+    isActive?: boolean
+    installedAt?: Date | string | null
+    uninstalledAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    customers?: CustomerProfileUncheckedCreateNestedManyWithoutShopInput
+    otpChallenges?: OTPChallengeUncheckedCreateNestedManyWithoutShopInput
+    orderActionRequests?: OrderActionRequestUncheckedCreateNestedManyWithoutShopInput
+    walletReservations?: WalletReservationUncheckedCreateNestedManyWithoutShopInput
+    gstSettings?: GstSettingsUncheckedCreateNestedManyWithoutShopInput
+    gstProductTaxMaps?: GstProductTaxMapUncheckedCreateNestedManyWithoutShopInput
+    gstOrderImports?: GstOrderImportUncheckedCreateNestedManyWithoutShopInput
+  }
+
+  export type ShopCreateOrConnectWithoutGstSkuTaxMapsInput = {
+    where: ShopWhereUniqueInput
+    create: XOR<ShopCreateWithoutGstSkuTaxMapsInput, ShopUncheckedCreateWithoutGstSkuTaxMapsInput>
+  }
+
+  export type ShopUpsertWithoutGstSkuTaxMapsInput = {
+    update: XOR<ShopUpdateWithoutGstSkuTaxMapsInput, ShopUncheckedUpdateWithoutGstSkuTaxMapsInput>
+    create: XOR<ShopCreateWithoutGstSkuTaxMapsInput, ShopUncheckedCreateWithoutGstSkuTaxMapsInput>
+    where?: ShopWhereInput
+  }
+
+  export type ShopUpdateToOneWithWhereWithoutGstSkuTaxMapsInput = {
+    where?: ShopWhereInput
+    data: XOR<ShopUpdateWithoutGstSkuTaxMapsInput, ShopUncheckedUpdateWithoutGstSkuTaxMapsInput>
+  }
+
+  export type ShopUpdateWithoutGstSkuTaxMapsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    shopDomain?: StringFieldUpdateOperationsInput | string
+    accessToken?: NullableStringFieldUpdateOperationsInput | string | null
+    storefrontAccessToken?: NullableStringFieldUpdateOperationsInput | string | null
+    scopes?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    installedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    uninstalledAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    customers?: CustomerProfileUpdateManyWithoutShopNestedInput
+    otpChallenges?: OTPChallengeUpdateManyWithoutShopNestedInput
+    orderActionRequests?: OrderActionRequestUpdateManyWithoutShopNestedInput
+    walletReservations?: WalletReservationUpdateManyWithoutShopNestedInput
+    gstSettings?: GstSettingsUpdateManyWithoutShopNestedInput
+    gstProductTaxMaps?: GstProductTaxMapUpdateManyWithoutShopNestedInput
+    gstOrderImports?: GstOrderImportUpdateManyWithoutShopNestedInput
+  }
+
+  export type ShopUncheckedUpdateWithoutGstSkuTaxMapsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    shopDomain?: StringFieldUpdateOperationsInput | string
+    accessToken?: NullableStringFieldUpdateOperationsInput | string | null
+    storefrontAccessToken?: NullableStringFieldUpdateOperationsInput | string | null
+    scopes?: NullableStringFieldUpdateOperationsInput | string | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    installedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    uninstalledAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    customers?: CustomerProfileUncheckedUpdateManyWithoutShopNestedInput
+    otpChallenges?: OTPChallengeUncheckedUpdateManyWithoutShopNestedInput
+    orderActionRequests?: OrderActionRequestUncheckedUpdateManyWithoutShopNestedInput
+    walletReservations?: WalletReservationUncheckedUpdateManyWithoutShopNestedInput
+    gstSettings?: GstSettingsUncheckedUpdateManyWithoutShopNestedInput
+    gstProductTaxMaps?: GstProductTaxMapUncheckedUpdateManyWithoutShopNestedInput
     gstOrderImports?: GstOrderImportUncheckedUpdateManyWithoutShopNestedInput
   }
 
@@ -62635,6 +64871,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -62662,6 +64899,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -62692,10 +64930,12 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     customers?: CustomerProfileCreateNestedManyWithoutShopInput
+    otpChallenges?: OTPChallengeCreateNestedManyWithoutShopInput
     orderActionRequests?: OrderActionRequestCreateNestedManyWithoutShopInput
     walletReservations?: WalletReservationCreateNestedManyWithoutShopInput
     gstSettings?: GstSettingsCreateNestedManyWithoutShopInput
     gstProductTaxMaps?: GstProductTaxMapCreateNestedManyWithoutShopInput
+    gstSkuTaxMaps?: GstSkuTaxMapCreateNestedManyWithoutShopInput
   }
 
   export type ShopUncheckedCreateWithoutGstOrderImportsInput = {
@@ -62710,10 +64950,12 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     customers?: CustomerProfileUncheckedCreateNestedManyWithoutShopInput
+    otpChallenges?: OTPChallengeUncheckedCreateNestedManyWithoutShopInput
     orderActionRequests?: OrderActionRequestUncheckedCreateNestedManyWithoutShopInput
     walletReservations?: WalletReservationUncheckedCreateNestedManyWithoutShopInput
     gstSettings?: GstSettingsUncheckedCreateNestedManyWithoutShopInput
     gstProductTaxMaps?: GstProductTaxMapUncheckedCreateNestedManyWithoutShopInput
+    gstSkuTaxMaps?: GstSkuTaxMapUncheckedCreateNestedManyWithoutShopInput
   }
 
   export type ShopCreateOrConnectWithoutGstOrderImportsInput = {
@@ -62794,6 +65036,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -62821,6 +65064,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -62857,10 +65101,12 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     customers?: CustomerProfileUpdateManyWithoutShopNestedInput
+    otpChallenges?: OTPChallengeUpdateManyWithoutShopNestedInput
     orderActionRequests?: OrderActionRequestUpdateManyWithoutShopNestedInput
     walletReservations?: WalletReservationUpdateManyWithoutShopNestedInput
     gstSettings?: GstSettingsUpdateManyWithoutShopNestedInput
     gstProductTaxMaps?: GstProductTaxMapUpdateManyWithoutShopNestedInput
+    gstSkuTaxMaps?: GstSkuTaxMapUpdateManyWithoutShopNestedInput
   }
 
   export type ShopUncheckedUpdateWithoutGstOrderImportsInput = {
@@ -62875,10 +65121,12 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     customers?: CustomerProfileUncheckedUpdateManyWithoutShopNestedInput
+    otpChallenges?: OTPChallengeUncheckedUpdateManyWithoutShopNestedInput
     orderActionRequests?: OrderActionRequestUncheckedUpdateManyWithoutShopNestedInput
     walletReservations?: WalletReservationUncheckedUpdateManyWithoutShopNestedInput
     gstSettings?: GstSettingsUncheckedUpdateManyWithoutShopNestedInput
     gstProductTaxMaps?: GstProductTaxMapUncheckedUpdateManyWithoutShopNestedInput
+    gstSkuTaxMaps?: GstSkuTaxMapUncheckedUpdateManyWithoutShopNestedInput
   }
 
   export type GstOrderImportLineUpsertWithWhereUniqueWithoutOrderImportInput = {
@@ -63037,6 +65285,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -63064,6 +65313,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -63105,6 +65355,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -63132,6 +65383,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -63157,6 +65409,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -63184,6 +65437,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -63225,6 +65479,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -63252,6 +65507,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -63277,6 +65533,7 @@ export namespace Prisma {
 
   export type OTPChallengeCreateManyCustomerInput = {
     id?: string
+    shopId: string
     phoneE164: string
     provider: string
     providerSid?: string | null
@@ -63445,10 +65702,12 @@ export namespace Prisma {
     expiresAt?: DateTimeFieldUpdateOperationsInput | Date | string
     metadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    shop?: ShopUpdateOneRequiredWithoutOtpChallengesNestedInput
   }
 
   export type OTPChallengeUncheckedUpdateWithoutCustomerInput = {
     id?: StringFieldUpdateOperationsInput | string
+    shopId?: StringFieldUpdateOperationsInput | string
     phoneE164?: StringFieldUpdateOperationsInput | string
     provider?: StringFieldUpdateOperationsInput | string
     providerSid?: NullableStringFieldUpdateOperationsInput | string | null
@@ -63463,6 +65722,7 @@ export namespace Prisma {
 
   export type OTPChallengeUncheckedUpdateManyWithoutCustomerInput = {
     id?: StringFieldUpdateOperationsInput | string
+    shopId?: StringFieldUpdateOperationsInput | string
     phoneE164?: StringFieldUpdateOperationsInput | string
     provider?: StringFieldUpdateOperationsInput | string
     providerSid?: NullableStringFieldUpdateOperationsInput | string | null
@@ -63861,6 +66121,21 @@ export namespace Prisma {
     updatedAt?: Date | string
   }
 
+  export type OTPChallengeCreateManyShopInput = {
+    id?: string
+    phoneE164: string
+    provider: string
+    providerSid?: string | null
+    status: string
+    attemptsCount?: number
+    requestedAt?: Date | string
+    verifiedAt?: Date | string | null
+    expiresAt: Date | string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    customerProfileId?: string | null
+  }
+
   export type OrderActionRequestCreateManyShopInput = {
     id?: string
     requestType?: $Enums.RequestType
@@ -63916,6 +66191,7 @@ export namespace Prisma {
     debitNotePrefix: string
     invoiceNumberStrategy: $Enums.GstNumberingStrategy
     defaultCurrency?: string
+    priceIncludesTax?: boolean
     einvoiceEnabled?: boolean
     isActive?: boolean
     createdAt?: Date | string
@@ -63933,6 +66209,20 @@ export namespace Prisma {
     effectiveFrom?: Date | string | null
     effectiveTo?: Date | string | null
     lastValidatedAt?: Date | string | null
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type GstSkuTaxMapCreateManyShopInput = {
+    id?: string
+    sku?: string | null
+    styleCode?: string | null
+    hsnCode: string
+    taxRate: Decimal | DecimalJsLike | number | string
+    cessRate?: Decimal | DecimalJsLike | number | string
+    source?: string
+    status?: string
     metadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -64033,6 +66323,51 @@ export namespace Prisma {
     profileCompletedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type OTPChallengeUpdateWithoutShopInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    phoneE164?: StringFieldUpdateOperationsInput | string
+    provider?: StringFieldUpdateOperationsInput | string
+    providerSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    attemptsCount?: IntFieldUpdateOperationsInput | number
+    requestedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    verifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    expiresAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    customer?: CustomerProfileUpdateOneWithoutOtpChallengesNestedInput
+  }
+
+  export type OTPChallengeUncheckedUpdateWithoutShopInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    phoneE164?: StringFieldUpdateOperationsInput | string
+    provider?: StringFieldUpdateOperationsInput | string
+    providerSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    attemptsCount?: IntFieldUpdateOperationsInput | number
+    requestedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    verifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    expiresAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    customerProfileId?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
+  export type OTPChallengeUncheckedUpdateManyWithoutShopInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    phoneE164?: StringFieldUpdateOperationsInput | string
+    provider?: StringFieldUpdateOperationsInput | string
+    providerSid?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: StringFieldUpdateOperationsInput | string
+    attemptsCount?: IntFieldUpdateOperationsInput | number
+    requestedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    verifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    expiresAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    customerProfileId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type OrderActionRequestUpdateWithoutShopInput = {
@@ -64182,6 +66517,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -64208,6 +66544,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -64234,6 +66571,7 @@ export namespace Prisma {
     debitNotePrefix?: StringFieldUpdateOperationsInput | string
     invoiceNumberStrategy?: EnumGstNumberingStrategyFieldUpdateOperationsInput | $Enums.GstNumberingStrategy
     defaultCurrency?: StringFieldUpdateOperationsInput | string
+    priceIncludesTax?: BoolFieldUpdateOperationsInput | boolean
     einvoiceEnabled?: BoolFieldUpdateOperationsInput | boolean
     isActive?: BoolFieldUpdateOperationsInput | boolean
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -64283,6 +66621,48 @@ export namespace Prisma {
     effectiveFrom?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     effectiveTo?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     lastValidatedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type GstSkuTaxMapUpdateWithoutShopInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    sku?: NullableStringFieldUpdateOperationsInput | string | null
+    styleCode?: NullableStringFieldUpdateOperationsInput | string | null
+    hsnCode?: StringFieldUpdateOperationsInput | string
+    taxRate?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    cessRate?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    source?: StringFieldUpdateOperationsInput | string
+    status?: StringFieldUpdateOperationsInput | string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type GstSkuTaxMapUncheckedUpdateWithoutShopInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    sku?: NullableStringFieldUpdateOperationsInput | string | null
+    styleCode?: NullableStringFieldUpdateOperationsInput | string | null
+    hsnCode?: StringFieldUpdateOperationsInput | string
+    taxRate?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    cessRate?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    source?: StringFieldUpdateOperationsInput | string
+    status?: StringFieldUpdateOperationsInput | string
+    metadata?: NullableJsonNullValueInput | InputJsonValue
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type GstSkuTaxMapUncheckedUpdateManyWithoutShopInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    sku?: NullableStringFieldUpdateOperationsInput | string | null
+    styleCode?: NullableStringFieldUpdateOperationsInput | string | null
+    hsnCode?: StringFieldUpdateOperationsInput | string
+    taxRate?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    cessRate?: DecimalFieldUpdateOperationsInput | Decimal | DecimalJsLike | number | string
+    source?: StringFieldUpdateOperationsInput | string
+    status?: StringFieldUpdateOperationsInput | string
     metadata?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string

@@ -167,6 +167,7 @@ exports.Prisma.AuthSessionScalarFieldEnum = {
 
 exports.Prisma.OTPChallengeScalarFieldEnum = {
   id: 'id',
+  shopId: 'shopId',
   phoneE164: 'phoneE164',
   provider: 'provider',
   providerSid: 'providerSid',
@@ -327,6 +328,7 @@ exports.Prisma.GstSettingsScalarFieldEnum = {
   debitNotePrefix: 'debitNotePrefix',
   invoiceNumberStrategy: 'invoiceNumberStrategy',
   defaultCurrency: 'defaultCurrency',
+  priceIncludesTax: 'priceIncludesTax',
   einvoiceEnabled: 'einvoiceEnabled',
   isActive: 'isActive',
   createdAt: 'createdAt',
@@ -541,6 +543,21 @@ exports.Prisma.GstProductTaxMapScalarFieldEnum = {
   effectiveFrom: 'effectiveFrom',
   effectiveTo: 'effectiveTo',
   lastValidatedAt: 'lastValidatedAt',
+  metadata: 'metadata',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.GstSkuTaxMapScalarFieldEnum = {
+  id: 'id',
+  shopId: 'shopId',
+  sku: 'sku',
+  styleCode: 'styleCode',
+  hsnCode: 'hsnCode',
+  taxRate: 'taxRate',
+  cessRate: 'cessRate',
+  source: 'source',
+  status: 'status',
   metadata: 'metadata',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -800,6 +817,7 @@ exports.Prisma.ModelName = {
   GstTaxSlab: 'GstTaxSlab',
   GstHsnSlabMap: 'GstHsnSlabMap',
   GstProductTaxMap: 'GstProductTaxMap',
+  GstSkuTaxMap: 'GstSkuTaxMap',
   GstOrderImport: 'GstOrderImport',
   GstOrderImportLine: 'GstOrderImportLine',
   GstInvoiceTemplate: 'GstInvoiceTemplate',
