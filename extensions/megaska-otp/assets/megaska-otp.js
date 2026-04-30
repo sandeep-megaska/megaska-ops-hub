@@ -967,6 +967,43 @@ function renderSuccessStep(message) {
     focusProfileInput();
   }
 
+
+  function isCheckoutPendingAction(action) {
+    if (!action || typeof action !== "object") return false;
+
+    if (action.type === "buy-now-submit") {
+      return true;
+    }
+
+    if (action.type === "navigate") {
+      return String(action.url || "").includes("/checkout");
+    }
+
+    return false;
+  }
+
+  function buildCheckoutUrlWithVerifiedPhonePrefill(baseUrl, verifiedPhone) {
+    const fallbackUrl = baseUrl || "/checkout";
+    const phone = String(verifiedPhone || "").trim();
+    if (!phone) return fallbackUrl;
+
+    try {
+      const url = new URL(fallbackUrl, window.location.origin);
+      [
+        "checkout[shipping_address][phone]",
+        "checkout[phone]",
+        "checkout[contact][phone]",
+      ].forEach((key) => {
+        if (!url.searchParams.get(key)) {
+          url.searchParams.set(key, phone);
+        }
+      });
+      return `${url.pathname}${url.search}${url.hash}`;
+    } catch {
+      return fallbackUrl;
+    }
+  }
+
   function getOtpRequestPayload(response) {
     if (!response || typeof response !== "object") return null;
     if (response.data && typeof response.data === "object") {
@@ -1080,6 +1117,26 @@ function renderSuccessStep(message) {
 
   try {
     await window.MegaskaAuth.verifyOtp(state.normalizedPhone, otp);
+
+    if (isCheckoutPendingAction(pendingAction)) {
+      const checkoutTargetBase =
+        pendingAction?.type === "navigate" && pendingAction?.url
+          ? pendingAction.url
+          : "/checkout";
+      const checkoutTarget = buildCheckoutUrlWithVerifiedPhonePrefill(
+        checkoutTargetBase,
+        state.normalizedPhone
+      );
+
+      state.verifying = false;
+      state.statusMessage = "";
+      state.errorMessage = "";
+      clearPendingAction();
+      closeModal("checkout-verified", { force: true });
+      window.location.assign(checkoutTarget);
+      return;
+    }
+
     const refreshedSession = await window.MegaskaAuth.refreshAuthState();
     state.verifying = false;
     state.statusMessage = "";
