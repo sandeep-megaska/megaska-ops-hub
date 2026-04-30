@@ -467,97 +467,7 @@
                 />
               </div>
 
-              <div class="megaska-otp-form-field megaska-otp-col-span-2">
-                <label class="megaska-otp-label" for="megaska-email-input">Email Address</label>
-                <input
-                  id="megaska-email-input"
-                  data-megaska-profile-email
-                  class="megaska-otp-text-input"
-                  type="email"
-                  autocomplete="email"
-                  placeholder="name@example.com"
-                  aria-label="Enter your email address"
-                />
-              </div>
-
-              <div class="megaska-otp-form-field megaska-otp-col-span-2">
-                <label class="megaska-otp-label" for="megaska-address1-input">Address line 1</label>
-                <input
-                  id="megaska-address1-input"
-                  data-megaska-profile-address1
-                  class="megaska-otp-text-input"
-                  type="text"
-                  autocomplete="address-line1"
-                  placeholder="House number, street, locality"
-                  aria-label="Enter address line 1"
-                />
-              </div>
-
-              <div class="megaska-otp-form-field megaska-otp-col-span-2">
-                <label class="megaska-otp-label" for="megaska-address2-input">Address line 2 (optional)</label>
-                <input
-                  id="megaska-address2-input"
-                  data-megaska-profile-address2
-                  class="megaska-otp-text-input"
-                  type="text"
-                  autocomplete="address-line2"
-                  placeholder="Apartment, suite, landmark"
-                  aria-label="Enter address line 2"
-                />
-              </div>
-
-              <div class="megaska-otp-form-field">
-                <label class="megaska-otp-label" for="megaska-city-input">City</label>
-                <input
-                  id="megaska-city-input"
-                  data-megaska-profile-city
-                  class="megaska-otp-text-input"
-                  type="text"
-                  autocomplete="address-level2"
-                  placeholder="Enter city"
-                  aria-label="Enter city"
-                />
-              </div>
-
-              <div class="megaska-otp-form-field">
-                <label class="megaska-otp-label" for="megaska-state-input">State</label>
-                <select
-                  id="megaska-state-input"
-                  data-megaska-profile-state
-                  class="megaska-otp-text-input megaska-otp-select-input"
-                  autocomplete="address-level1"
-                  aria-label="Select state"
-                >
-                  <option value="">Select state</option>
-                  ${INDIAN_STATES_AND_UTS.map((region) => `<option value="${region}">${region}</option>`).join("")}
-                </select>
-              </div>
-
-              <div class="megaska-otp-form-field">
-                <label class="megaska-otp-label" for="megaska-postal-input">PIN Code</label>
-                <input
-                  id="megaska-postal-input"
-                  data-megaska-profile-postal
-                  class="megaska-otp-text-input"
-                  type="text"
-                  autocomplete="postal-code"
-                  placeholder="Enter PIN code"
-                  aria-label="Enter PIN code"
-                />
-              </div>
-
-              <div class="megaska-otp-form-field">
-                <label class="megaska-otp-label" for="megaska-country-input">Country</label>
-                <input
-                  id="megaska-country-input"
-                  class="megaska-otp-text-input"
-                  type="text"
-                  value="${COUNTRY_REGION}"
-                  aria-label="Country"
-                  readonly
-                  tabindex="-1"
-                />
-              </div>
+              
             </div>
 
             <button type="button" class="megaska-otp-primary-btn" data-megaska-profile-submit>
@@ -627,66 +537,6 @@
         }
       });
 
-    modal
-      .querySelector("[data-megaska-profile-email]")
-      .addEventListener("input", (event) => {
-        state.profileEmail = String(event.target.value || "");
-        if (state.errorMessage) {
-          state.errorMessage = "";
-          renderStep();
-        }
-      });
-
-    modal
-      .querySelector("[data-megaska-profile-address1]")
-      .addEventListener("input", (event) => {
-        state.profileAddressLine1 = String(event.target.value || "");
-        if (state.errorMessage) {
-          state.errorMessage = "";
-          renderStep();
-        }
-      });
-
-    modal
-      .querySelector("[data-megaska-profile-address2]")
-      .addEventListener("input", (event) => {
-        state.profileAddressLine2 = String(event.target.value || "");
-        if (state.errorMessage) {
-          state.errorMessage = "";
-          renderStep();
-        }
-      });
-
-    modal
-      .querySelector("[data-megaska-profile-city]")
-      .addEventListener("input", (event) => {
-        state.profileCity = String(event.target.value || "");
-        if (state.errorMessage) {
-          state.errorMessage = "";
-          renderStep();
-        }
-      });
-
-    modal
-      .querySelector("[data-megaska-profile-state]")
-      .addEventListener("change", (event) => {
-        state.profileStateProvince = String(event.target.value || "");
-        if (state.errorMessage) {
-          state.errorMessage = "";
-          renderStep();
-        }
-      });
-
-    modal
-      .querySelector("[data-megaska-profile-postal]")
-      .addEventListener("input", (event) => {
-        state.profilePostalCode = String(event.target.value || "");
-        if (state.errorMessage) {
-          state.errorMessage = "";
-          renderStep();
-        }
-      });
-
     document.addEventListener("keydown", handleEscClose);
 
     return modal;
@@ -708,12 +558,6 @@
     resendBtn: modal.querySelector("[data-megaska-resend]"),
     profileFirstNameInput: modal.querySelector("[data-megaska-profile-firstname]"),
     profileLastNameInput: modal.querySelector("[data-megaska-profile-lastname]"),
-    profileEmailInput: modal.querySelector("[data-megaska-profile-email]"),
-    profileAddress1Input: modal.querySelector("[data-megaska-profile-address1]"),
-    profileAddress2Input: modal.querySelector("[data-megaska-profile-address2]"),
-    profileCityInput: modal.querySelector("[data-megaska-profile-city]"),
-    profileStateInput: modal.querySelector("[data-megaska-profile-state]"),
-    profilePostalInput: modal.querySelector("[data-megaska-profile-postal]"),
     profileSubmitBtn: modal.querySelector("[data-megaska-profile-submit]"),
     errorEl: modal.querySelector("[data-megaska-otp-error]"),
     statusEl: modal.querySelector("[data-megaska-otp-status]"),
@@ -734,12 +578,6 @@
     resendBtn,
     profileFirstNameInput,
     profileLastNameInput,
-    profileEmailInput,
-    profileAddress1Input,
-    profileAddress2Input,
-    profileCityInput,
-    profileStateInput,
-    profilePostalInput,
     profileSubmitBtn,
     errorEl,
     statusEl,
@@ -757,21 +595,9 @@
 
   profileFirstNameInput.value = state.profileFirstName;
   profileLastNameInput.value = state.profileLastName;
-  profileEmailInput.value = state.profileEmail;
-  profileAddress1Input.value = state.profileAddressLine1;
-  profileAddress2Input.value = state.profileAddressLine2;
-  profileCityInput.value = state.profileCity;
-  profileStateInput.value = state.profileStateProvince;
-  profilePostalInput.value = state.profilePostalCode;
 
   profileFirstNameInput.disabled = state.savingProfile;
   profileLastNameInput.disabled = state.savingProfile;
-  profileEmailInput.disabled = state.savingProfile;
-  profileAddress1Input.disabled = state.savingProfile;
-  profileAddress2Input.disabled = state.savingProfile;
-  profileCityInput.disabled = state.savingProfile;
-  profileStateInput.disabled = state.savingProfile;
-  profilePostalInput.disabled = state.savingProfile;
   profileSubmitBtn.disabled = state.savingProfile;
   profileSubmitBtn.textContent = state.savingProfile ? "Saving..." : "Save and Continue";
 
@@ -922,33 +748,10 @@ function renderSuccessStep(message) {
       .trim();
   }
 
-  function normalizeEmail(value) {
-    return String(value || "").trim().toLowerCase();
-  }
-
-  function isValidEmail(value) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-  }
-
   function needsProfileCompletion(customer) {
     const firstName = normalizeText(customer?.firstName || "");
     const lastName = normalizeText(customer?.lastName || "");
-    const email = normalizeEmail(customer?.email || "");
-    const addressLine1 = normalizeText(customer?.addressLine1 || "");
-    const city = normalizeText(customer?.city || "");
-    const stateProvince = normalizeText(customer?.stateProvince || "");
-    const postalCode = normalizeText(customer?.postalCode || "");
-    const countryRegion = normalizeText(customer?.countryRegion || "");
-    return !(
-      firstName &&
-      lastName &&
-      email &&
-      addressLine1 &&
-      city &&
-      stateProvince &&
-      postalCode &&
-      countryRegion
-    );
+    return !(firstName && lastName);
   }
 
   function renderProfileStep(customer) {
@@ -956,13 +759,6 @@ function renderSuccessStep(message) {
     state.errorMessage = "";
     state.profileFirstName = normalizeText(customer?.firstName || "");
     state.profileLastName = normalizeText(customer?.lastName || "");
-    state.profileEmail = normalizeEmail(customer?.email || "");
-    state.profileAddressLine1 = normalizeText(customer?.addressLine1 || "");
-    state.profileAddressLine2 = normalizeText(customer?.addressLine2 || "");
-    state.profileCity = normalizeText(customer?.city || "");
-    state.profileStateProvince = normalizeText(customer?.stateProvince || "");
-    state.profilePostalCode = normalizeText(customer?.postalCode || "");
-    state.profileCountryRegion = COUNTRY_REGION;
     renderStep();
     focusProfileInput();
   }
@@ -1120,13 +916,6 @@ function renderSuccessStep(message) {
 
     const firstName = normalizeText(state.profileFirstName);
     const lastName = normalizeText(state.profileLastName);
-    const email = normalizeEmail(state.profileEmail);
-    const addressLine1 = normalizeText(state.profileAddressLine1);
-    const addressLine2 = normalizeText(state.profileAddressLine2);
-    const city = normalizeText(state.profileCity);
-    const stateProvince = normalizeText(state.profileStateProvince);
-    const postalCode = normalizeText(state.profilePostalCode);
-    const countryRegion = COUNTRY_REGION;
 
     if (!firstName) {
       state.errorMessage = "Please enter your first name.";
@@ -1143,46 +932,6 @@ function renderSuccessStep(message) {
       return;
     }
 
-    if (!email || !isValidEmail(email)) {
-      state.errorMessage = "Please enter a valid email address.";
-      renderStep();
-      const { profileEmailInput } = getModalParts();
-      setTimeout(() => profileEmailInput.focus(), 0);
-      return;
-    }
-
-    if (!addressLine1) {
-      state.errorMessage = "Please enter your address line 1.";
-      renderStep();
-      const { profileAddress1Input } = getModalParts();
-      setTimeout(() => profileAddress1Input.focus(), 0);
-      return;
-    }
-
-    if (!city) {
-      state.errorMessage = "Please enter your city.";
-      renderStep();
-      const { profileCityInput } = getModalParts();
-      setTimeout(() => profileCityInput.focus(), 0);
-      return;
-    }
-
-    if (!stateProvince) {
-      state.errorMessage = "Please select your state.";
-      renderStep();
-      const { profileStateInput } = getModalParts();
-      setTimeout(() => profileStateInput.focus(), 0);
-      return;
-    }
-
-    if (!postalCode) {
-      state.errorMessage = "Please enter your postal or PIN code.";
-      renderStep();
-      const { profilePostalInput } = getModalParts();
-      setTimeout(() => profilePostalInput.focus(), 0);
-      return;
-    }
-
     state.savingProfile = true;
     state.errorMessage = "";
     renderStep();
@@ -1191,13 +940,6 @@ function renderSuccessStep(message) {
       await window.MegaskaAuth.completeProfile({
         firstName,
         lastName,
-        email,
-        addressLine1,
-        addressLine2,
-        city,
-        stateProvince,
-        postalCode,
-        countryRegion,
       });
       const refreshedSession = await window.MegaskaAuth.refreshAuthState();
       const sessionCustomer = refreshedSession?.customer || null;

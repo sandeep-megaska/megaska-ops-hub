@@ -157,22 +157,14 @@
     try {
       if (
         window.MegaskaAuth &&
-        typeof window.MegaskaAuth.applyCheckoutPrefillToUrl === "function" &&
-        typeof window.MegaskaAuth.applyBuyerIdentityToActiveCart === "function"
+        typeof window.MegaskaAuth.applyCheckoutPrefillToUrl === "function"
       ) {
         const prefilledUrl = window.MegaskaAuth.applyCheckoutPrefillToUrl(
           "/checkout",
           session.customer
         );
 
-        const handoff = await window.MegaskaAuth.applyBuyerIdentityToActiveCart(
-          session.customer,
-          { checkoutUrl: prefilledUrl }
-        );
-
-        const finalUrl = handoff?.checkoutUrl || prefilledUrl || fallbackUrl;
-
-        window.location.assign(finalUrl);
+        window.location.assign(prefilledUrl || fallbackUrl);
         return;
       }
     } catch (_error) {}
