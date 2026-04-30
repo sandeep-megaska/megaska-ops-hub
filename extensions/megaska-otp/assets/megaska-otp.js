@@ -1084,6 +1084,13 @@ function renderSuccessStep(message) {
     state.verifying = false;
     state.statusMessage = "";
 
+    const checkoutAction = pendingAction;
+    if (isCheckoutPendingAction(checkoutAction)) {
+      clearPendingAction();
+      window.location.assign(buildCheckoutUrlWithVerifiedPhonePrefill());
+      return;
+    }
+
     const sessionCustomer = refreshedSession?.customer || null;
 
     if (needsProfileCompletion(sessionCustomer)) {
@@ -1503,6 +1510,26 @@ setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS)
     pendingAction = null;
   }
 
+  function isCheckoutPendingAction(action) {
+    if (!action || typeof action !== "object") return false;
+    if (action.type === "account-redirect") return false;
+    if (action.type === "navigate") {
+      return isCheckoutTarget(action.url || "");
+    }
+    return ["cart-add-submit", "buy-now-submit"].includes(action.type);
+  }
+
+  function buildCheckoutUrlWithVerifiedPhonePrefill() {
+    const checkoutUrl = new URL("/checkout", window.location.origin);
+    const verifiedPhone = String(state.normalizedPhone || "").trim();
+    if (verifiedPhone) {
+      checkoutUrl.searchParams.set("checkout[shipping_address][phone]", verifiedPhone);
+      checkoutUrl.searchParams.set("checkout[billing_address][phone]", verifiedPhone);
+      checkoutUrl.searchParams.set("phone", verifiedPhone);
+    }
+    return `${checkoutUrl.pathname}${checkoutUrl.search}${checkoutUrl.hash}`;
+  }
+
   function setPendingAction(action) {
     pendingAction = action;
   }
@@ -1703,45 +1730,15 @@ setTimeout(() => closeModal("success", { force: true }), SUCCESS_CLOSE_DELAY_MS)
   }
 
 async function continueToCheckoutFromPendingAction(preferredCustomer, source) {
-  const customer = await resolveMegaskaCustomer(preferredCustomer);
-  const prefilledUrl = await buildPrefilledCheckoutUrl("/checkout", customer);
-
-  console.log("[Megaska Checkout Prefill] checkout handoff start", {
-    source,
-    detectedCheckoutUrl: prefilledUrl,
-  });
-
-  const handoff = await runBuyerIdentityHandoff(prefilledUrl, customer);
-
-  if (isCheckoutContinuationBlocked(handoff)) {
-    console.warn("[Megaska Checkout Gate] continuation stopped after handoff", {
-      reason: handoff.reason || "blocked",
-    });
-    openModal("checkout-gate-blocked");
-    return;
-  }
-
-  if (await tryAutoApplyWalletDiscount(handoff)) {
-    return;
-  }
-
-  const targetUrl = handoff?.checkoutUrl || prefilledUrl;
-
-  window.__megaskaCheckoutDebug = {
-    cartId: handoff?.cartId || null,
-    buyerIdentityPayload: {
-      email: String(handoff?.buyerIdentity?.email || "").trim() || null,
-      phone: String(handoff?.buyerIdentity?.phone || "").trim() || null,
-    },
-    mutationResult: handoff || null,
-    checkoutUrl: targetUrl || null,
-  };
+  void preferredCustomer;
+  const targetUrl = buildCheckoutUrlWithVerifiedPhonePrefill();
 
   console.log("[Megaska Checkout Prefill] checkout continuation", {
+    source,
     mode: "navigate",
     finalCheckoutUrl: targetUrl,
-    mutationWaited: true,
-    debugSurface: "window.__megaskaCheckoutDebug",
+    mutationWaited: false,
+    phoneOnlyPrefill: Boolean(state.normalizedPhone),
   });
 
   window.location.assign(targetUrl);
