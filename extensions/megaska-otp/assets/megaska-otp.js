@@ -935,20 +935,8 @@ function renderSuccessStep(message) {
   }
 
   function renderProfileStep(customer) {
-    state.step = "profile";
-    state.errorMessage = "";
-    state.profileFirstName = normalizeText(customer?.firstName || "");
-    state.profileLastName = normalizeText(customer?.lastName || "");
-    state.profileEmail = normalizeEmail(customer?.email || "");
-    state.profileAddressLine1 = normalizeText(customer?.addressLine1 || "");
-    state.profileAddressLine2 = normalizeText(customer?.addressLine2 || "");
-    state.profileCity = normalizeText(customer?.city || "");
-    state.profileStateProvince = normalizeText(customer?.stateProvince || "");
-    state.profilePostalCode = normalizeText(customer?.postalCode || "");
-    state.profileCountryRegion = COUNTRY_REGION;
-    renderStep();
-    focusProfileInput();
-  }
+  return;
+}
 
   function getOtpRequestPayload(response) {
     if (!response || typeof response !== "object") return null;
