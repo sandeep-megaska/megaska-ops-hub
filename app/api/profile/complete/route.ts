@@ -11,10 +11,6 @@ import {
   requireShopFromRequest,
 } from "../../../../services/shopify/shop";
 
-function normalizeEmail(emailRaw: string) {
-  return emailRaw.trim().toLowerCase();
-}
-
 function normalizeFullName(fullNameRaw: string) {
   return fullNameRaw.replace(/\s+/g, " ").trim();
 }
@@ -35,15 +31,6 @@ export async function POST(req: NextRequest) {
     const firstName = normalizeText(String(body?.firstName ?? ""));
     const lastName = normalizeText(String(body?.lastName ?? ""));
     const fullName = normalizeFullName(`${firstName} ${lastName}`);
-    const email = normalizeEmail(String(body?.email ?? ""));
-    const addressLine1 = normalizeText(String(body?.addressLine1 ?? ""));
-    const addressLine2 = normalizeText(String(body?.addressLine2 ?? ""));
-    const city = normalizeText(String(body?.city ?? ""));
-    const stateProvince = normalizeText(String(body?.stateProvince ?? ""));
-    const postalCode = normalizeText(String(body?.postalCode ?? ""));
-    const countryRegion = normalizeText(
-      String(body?.countryRegion ?? "India")
-    );
 
     if (!firstName) {
       return withCors(
@@ -65,30 +52,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email || !emailPattern.test(email)) {
-      return withCors(
-        req,
-        NextResponse.json(
-          { success: false, error: "Valid email is required" },
-          { status: 400 }
-        )
-      );
-    }
-
-    if (!addressLine1 || !city || !stateProvince || !postalCode || !countryRegion) {
-      return withCors(
-        req,
-        NextResponse.json(
-          {
-            success: false,
-            error:
-              "Address line 1, city, state/province, postal/PIN code, and country/region are required",
-          },
-          { status: 400 }
-        )
-      );
-    }
 
     const authHeader = req.headers.get("authorization");
     const bearerToken = authHeader?.startsWith("Bearer ")
@@ -145,13 +108,6 @@ export async function POST(req: NextRequest) {
         firstName,
         lastName,
         fullName,
-        email,
-        addressLine1,
-        addressLine2: addressLine2 || null,
-        city,
-        stateProvince,
-        postalCode,
-        countryRegion,
         profileCompletedAt: now,
       },
     });
