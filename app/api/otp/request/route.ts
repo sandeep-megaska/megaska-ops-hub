@@ -10,7 +10,7 @@ import {
 } from "../../../../services/auth/otp";
 import {
   ShopResolutionError,
-  requireShopFromRequest,
+  requireStorefrontShopFromRequest,
 } from "../../../../services/shopify/shop";
 
 function generateOtp() {
@@ -58,14 +58,24 @@ async function createMockChallenge(
     otp,
   });
 
-  return NextResponse.json({
-    success: true,
-    otpSent: true,
-    challengeId: challenge.id,
-    phone: phoneE164,
-    mock: true,
-    provider: "mock",
-  });
+  return NextResponse.json(
+    {
+      ok: true,
+      sent: true,
+      success: true,
+      otpSent: true,
+      challengeId: challenge.id,
+      phone: phoneE164,
+      mock: true,
+      provider: "mock",
+    },
+    {
+      status: 200,
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    }
+  );
 }
 
 async function createProviderChallenge(
@@ -101,13 +111,23 @@ async function createProviderChallenge(
       providerStatus: twilioVerification.status,
     });
 
-    return NextResponse.json({
-      success: true,
-      otpSent: true,
-      challengeId: challenge.id,
-      phone: phoneE164,
-      provider,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        sent: true,
+        success: true,
+        otpSent: true,
+        challengeId: challenge.id,
+        phone: phoneE164,
+        provider,
+      },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
   }
 
   const msg91Verification = await sendOtpWithMsg91(phoneE164);
@@ -136,18 +156,28 @@ async function createProviderChallenge(
     providerStatus: msg91Verification.status,
   });
 
-  return NextResponse.json({
-    success: true,
-    otpSent: true,
-    challengeId: challenge.id,
-    phone: phoneE164,
-    provider,
-  });
+  return NextResponse.json(
+    {
+      ok: true,
+      sent: true,
+      success: true,
+      otpSent: true,
+      challengeId: challenge.id,
+      phone: phoneE164,
+      provider,
+    },
+    {
+      status: 200,
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    }
+  );
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const shop = await requireShopFromRequest(req);
+    const shop = await requireStorefrontShopFromRequest(req);
 
     const body = await req.json();
     const phoneRaw = String(body?.phone ?? "").trim();

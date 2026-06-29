@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "../db/prisma";
+import { decryptShopifyToken } from "./token-crypto";
 
 export type ResolvedShopConfig = {
   id: string | null;
@@ -12,9 +13,13 @@ export type ShopRow = {
   id: string;
   shopDomain: string;
   accessToken: string | null;
+  accessTokenEncrypted: string | null;
   storefrontAccessToken: string | null;
+  storefrontTokenEncrypted: string | null;
   scopes: string | null;
   isActive: boolean;
+  myshopifyDomain: string | null;
+  installationStatus: string | null;
   installedAt: Date | null;
   uninstalledAt: Date | null;
 };
@@ -73,9 +78,10 @@ export async function getShopByDomain(shopDomain: string) {
   if (!normalized) return null;
 
   const rows = await prisma.$queryRawUnsafe<ShopRow[]>(
-    `SELECT "id", "shopDomain", "accessToken", "storefrontAccessToken", "scopes", "isActive", "installedAt", "uninstalledAt"
+    `SELECT "id", "shopDomain", "accessToken", "accessTokenEncrypted", "storefrontAccessToken", "storefrontTokenEncrypted", "scopes", "isActive", "installedAt", "uninstalledAt", "myshopifyDomain", "installationStatus"
      FROM "Shop"
-     WHERE "shopDomain" = $1
+     WHERE "shopDomain" = $1 OR "myshopifyDomain" = $1
+     ORDER BY CASE WHEN "installationStatus" = 'ACTIVE' THEN 0 ELSE 1 END, "updatedAt" DESC
      LIMIT 1`,
     normalized
   );
@@ -103,7 +109,7 @@ export async function getDefaultShopFromConfig() {
        "storefrontAccessToken" = COALESCE(EXCLUDED."storefrontAccessToken", "Shop"."storefrontAccessToken"),
        "isActive" = true,
        "updatedAt" = NOW()
-     RETURNING "id", "shopDomain", "accessToken", "storefrontAccessToken", "scopes", "isActive", "installedAt", "uninstalledAt"`,
+     RETURNING "id", "shopDomain", "accessToken", "accessTokenEncrypted", "storefrontAccessToken", "storefrontTokenEncrypted", "scopes", "isActive", "installedAt", "uninstalledAt", "myshopifyDomain", "installationStatus"`,
     envDomain,
     envAdminToken,
     envStorefrontToken
@@ -122,8 +128,8 @@ export async function resolveShopConfig(
       return {
         id: shop.id,
         shopDomain: shop.shopDomain,
-        accessToken: shop.accessToken,
-        storefrontAccessToken: shop.storefrontAccessToken,
+        accessToken: shop.accessToken || decryptShopifyToken(shop.accessTokenEncrypted),
+        storefrontAccessToken: shop.storefrontAccessToken || decryptShopifyToken(shop.storefrontTokenEncrypted),
       };
     }
   }
@@ -133,8 +139,8 @@ export async function resolveShopConfig(
     return {
       id: defaultShop.id,
       shopDomain: defaultShop.shopDomain,
-      accessToken: defaultShop.accessToken,
-      storefrontAccessToken: defaultShop.storefrontAccessToken,
+      accessToken: defaultShop.accessToken || decryptShopifyToken(defaultShop.accessTokenEncrypted),
+      storefrontAccessToken: defaultShop.storefrontAccessToken || decryptShopifyToken(defaultShop.storefrontTokenEncrypted),
     };
   }
 
@@ -144,6 +150,45 @@ export async function resolveShopConfig(
     accessToken: trimEnv("SHOPIFY_ADMIN_ACCESS_TOKEN") || null,
     storefrontAccessToken: trimEnv("SHOPIFY_STOREFRONT_ACCESS_TOKEN") || null,
   };
+}
+
+function isAllowedDevStorefrontFallback(shopDomain: string) {
+  if (process.env.NODE_ENV === "production") return false;
+  if (String(process.env.EXPRESS_CHECKOUT_ENABLED || "").toLowerCase() !== "true") return false;
+
+  const normalizedShopDomain = normalizeShopDomain(shopDomain);
+  if (!normalizedShopDomain) return false;
+
+  return String(process.env.EXPRESS_CHECKOUT_ALLOWED_SHOPS || "")
+    .split(",")
+    .map((shop) => normalizeShopDomain(shop))
+    .filter(Boolean)
+    .includes(normalizedShopDomain);
+}
+
+export async function requireStorefrontShopFromRequest(req: NextRequest): Promise<ShopRow> {
+  const shopDomain = getShopDomainFromRequest(req);
+
+  if (!shopDomain) {
+    throw new ShopResolutionError(400, "Missing shop domain in request");
+  }
+
+  const shop = await getShopByDomain(shopDomain);
+
+  if (shop?.isActive && !shop.uninstalledAt) {
+    return shop;
+  }
+
+  if (isAllowedDevStorefrontFallback(shopDomain)) {
+    const fallbackShop = await getDefaultShopFromConfig();
+    if (fallbackShop?.isActive && !fallbackShop.uninstalledAt) return fallbackShop;
+  }
+
+  if (!shop) {
+    throw new ShopResolutionError(404, "Shop not found");
+  }
+
+  throw new ShopResolutionError(403, "Shop is inactive");
 }
 
 /**

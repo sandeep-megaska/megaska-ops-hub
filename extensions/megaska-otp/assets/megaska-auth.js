@@ -1,5 +1,5 @@
 (function () {
-  const API_BASE = "https://megaska-ops-hub-exs1.vercel.app/api";
+  const API_BASE = "/apps/megaska/api";
   const SESSION_KEY = "megaska_session_token";
   const ACCOUNT_ENTRY_SELECTORS = [
     "[data-megaska-open-login]",
@@ -112,7 +112,11 @@
   function buildApiUrl(path) {
     const shopDomain = getCurrentShopDomain();
     const normalizedPath = String(path || "").startsWith("/") ? path : `/${path}`;
-    const url = new URL(`${API_BASE}${normalizedPath}`);
+    const apiBase = API_BASE;
+    const baseUrl = /^https?:\/\//i.test(apiBase)
+      ? apiBase
+      : `${window.location.origin}${apiBase.startsWith("/") ? apiBase : `/${apiBase}`}`;
+    const url = new URL(`${baseUrl}${normalizedPath}`);
 
     // Send shop in query also as a safe fallback for proxies/CDN/header-stripping edge cases.
     if (shopDomain) {
@@ -122,36 +126,118 @@
     return url.toString();
   }
 
-  async function apiFetch(path, options) {
-    const opts = Object.assign(
-      {
-        method: "GET",
-        headers: buildHeaders(),
-      },
-      options || {}
-    );
-
-    opts.headers = buildHeaders(opts.headers);
-
-    const response = await fetch(buildApiUrl(path), opts);
-
-    let data = null;
-    try {
-      data = await response.json();
-    } catch {
-      data = null;
-    }
-
-    if (!response.ok) {
-      const message =
-        (data && (data.error || data.message)) ||
-        `Request failed (${response.status})`;
-      throw new Error(message);
-    }
-
-    return data;
+  function shouldLogRuntimeFetch(path) {
+    const normalized = String(path || "");
+    return normalized.includes("/otp/request") || normalized.includes("/delhivery/pincode");
   }
 
+  function logRuntimeFetch(path, details) {
+    if (!shouldLogRuntimeFetch(path)) return;
+    try {
+      console.log("[Megaska Runtime Fetch]", {
+        endpoint: details.endpoint,
+        status: details.status,
+        hasBody: details.hasBody,
+        contentType: details.contentType,
+        jsonOk: details.jsonOk,
+        jsonError: details.jsonError || null,
+      });
+    } catch (_error) {}
+  }
+
+  function parseApiError(data, fallback) {
+    return (data && (data.error || data.message || data?.data?.error || data?.data?.message)) || fallback;
+  }
+
+  async function apiFetch(path, options) {
+  const opts = Object.assign(
+    {
+      method: "GET",
+      credentials: "include",
+      headers: buildHeaders(),
+    },
+    options || {}
+  );
+
+  opts.headers = buildHeaders(opts.headers);
+
+  const endpointUrl = buildApiUrl(path);
+
+  if (path === "/otp/request") {
+    console.log("[Megaska OTP] send OTP fetch start", {
+      endpointUrl,
+    });
+  }
+
+  const response = await fetch(endpointUrl, opts);
+  const contentType = response.headers.get("content-type") || "";
+
+  let responseText = "";
+  try {
+    responseText = await response.text();
+  } catch {
+    responseText = "";
+  }
+
+  const hasBody = Boolean(responseText);
+  let data = null;
+  let jsonOk = false;
+  let jsonError = "";
+
+  if (hasBody) {
+    try {
+      data = JSON.parse(responseText);
+      jsonOk = true;
+    } catch (error) {
+      jsonError =
+        error instanceof Error
+          ? error.message
+          : "Unable to parse JSON";
+    }
+  }
+
+  logRuntimeFetch(path, {
+    endpoint: endpointUrl,
+    status: response.status,
+    hasBody,
+    contentType,
+    jsonOk,
+    jsonError,
+  });
+
+  if (path === "/otp/request") {
+    console.log("[Megaska OTP] send OTP response", {
+      status: response.status,
+      contentType,
+      bodyPresent: hasBody,
+    });
+  }
+
+  if (!hasBody && response.status !== 204) {
+    if (path === "/otp/request" && response.status === 200) {
+      console.warn("[Megaska OTP] empty 200 response treated as sent");
+      data = { ok: true, sent: true };
+      jsonOk = true;
+    } else {
+      throw new Error("Empty server response");
+    }
+  }
+
+  if (hasBody && !jsonOk) {
+    throw new Error("Unexpected server response");
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      parseApiError(
+        data,
+        `Request failed (${response.status})`,
+      ),
+    );
+  }
+
+  return data;
+}
   function extractCustomer(sessionPayload) {
     return (
       sessionPayload?.customer ||
@@ -172,9 +258,21 @@
   }
 
   async function requestOtp(phone) {
+    console.log("[Megaska Auth] OTP request triggered", { endpoint: `${API_BASE}/otp/request` });
     return apiFetch("/otp/request", {
       method: "POST",
       body: JSON.stringify({ phone }),
+    });
+  }
+
+  async function checkPincode(pincode) {
+    const pin = String(pincode || "").trim();
+    if (!/^\d{6}$/.test(pin)) {
+      throw new Error("Enter a valid 6-digit PIN code.");
+    }
+
+    return apiFetch(`/delhivery/pincode?pincode=${encodeURIComponent(pin)}`, {
+      method: "GET",
     });
   }
 
@@ -515,6 +613,7 @@ if (token) {
 
     const response = await fetch(buildApiUrl("/checkout/prefill"), {
       method: "POST",
+      credentials: "include",
       headers: buildHeaders(),
       body: JSON.stringify(payload),
     });
@@ -634,11 +733,6 @@ if (token) {
     ]
       .filter(Boolean)
       .join("<br/>");
-  }
-
-  function formatMinorCurrency(amountMinor, currency) {
-    const amountMajor = Number(amountMinor || 0) / 100;
-    return `${escHtml(currency || "INR")} ${amountMajor.toFixed(2)}`;
   }
 
   function formatInrFromMinor(amountMinor) {
@@ -913,7 +1007,7 @@ if (token) {
     return pills;
   }
 
-  function renderDashboardSummary(container, summary, containerSelector) {
+  function renderDashboardSummary(container, summary) {
     const profileName =
       [summary?.customer?.firstName, summary?.customer?.lastName].filter(Boolean).join(" ") ||
       "Megaska Customer";
@@ -923,32 +1017,8 @@ if (token) {
     const totalOrders = Number(summary?.stats?.totalOrders || 0);
     const openRequests = Number(summary?.stats?.openRequests || 0);
     const savedAddresses = Number(summary?.stats?.savedAddresses || 0);
-    const storeCredit = Number(summary?.wallet?.balance || 0);
-    const currency = summary?.wallet?.currency || "INR";
-    const walletTransactions = Array.isArray(summary?.wallet?.transactions) ? summary.wallet.transactions : [];
     const addressHtml = formatAddress(summary?.address);
     const orders = Array.isArray(summary?.orders) ? summary.orders : [];
-
-    const walletHistoryHtml = walletTransactions.length
-      ? walletTransactions
-          .map((txn) => {
-            const direction = String(txn?.direction || "").toUpperCase();
-            const sign = direction === "DEBIT" ? "-" : "+";
-            const reason = txn?.reason || txn?.transactionType || "Wallet transaction";
-            const orderRef = txn?.orderNumber ? ` • Order ${escHtml(txn.orderNumber)}` : "";
-            return `<li class="megaska-dashboard-list-item">
-              <div>
-                <strong>${escHtml(reason)}</strong>
-                <div class="megaska-dashboard-subtle">${escHtml(formatDate(txn?.createdAt) || "")}${orderRef}</div>
-              </div>
-              <div class="megaska-dashboard-order-right">
-                <strong>${sign} ${formatMinorCurrency(txn?.amount, txn?.currency || currency)}</strong>
-                <div class="megaska-dashboard-subtle">${escHtml(direction)}</div>
-              </div>
-            </li>`;
-          })
-          .join("")
-      : '<li class="megaska-dashboard-empty">No wallet transactions yet.</li>';
 
     const ordersHtml = orders.length
       ? orders
@@ -1020,11 +1090,6 @@ const sku = order?.firstLineItemSku || order?.sku || "";
         <article class="megaska-dashboard-card"><h3>Total orders</h3><p>${totalOrders}</p></article>
         <article class="megaska-dashboard-card"><h3>Open requests</h3><p>${openRequests}</p></article>
         <article class="megaska-dashboard-card"><h3>Saved addresses</h3><p>${savedAddresses}</p></article>
-        <article class="megaska-dashboard-card"><h3>Wallet balance</h3><p>${formatMinorCurrency(storeCredit, currency)}</p></article>
-      </section>
-      <section class="megaska-dashboard-card">
-        <h3>Wallet history</h3>
-        <ul class="megaska-dashboard-list">${walletHistoryHtml}</ul>
       </section>
       <section class="megaska-dashboard-card">
         <h3>Recent orders</h3>
@@ -1047,13 +1112,11 @@ const sku = order?.firstLineItemSku || order?.sku || "";
         </div>
       </section>
     `;
-
-    renderWalletSectionIntoLiveContainer(container, summary, containerSelector);
   }
 
   async function initDashboardPage() {
     const pathname = String(window?.location?.pathname || "");
-    if (!pathname.includes("/pages/megaska-dashboard")) return;
+    if (!(pathname.includes("/pages/megaska-dashboard") || pathname.includes("/apps/megaska/dashboard"))) return;
 
     const mountTarget =
       [
@@ -1085,7 +1148,7 @@ const sku = order?.firstLineItemSku || order?.sku || "";
 
     try {
       const summary = await fetchDashboardSummary();
-      renderDashboardSummary(mountEl, summary, containerSelector);
+      renderDashboardSummary(mountEl, summary);
       bindLogoutButtons();
       bindWalletApplyButtons(mountEl);
 
@@ -1142,6 +1205,7 @@ const sku = order?.firstLineItemSku || order?.sku || "";
     saveSessionToken: setSessionToken,
     fetchSession,
     fetchDashboardSummary,
+    checkPincode,
     refreshAuthState,
     bootstrapAuth,
     requestOtp,

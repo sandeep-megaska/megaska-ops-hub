@@ -40,6 +40,7 @@ model CustomerProfile {
   gstParties          GstParty[]
   refundRequests      RefundRequest[]
   codAdvanceIntents   CodAdvanceIntent[]
+  recoveryTokens      CheckoutRecoveryToken[]
 
   @@unique([shopId, shopifyCustomerId])
   @@index([shopId])
@@ -57,6 +58,18 @@ model Shop {
   uninstalledAt         DateTime?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+  myshopifyDomain          String?  @unique
+  primaryDomain            String?
+  shopName                 String?
+  accessTokenEncrypted     String?
+  storefrontTokenEncrypted String?
+  appProxyPrefix           String?
+  appProxySubpath          String?
+  appProxyEnabled          Boolean  @default(false)
+  installationStatus       String   @default("DEV")
+  checkoutEnabled          Boolean  @default(false)
+  tokenExpiresAt           DateTime?
+  tokenRotationRequiredAt  DateTime?
 
   customers             CustomerProfile[]
   otpChallenges         OTPChallenge[]
@@ -70,6 +83,10 @@ model Shop {
   refundRequests        RefundRequest[]
   codAdvanceSettings    CodAdvanceSettings[]
   codAdvanceIntents     CodAdvanceIntent[]
+  moduleConfigs         ShopModuleConfig[]
+  proxyRoutes           ShopProxyRoute[]
+  installationEvents    ShopInstallationEvent[]
+  recoveryTokens        CheckoutRecoveryToken[]
 }
 model AuthSession {
   id                  String   @id @default(uuid())
@@ -1229,4 +1246,258 @@ model ExchangePaymentInvoice {
   request            OrderActionRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId])
+}
+
+enum ExpressCheckoutIntentStatus {
+  CREATED
+  CUSTOMER_AUTHENTICATED
+  CART_SNAPSHOT_LOCKED
+  ADDRESS_CAPTURED
+  DISCOUNT_APPLIED
+  PAYMENT_METHOD_SELECTED
+  PAYMENT_PENDING
+  PAYMENT_CONFIRMED
+  ORDER_CREATING
+  ORDER_CREATED
+  FAILED
+  EXPIRED
+  CANCELLED
+  INITIATED
+  SESSION_VERIFIED
+  ADDRESS_COMPLETED
+  DELIVERY_VALIDATED
+  COUPON_APPLIED
+  PAYMENT_SELECTED
+  DRAFT_ORDER_CREATED
+  PAYMENT_SUCCESS
+  ORDER_COMPLETED
+  PAYMENT_FAILED
+  PAYMENT_CANCELLED
+  ABANDONED
+}
+
+enum ExpressCheckoutPaymentMethod {
+  PREPAID
+  COD
+}
+
+enum ExpressCheckoutPaymentStatus {
+  NOT_REQUIRED
+  PENDING
+  CONFIRMED
+  FAILED
+  REFUNDED
+}
+
+enum ExpressCheckoutDiscountType {
+  MANUAL_CODE
+  AUTOMATIC
+}
+
+enum CheckoutRecoveryType {
+  CHECKOUT_ABANDONMENT
+  PAYMENT_ABANDONMENT
+}
+
+enum CheckoutRecoveryTokenStatus {
+  ACTIVE
+  USED
+  EXPIRED
+  REVOKED
+}
+
+model ExpressCheckoutIntent {
+  id                    String                       @id @default(uuid())
+  shopId                String
+  customerProfileId     String?
+  sessionTokenHash      String?
+  status                ExpressCheckoutIntentStatus @default(CREATED)
+  phoneSnapshot         String?
+  cartToken             String?
+  shopifyCartId         String?
+  cartSnapshot          Json?
+  subtotalAmountPaise   Int                         @default(0)
+  discountAmountPaise   Int                         @default(0)
+  shippingAmountPaise   Int                         @default(0)
+  codFeeAmountPaise     Int                         @default(0)
+  totalAmountPaise      Int                         @default(0)
+  currency              String                      @default("INR")
+  selectedPaymentMethod ExpressCheckoutPaymentMethod?
+  expiresAt             DateTime?
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+
+  addressSnapshots      ExpressCheckoutAddressSnapshot[]
+  discounts             ExpressCheckoutDiscount[]
+  payments              ExpressCheckoutPayment[]
+  orderLink             ExpressCheckoutOrderLink?
+  recoveryTokens        CheckoutRecoveryToken[]
+
+  @@index([shopId, id])
+  @@index([shopId, customerProfileId])
+  @@index([shopId, status])
+  @@index([shopId, sessionTokenHash])
+  @@index([shopId, cartToken])
+  @@index([shopId, shopifyCartId])
+}
+
+model CheckoutRecoveryToken {
+  id                 String                      @id @default(uuid())
+  shopId             String
+  checkoutIntentId   String
+  customerProfileId  String?
+  tokenHash          String                      @unique
+  recoveryType       CheckoutRecoveryType
+  status             CheckoutRecoveryTokenStatus @default(ACTIVE)
+  expiresAt          DateTime
+  clickedAt          DateTime?
+  usedAt             DateTime?
+  revokedAt          DateTime?
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+  metadata           Json?
+
+  shop               Shop                        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  checkoutIntent     ExpressCheckoutIntent       @relation(fields: [checkoutIntentId], references: [id], onDelete: Cascade)
+  customerProfile    CustomerProfile?            @relation(fields: [customerProfileId], references: [id], onDelete: SetNull)
+
+  @@index([shopId, tokenHash, status])
+  @@index([shopId, checkoutIntentId])
+}
+
+model ExpressCheckoutAddressSnapshot {
+  id                String                @id @default(uuid())
+  shopId            String
+  intentId          String
+  customerProfileId String?
+  name              String
+  phone             String
+  email             String?
+  address1          String
+  address2          String?
+  city              String
+  province          String
+  country           String                @default("India")
+  zip               String
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  intent            ExpressCheckoutIntent @relation(fields: [intentId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, id])
+  @@index([shopId, intentId])
+  @@index([shopId, customerProfileId])
+}
+
+model ExpressCheckoutDiscount {
+  id                  String                      @id @default(uuid())
+  shopId              String
+  intentId            String
+  type                ExpressCheckoutDiscountType
+  code                String?
+  title               String?
+  discountAmountPaise Int                         @default(0)
+  rawShopifyPayload   Json?
+  createdAt           DateTime                    @default(now())
+  updatedAt           DateTime                    @updatedAt
+
+  intent              ExpressCheckoutIntent       @relation(fields: [intentId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, id])
+  @@index([shopId, intentId])
+  @@index([shopId, code])
+}
+
+model ExpressCheckoutPayment {
+  id                    String                       @id @default(uuid())
+  shopId                String
+  intentId              String
+  method                ExpressCheckoutPaymentMethod
+  status                ExpressCheckoutPaymentStatus @default(PENDING)
+  amountPaise           Int                          @default(0)
+  currency              String                       @default("INR")
+  razorpayOrderId       String?
+  razorpayPaymentId     String?
+  razorpaySignatureHash String?
+  failureReason         String?
+  rawGatewayPayload     Json?
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
+
+  intent                ExpressCheckoutIntent        @relation(fields: [intentId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, id])
+  @@index([shopId, intentId])
+  @@index([shopId, status])
+  @@unique([shopId, razorpayOrderId])
+  @@unique([shopId, razorpayPaymentId])
+}
+
+model ExpressCheckoutOrderLink {
+  id                String                @id @default(uuid())
+  shopId            String
+  intentId          String                @unique
+  draftOrderId      String?
+  draftOrderName    String?
+  shopifyOrderId    String?
+  shopifyOrderName  String?
+  financialStatus   String?
+  fulfillmentStatus String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  intent            ExpressCheckoutIntent @relation(fields: [intentId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, intentId])
+  @@index([shopId, id])
+  @@index([shopId, intentId])
+  @@index([shopId, shopifyOrderId])
+}
+
+model ShopModuleConfig {
+  id        String   @id @default(uuid())
+  shopId    String
+  moduleKey String
+  enabled   Boolean  @default(false)
+  config    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, moduleKey])
+  @@index([shopId])
+  @@index([moduleKey, enabled])
+}
+
+model ShopProxyRoute {
+  id           String   @id @default(uuid())
+  shopId       String
+  routeKey     String
+  proxyPrefix  String
+  proxySubpath String
+  targetModule String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, routeKey])
+  @@index([shopId, isActive])
+  @@index([targetModule, isActive])
+}
+
+model ShopInstallationEvent {
+  id        String   @id @default(uuid())
+  shopId    String
+  eventType String
+  scopes    String?
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, createdAt])
+  @@index([eventType, createdAt])
 }

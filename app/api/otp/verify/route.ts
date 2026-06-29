@@ -3,6 +3,8 @@ import { prisma } from "../../../../services/db/prisma";
 import {
   generateSessionToken,
   hashSessionToken,
+  getCustomerSessionCookieOptions,
+  CUSTOMER_SESSION_COOKIE_NAME,
 } from "../../../../services/auth/session";
 import { withCors, handleOptions } from "../../_lib/cors";
 import {
@@ -12,7 +14,7 @@ import {
 } from "../../../../services/auth/otp";
 import {
   ShopResolutionError,
-  requireShopFromRequest,
+  requireStorefrontShopFromRequest,
 } from "../../../../services/shopify/shop";
 
 export async function OPTIONS(req: NextRequest) {
@@ -21,7 +23,7 @@ export async function OPTIONS(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const shop = await requireShopFromRequest(req);
+    const shop = await requireStorefrontShopFromRequest(req);
 
     const body = await req.json();
     const phoneRaw = String(body?.phone ?? "").trim();
@@ -290,9 +292,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return withCors(
-      req,
-      NextResponse.json({
+    const response = NextResponse.json({
         success: true,
         verified: true,
         phone: phoneE164,
@@ -327,8 +327,15 @@ export async function POST(req: NextRequest) {
               customerProfile.countryRegion?.trim()
           ),
         },
-      })
+      });
+
+    response.cookies.set(
+      CUSTOMER_SESSION_COOKIE_NAME,
+      sessionToken,
+      getCustomerSessionCookieOptions(authSession.expiresAt)
     );
+
+    return withCors(req, response);
   } catch (error) {
     console.error("[OTP VERIFY ERROR]", error);
 

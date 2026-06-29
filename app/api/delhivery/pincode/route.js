@@ -2,20 +2,40 @@ import { NextResponse } from "next/server";
 
 function withCors(response) {
   response.headers.set("Access-Control-Allow-Origin", "*");
-  response.headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept");
   return response;
 }
 
 export async function OPTIONS() {
-  return withCors(new NextResponse(null, { status: 200 }));
+  return withCors(NextResponse.json({ ok: true }, { status: 200 }));
 }
 
-export async function GET(req) {
-  const { searchParams } = new URL(req.url);
-  const pin = (searchParams.get("pin") || "").toString().trim();
+function normalizePin(value) {
+  return String(value || "").trim();
+}
 
-  if (!pin || pin.length < 4) {
+async function readPin(req) {
+  const { searchParams } = new URL(req.url);
+  if (searchParams.has("pincode")) return normalizePin(searchParams.get("pincode"));
+  if (searchParams.has("pin")) return normalizePin(searchParams.get("pin"));
+
+  if (req.method === "POST") {
+    try {
+      const body = await req.json();
+      return normalizePin(body?.pincode || body?.pin);
+    } catch (_error) {
+      return "";
+    }
+  }
+
+  return "";
+}
+
+async function handlePincode(req) {
+  const pin = await readPin(req);
+
+  if (!/^\d{6}$/.test(pin)) {
     return withCors(
       NextResponse.json(
         { ok: false, error: "Invalid pincode" },
@@ -43,11 +63,11 @@ export async function GET(req) {
       );
     }
 
-    const svcUrl = `${baseUrl}?token=${encodeURIComponent(
-      token
-    )}&filter_codes=${encodeURIComponent(pin)}`;
+    const svcUrl = new URL(baseUrl);
+    svcUrl.searchParams.set("token", token);
+    svcUrl.searchParams.set("filter_codes", pin);
 
-    const dlRes = await fetch(svcUrl, {
+    const dlRes = await fetch(svcUrl.toString(), {
       method: "GET",
       headers: {
         Accept: "application/json",
@@ -77,7 +97,7 @@ export async function GET(req) {
     let raw;
     try {
       raw = JSON.parse(svcText);
-    } catch (_e) {
+    } catch {
       return withCors(
         NextResponse.json(
           {
@@ -108,6 +128,9 @@ export async function GET(req) {
       return withCors(
         NextResponse.json({
           ok: true,
+          pincode: pin,
+          serviceable: false,
+          error: "Delivery is not available for this PIN code.",
           pin,
           isServiceable: false,
           isCod,
@@ -151,7 +174,7 @@ export async function GET(req) {
 
         try {
           tatJson = JSON.parse(tatText);
-        } catch (_e) {}
+        } catch {}
 
         if (tatJson) {
           tatDays =
@@ -184,6 +207,11 @@ export async function GET(req) {
     return withCors(
       NextResponse.json({
         ok: true,
+        pincode: pin,
+        serviceable: isServiceable,
+        state: stateCode,
+        stateName: stateCode,
+        estimatedDeliveryDate: estimatedDate,
         pin,
         isServiceable,
         isCod,
@@ -205,4 +233,12 @@ export async function GET(req) {
       )
     );
   }
+}
+
+export async function GET(req) {
+  return handlePincode(req);
+}
+
+export async function POST(req) {
+  return handlePincode(req);
 }
