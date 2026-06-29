@@ -22,7 +22,10 @@ api_version = "2026-01"
 scopes = "read_all_orders,read_customers,write_customers,read_discounts,write_discounts,write_metaobject_definitions,read_orders,write_orders,read_products,write_products,unauthenticated_write_checkouts,unauthenticated_read_checkouts,unauthenticated_read_metaobjects,unauthenticated_read_product_listings"
 optional_scopes = []
 use_legacy_install_flow = false
-
+[app_proxy]
+url = "https://megaska-ops-hub-exs1.vercel.app"
+subpath = "megaska"
+prefix = "apps"
 [access.admin]
 direct_api_mode = "online"
 
@@ -52,3 +55,4 @@ required = true
 [metaobjects.app.example.fields.description]
 name = "Description"
 type = "multi_line_text_field"
+
