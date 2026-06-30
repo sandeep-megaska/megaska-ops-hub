@@ -8,6 +8,7 @@
   const state = {
     open: false,
     step: "idle",
+    inlinePaymentShowing: false, 
     intent: null,
     customer: null,
     busy: false,
@@ -525,6 +526,8 @@
   }
 
   function render() {
+    if (state.inlinePaymentShowing) return; // preserve inline payment form — don't overwrite DOM
+  const root = ensureModal().querySelector("[data-express-root]");
     const root = ensureModal().querySelector("[data-express-root]");
     if (state.step === "loading") renderCheckout(root);
     else if (state.step === "success") root.innerHTML = `<section class="megaska-otp-success"><div class="megaska-otp-success-icon">✓</div><h2 id="megaska-express-title">Order placed successfully</h2><p>${escapeHtml(state.error || "Your order is confirmed.")}</p><a class="megaska-otp-primary-btn" href="/">Continue shopping</a></section>`;
@@ -589,7 +592,7 @@
 
   async function open(opts) {
     const openStart = Number(opts?.openStart || perfNow());
-    state.open = true; state.step = "checkout"; state.error = ""; state.busy = false; state.paymentStarted = false; state.orderSubmitting = false; state.intent = null; state.customer = null; state.customerDefaultAddress = null; state.addressDraft = {}; state.editingAddress = false; state.discountMessage = ""; state.pincode = ""; state.pincodeStatus = "idle"; state.pincodeMessage = "Enter 6-digit PIN code to check delivery."; state.pincodeEta = ""; state.pincodeCity = ""; state.pincodeState = ""; state.lastCheckedPincode = ""; state.pincodeCache = {}; state.savedPincode = ""; state.savedPincodeStatus = "idle"; state.savedPincodeMessage = ""; state.savedPincodeEta = ""; state.lastCheckedSavedPincode = ""; state.hydration = { session: "loading", cart: "idle", intent: "idle", address: "loading", discount: "loading", pincode: "idle", payment: "loading" }; resetApiCallPerf(openStart);
+    state.open = true; state.step = "checkout"; state.error = ""; state.busy = false; state.paymentStarted = false; state.orderSubmitting = false; state.inlinePaymentShowing = false; state.intent = null; state.customer = null; state.customerDefaultAddress = null; state.addressDraft = {}; state.editingAddress = false; state.discountMessage = ""; state.pincode = ""; state.pincodeStatus = "idle"; state.pincodeMessage = "Enter 6-digit PIN code to check delivery."; state.pincodeEta = ""; state.pincodeCity = ""; state.pincodeState = ""; state.lastCheckedPincode = ""; state.pincodeCache = {}; state.savedPincode = ""; state.savedPincodeStatus = "idle"; state.savedPincodeMessage = ""; state.savedPincodeEta = ""; state.lastCheckedSavedPincode = ""; state.hydration = { session: "loading", cart: "idle", intent: "idle", address: "loading", discount: "loading", pincode: "idle", payment: "loading" }; resetApiCallPerf(openStart);
     const modal = ensureModal(); modal.hidden = false; modal.setAttribute("aria-hidden", "false"); document.documentElement.classList.add("megaska-otp-open"); render();
     try {
       await waitForModalShellPaint(openStart);
@@ -708,7 +711,7 @@
     await proceedWithSelectedPayment(event.target.value);
   }
 
-  function loadRazorpay() { return new Promise((resolve, reject) => { if (window.Razorpay) return resolve(); const script = document.createElement("script"); script.src = "https://checkout.razorpay.com/v1/razorpay.js"; script.onload = resolve; script.onerror = () => reject(new Error("Unable to load Razorpay Checkout.")); document.head.appendChild(script); }); }
+  function loadRazorpay() { return new Promise((resolve, reject) => {  const script = document.createElement("script"); script.src = "https://checkout.razorpay.com/v1/razorpay.js"; script.onload = resolve; script.onerror = () => reject(new Error("Unable to load Razorpay Checkout.")); document.head.appendChild(script); }); }
   async function createOrder() { const data = await apiFetch(`/express/checkout/intents/${encodeURIComponent(state.intent.id)}/order`, { method: "POST", body: {} }); state.step = "success"; state.error = `${data.orderLink?.shopifyOrderName || data.shopifyOrder?.name || "Your order"} has been created.`; state.busy = false; state.paymentStarted = false; render(); }
   function createRazorpayEmbedContainer() {
   const modal = ensureModal();
@@ -734,6 +737,7 @@
   cancelBtn.textContent = '← Change payment method';
   cancelBtn.style.cssText = 'display:block; margin-top:10px; margin-bottom:6px;';
   cancelBtn.addEventListener('click', () => {
+    state.inlinePaymentShowing = false;
     state.busy            = false;
     state.orderSubmitting  = false;
     state.paymentStarted   = false;
@@ -969,7 +973,7 @@ function renderInlinePaymentForm(rzp, basePayload, selectedDisplayMethod, totalL
   render();
 
   await saveAddressFromCheckout();
-  if (payMethod() === 'COD') return createOrder();
+  if (payMethod() === 'COD') return createOrder(); // COD unchanged
 
   const selectedDisplayMethod = selectedDisplayPaymentMethod();
   state.paymentStarted = true;
@@ -989,40 +993,43 @@ function renderInlinePaymentForm(rzp, basePayload, selectedDisplayMethod, totalL
     );
   }
 
-  // ── Init razorpay.js custom checkout (NO .open(), NO popup) ────────
+  // ── razorpay.js: init custom checkout — never calls .open() ──────
   const rzp = new window.Razorpay({ key: checkout.key });
 
   rzp.on('payment.success', async (response) => {
+    state.inlinePaymentShowing = false; // allow render() to proceed
     try {
       const verified = await apiFetch(
         `/express/checkout/intents/${encodeURIComponent(state.intent.id)}/razorpay-verify`,
         { method: 'POST', body: response }
       );
       state.step            = 'success';
-      state.error           = `${verified.orderLink?.shopifyOrderName ||
-                                  verified.shopifyOrder?.name ||
-                                  'Your order'} has been created.`;
+      state.error           = `${verified.orderLink?.shopifyOrderName
+                                || verified.shopifyOrder?.name
+                                || 'Your order'} has been created.`;
       state.busy            = false;
       state.orderSubmitting = false;
       state.paymentStarted  = false;
       await refreshIntent();
       render();
-    } catch (verifyError) {
-      state.error = 'Payment received but order confirmation failed. Please contact support.';
-      state.busy = false; state.orderSubmitting = false; state.paymentStarted = false;
+    } catch (verifyErr) {
+      state.error           = 'Payment received but order confirmation failed. Contact support.';
+      state.busy            = false;
+      state.orderSubmitting = false;
+      state.paymentStarted  = false;
       render();
     }
   });
 
   rzp.on('payment.error', (errorData) => {
+    state.inlinePaymentShowing = false; // allow render() to proceed
     state.error           = errorData?.error?.description || 'Payment failed. Please try again.';
     state.busy            = false;
     state.orderSubmitting = false;
     state.paymentStarted  = false;
-    render(); // re-shows payment method rows so user can retry
+    render(); // re-shows method rows so user can retry
   });
 
-  // Payload shared across all methods
   const basePayload = {
     order_id: checkout.razorpayOrderId,
     amount:   checkout.amountPaise,
@@ -1032,17 +1039,19 @@ function renderInlinePaymentForm(rzp, basePayload, selectedDisplayMethod, totalL
   };
   const totalLabel = money(checkout.amountPaise, checkout.currency);
 
-  // Inject container + cancel button into modal
+  // Inject the container + cancel button into the modal
   createRazorpayEmbedContainer();
 
-  // Render the correct inline form for the selected method
+  // Render the inline form (UPI input / Card form / etc.)
+  // createPayment() is called from inside the form's Pay button, not here
   renderInlinePaymentForm(rzp, basePayload, selectedDisplayMethod, totalLabel);
-  // createPayment() is called by the form's submit button — NOT here
-  // This function just renders the form; the user fills it and clicks Pay
 
-  state.busy = false; // allow cancel button to work while form is shown
-  render(); // update loading message — but container persists (it's outside [data-express-root])
-} 
+  // Set flag: render() will now be a no-op until payment resolves or user cancels
+  state.inlinePaymentShowing = true;
+  state.busy                 = false; // allow cancel button to be interactive
+  // DO NOT call render() here — it would destroy the inline form
+}
+  
   async function onActionClick(event) {
     const paymentRow = event.target.closest("[data-express-payment-method]");
     if (paymentRow) {
