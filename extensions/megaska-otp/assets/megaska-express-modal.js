@@ -766,13 +766,13 @@
   function ensureRazorpayScript() {
     if (window.Razorpay) return Promise.resolve(window.Razorpay);
     if (state.razorpayScriptPromise) return state.razorpayScriptPromise;
-    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/razorpay.js"]');
     state.razorpayScriptPromise = new Promise((resolve, reject) => {
       const script = existing || document.createElement("script");
       const done = () => window.Razorpay ? resolve(window.Razorpay) : reject(new Error("Razorpay Checkout loaded but is unavailable."));
       script.addEventListener("load", done, { once: true });
       script.addEventListener("error", () => reject(new Error("Unable to load Razorpay Checkout.")), { once: true });
-      if (!existing) { script.src = "https://checkout.razorpay.com/v1/checkout.js"; script.async = true; document.head.appendChild(script); }
+      if (!existing) {script.src = "https://checkout.razorpay.com/v1/razorpay.js"; script.async = true; document.head.appendChild(script); }
     });
     return state.razorpayScriptPromise;
   }
@@ -835,8 +835,7 @@
   }
 
   function createRazorpayInstance(checkout, displayMethod) {
-    const options = buildStandardRazorpayOptions(checkout, displayMethod);
-    const instance = new window.Razorpay(options);
+    const instance = new window.Razorpay({ key: checkout.key });
     state.activeRazorpayInstance = attachRazorpayListeners(instance);
     logRazorpayRuntimeDiagnostics(state.activeRazorpayInstance, checkout, displayMethod);
     return state.activeRazorpayInstance;
@@ -915,16 +914,51 @@
     }
   }
 
-  async function openStandardRazorpayFallback() {
-    try {
-      state.inlinePaymentError = ""; state.paymentInProgress = true; state.orderSubmitting = true; state.busy = true; renderPaymentSectionOnly();
-      await ensureAddressSavedOnce(); await ensureBackendPaymentMethod("PREPAID"); await ensureRazorpayScript();
-      const checkout = await ensureRazorpayOrder();
-      const options = buildStandardRazorpayOptions(checkout, selectedDisplayPaymentMethod());
-      logRazorpayDisplayConfig(selectedDisplayPaymentMethod(), options.display?.blocks?.selected_method?.instruments?.[0]?.method || null, options);
-      new window.Razorpay(options).open();
-    } catch (error) { state.paymentInProgress = false; state.orderSubmitting = false; state.busy = false; showInlinePaymentError(prepaidPlaceOrderMessage(error)); renderPaymentSectionOnly(); }
+async function openStandardRazorpayFallback() {
+  try {
+    state.inlinePaymentError   = "";
+    state.paymentInProgress   = true;
+    state.orderSubmitting    = true;
+    state.busy               = true;
+    renderPaymentSectionOnly();
+
+    await ensureAddressSavedOnce();
+    await ensureBackendPaymentMethod("PREPAID");
+
+    // ── Load checkout.js for the popup, preserve razorpay.js for inline ──
+    const rzpInline = window.Razorpay; // save razorpay.js reference
+    const CheckoutRzp = await new Promise((resolve, reject) => {
+      // Return cached checkout.js reference if already loaded
+      if (window.__megaskaCheckoutRzp) return resolve(window.__megaskaCheckoutRzp);
+      const s = document.createElement("script");
+      s.src   = "https://checkout.razorpay.com/v1/checkout.js";
+      s.async = true;
+      s.addEventListener("load", () => {
+        window.__megaskaCheckoutRzp = window.Razorpay; // cache checkout.js
+        window.Razorpay = rzpInline;              // restore razorpay.js
+        resolve(window.__megaskaCheckoutRzp);
+      }, { once: true });
+      s.addEventListener("error", () => reject(new Error("Unable to load Razorpay Checkout.")), { once: true });
+      document.head.appendChild(s);
+    });
+    // ──────────────────────────────────────────────────────────────────
+
+    const checkout = await ensureRazorpayOrder();
+    const options  = buildStandardRazorpayOptions(checkout, selectedDisplayPaymentMethod());
+    logRazorpayDisplayConfig(
+      selectedDisplayPaymentMethod(),
+      options.display?.blocks?.selected_method?.instruments?.[0]?.method || null,
+      options
+    );
+    new CheckoutRzp(options).open(); // uses checkout.js — popup opens correctly
+  } catch (error) {
+    state.paymentInProgress   = false;
+    state.orderSubmitting    = false;
+    state.busy               = false;
+    showInlinePaymentError(prepaidPlaceOrderMessage(error));
+    renderPaymentSectionOnly();
   }
+}
 
   async function placeOrder() {
     const method = selectedDisplayPaymentMethod();
