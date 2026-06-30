@@ -599,6 +599,11 @@
       state.hydration.session = "ready";
       render();
       await createIntent();
+      // Preload razorpay.js in background — so it's cached by the time user taps Pay
+    loadRazorpay().catch(() => {}); // fire-and-forget, ignore errors
+
+    debugLog("modal ready", { intentId: state.intent?.id });
+    render();
       debugLog("modal ready", { intentId: state.intent?.id }); render(); perfDetails("duplicate_api_calls_found", { shopId: getShopDomain() || null, intentId: state.intent?.id || null, duplicateCallsFound: state.perf.duplicateCallsFound, calls: state.perf.apiCalls }); perfDetails("modal_ready_total_ms", { shopId: getShopDomain() || null, intentId: state.intent?.id || null, duplicateCallsFound: state.perf.duplicateCallsFound, durationMs: Math.round(perfNow() - openStart) }); const initialZip = ensureModal().querySelector('[name="zip"]')?.value || ""; if (initialZip) schedulePincodeCheck(initialZip); const savedZip = hasCompleteAddress(address()) ? address().zip : ""; if (savedZip) scheduleSavedAddressPincodeCheck(savedZip);
     }
     catch (error) { state.step = "error"; state.error = error instanceof Error ? error.message : "Unable to prepare checkout."; render(); }
@@ -977,8 +982,7 @@ function renderInlinePaymentForm(rzp, basePayload, selectedDisplayMethod, totalL
   const selectedDisplayMethod = selectedDisplayPaymentMethod();
   state.paymentStarted = true;
 
-  await ensurePaymentMethod('PREPAID');
-  await loadRazorpay(); // now loads razorpay.js — custom checkout SDK
+   await loadRazorpay(); // now loads razorpay.js — custom checkout SDK
 
   const data = await apiFetch(
     `/express/checkout/intents/${encodeURIComponent(state.intent.id)}/razorpay-order`,
