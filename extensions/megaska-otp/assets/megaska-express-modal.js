@@ -520,7 +520,7 @@
         <span class="megaska-express-payment-copy"><span class="megaska-express-payment-title"><strong>${escapeHtml(method.label)}</strong>${method.badge ? `<em>${escapeHtml(method.badge)}</em>` : ""}</span><small>${escapeHtml(method.subtitle)}</small></span>
         <span class="megaska-express-payment-amount">${escapeHtml(totalLabel)}</span>
         <span class="megaska-express-payment-status" aria-hidden="true">${selected ? "✓" : "›"}</span>
-       /* ${method.key === "UPI" ? upiExpandedPanel(totalLabel) : ""}*/
+       
       </label>`;
     }).join("");
   }
@@ -711,6 +711,62 @@
 
   function loadRazorpay() { return new Promise((resolve, reject) => { if (window.Razorpay) return resolve(); const script = document.createElement("script"); script.src = "https://checkout.razorpay.com/v1/checkout.js"; script.onload = resolve; script.onerror = () => reject(new Error("Unable to load Razorpay Checkout.")); document.head.appendChild(script); }); }
   async function createOrder() { const data = await apiFetch(`/express/checkout/intents/${encodeURIComponent(state.intent.id)}/order`, { method: "POST", body: {} }); state.step = "success"; state.error = `${data.orderLink?.shopifyOrderName || data.shopifyOrder?.name || "Your order"} has been created.`; state.busy = false; state.paymentStarted = false; render(); }
+  function createRazorpayEmbedContainer() {
+  const modal = ensureModal();
+
+  // Remove any stale container left over from a previous payment attempt
+  const stale = modal.querySelector('#megaska-rzp-container');
+  if (stale) stale.remove();
+
+  const paymentSection = modal.querySelector('.megaska-express-payment');
+  if (!paymentSection) throw new Error('[Megaska] Payment section missing from modal DOM.');
+
+  // Hide the payment-method rows + intro text while Razorpay is active
+  const optionsDiv = paymentSection.querySelector('.megaska-express-payment-options');
+  const introP     = paymentSection.querySelector('.megaska-express-payment-intro');
+  if (optionsDiv) optionsDiv.style.display = 'none';
+  if (introP)     introP.style.display     = 'none';
+
+  // ── Cancel button ─────────────────────────────────────────────────
+  // Replaces ondismiss (not supported for embedded checkout)
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type      = 'button';
+  cancelBtn.className = 'megaska-express-link-btn';
+  cancelBtn.textContent = '← Change payment method';
+  cancelBtn.style.cssText = 'display:block; margin-top:10px; margin-bottom:6px;';
+  cancelBtn.addEventListener('click', () => {
+    state.busy            = false;
+    state.orderSubmitting  = false;
+    state.paymentStarted   = false;
+    state.paymentUpdating  = false;
+    state.error            = 'Payment was not completed. You can try again.';
+    render(); // destroys container + restores method rows
+  });
+
+  // ── Razorpay container ────────────────────────────────────────────
+  // Razorpay will inject its iframe into this div
+  const container = document.createElement('div');
+  container.id = 'megaska-rzp-container';
+  container.style.cssText = [
+    'min-height:340px',
+    'width:100%',
+    'border-radius:8px',
+    'overflow:hidden',
+    'border:1.5px solid #e2ddd5',
+    'background:#fff',
+  ].join(';');
+
+  paymentSection.appendChild(cancelBtn);
+  paymentSection.appendChild(container);
+
+  // Scroll smoothly so the inline form is visible
+  window.setTimeout(() => {
+    container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 120);
+
+  return container;
+}
+  
   async function placeOrder() {
     if (state.orderSubmitting) return;
     state.orderSubmitting = true; state.busy = true; state.error = ""; render();
