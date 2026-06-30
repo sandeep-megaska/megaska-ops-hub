@@ -764,18 +764,25 @@
   }
 
   function ensureRazorpayScript() {
-    if (window.Razorpay) return Promise.resolve(window.Razorpay);
-    if (state.razorpayScriptPromise) return state.razorpayScriptPromise;
-    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/razorpay.js"]');
-    state.razorpayScriptPromise = new Promise((resolve, reject) => {
-      const script = existing || document.createElement("script");
-      const done = () => window.Razorpay ? resolve(window.Razorpay) : reject(new Error("Razorpay Checkout loaded but is unavailable."));
-      script.addEventListener("load", done, { once: true });
-      script.addEventListener("error", () => reject(new Error("Unable to load Razorpay Checkout.")), { once: true });
-      if (!existing) {script.src = "https://checkout.razorpay.com/v1/razorpay.js"; script.async = true; document.head.appendChild(script); }
-    });
-    return state.razorpayScriptPromise;
+  // ❌ OLD — returns checkout.js if it was cached
+  // if (window.Razorpay) return Promise.resolve(window.Razorpay);
+
+  // ✅ NEW — only returns early if razorpay.js is already loaded (has createPayment)
+  if (window.Razorpay && typeof new window.Razorpay({key:''}).createPayment === 'function') {
+    return Promise.resolve(window.Razorpay);
   }
+
+  if (state.razorpayScriptPromise) return state.razorpayScriptPromise;
+  const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/razorpay.js"]');
+  state.razorpayScriptPromise = new Promise((resolve, reject) => {
+    const script = existing || document.createElement("script");
+    const done = () => window.Razorpay ? resolve(window.Razorpay) : reject(new Error("Razorpay Checkout loaded but is unavailable."));
+    script.addEventListener("load", done, { once: true });
+    script.addEventListener("error", () => reject(new Error("Unable to load Razorpay Checkout.")), { once: true });
+    if (!existing) { script.src = "https://checkout.razorpay.com/v1/razorpay.js"; script.async = true; document.head.appendChild(script); }
+  });
+  return state.razorpayScriptPromise;
+}
 
   function loadRazorpay() { return ensureRazorpayScript(); }
 
