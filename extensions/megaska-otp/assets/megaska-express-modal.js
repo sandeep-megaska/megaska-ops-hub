@@ -399,7 +399,6 @@
   function hasCompleteAddress(value) { return Boolean(value?.name && value?.phone && value?.address1 && value?.city && /^\d{6}$/.test(String(value?.zip || "").trim()) && value?.country); }
   function selectedDiscount(intent) { return Array.isArray(intent?.discounts) ? intent.discounts[0] || null : null; }
   function lines() { return Array.isArray(state.intent?.cartSnapshot?.lineItems) ? state.intent.cartSnapshot.lineItems : Array.isArray(state.intent?.cartSnapshot?.items) ? state.intent.cartSnapshot.items : []; }
-  function checkoutReady() { return Boolean(state.intent?.id) && state.hydration.session === "ready" && state.hydration.intent === "ready"; }
   function payMethod() { return state.optimisticPaymentMethod || state.intent?.selectedPaymentMethod || "PREPAID"; }
   function lineTitle(line) { return line?.product_title || line?.productTitle || line?.title || line?.name || "Item"; }
   function lineVariant(line) { const title = line?.variant_title || line?.variantTitle || ""; return title && title !== "Default Title" ? title : ""; }
@@ -435,12 +434,12 @@
 
 
   const DISPLAY_PAYMENT_METHODS = [
-    { key: "UPI", backendMethod: "PREPAID", label: "UPI", subtitle: "Pay using any UPI app", badge: "Popular", cta: "Pay with UPI", icon: "upi" },
-    { key: "CARD", backendMethod: "PREPAID", label: "Debit/Credit Cards", subtitle: "Visa, Mastercard, RuPay & more", cta: "Pay with Card", icon: "card" },
-    { key: "WALLET", backendMethod: "PREPAID", label: "Wallets", subtitle: "Amazon Pay, Paytm Wallet & more", cta: "Pay with Wallet", icon: "wallet" },
-    { key: "EMI", backendMethod: "PREPAID", label: "0% EMI on UPI & Cards", subtitle: "No-cost plans on eligible payments", cta: "Pay with EMI", icon: "emi" },
-    { key: "NETBANKING", backendMethod: "PREPAID", label: "Netbanking", subtitle: "All major banks supported", cta: "Pay with Netbanking", icon: "netbanking" },
-    { key: "COD", backendMethod: "COD", label: "Cash on Delivery", subtitle: "Pay when your order is delivered", cta: "Place COD Order", icon: "cod" },
+    { key: "UPI", backendMethod: "PREPAID", label: "UPI", subtitle: "Pay using any UPI app", badge: "Popular", icon: "upi" },
+    { key: "CARD", backendMethod: "PREPAID", label: "Debit/Credit Cards", subtitle: "Visa, Mastercard, RuPay & more", icon: "card" },
+    { key: "WALLET", backendMethod: "PREPAID", label: "Wallets", subtitle: "Amazon Pay, Paytm Wallet & more", icon: "wallet" },
+    { key: "EMI", backendMethod: "PREPAID", label: "0% EMI on UPI & Cards", subtitle: "No-cost plans on eligible payments", icon: "emi" },
+    { key: "NETBANKING", backendMethod: "PREPAID", label: "Netbanking", subtitle: "All major banks supported", icon: "netbanking" },
+    { key: "COD", backendMethod: "COD", label: "Cash on Delivery", subtitle: "Pay when your order is delivered", icon: "cod" },
   ];
 
   function displayMethodForBackend(method) {
@@ -457,8 +456,41 @@
     return DISPLAY_PAYMENT_METHODS.find((method) => method.key === displayMethod)?.backendMethod || "PREPAID";
   }
 
-  function displayPaymentMethodConfig(displayMethod) {
-    return DISPLAY_PAYMENT_METHODS.find((method) => method.key === displayMethod) || DISPLAY_PAYMENT_METHODS[0];
+  function razorpayInstrumentForDisplayMethod(selectedDisplayPaymentMethod) {
+    const method = String(selectedDisplayPaymentMethod || "").toUpperCase();
+    if (method === "UPI") return { method: "upi" };
+    if (method === "CARD") return { method: "card" };
+    if (method === "WALLET") return { method: "wallet" };
+    if (method === "NETBANKING") return { method: "netbanking" };
+    if (method === "EMI") return { method: "emi" };
+    return null;
+  }
+
+  function buildRazorpayDisplayConfig(selectedDisplayPaymentMethod) {
+    const instrument = razorpayInstrumentForDisplayMethod(selectedDisplayPaymentMethod);
+    if (!instrument) return null;
+    return {
+      blocks: {
+        selected_method: {
+          name: "Pay using selected method",
+          instruments: [instrument],
+        },
+      },
+      sequence: ["block.selected_method"],
+      preferences: {
+        show_default_blocks: false,
+      },
+    };
+  }
+
+  function logRazorpayDisplayConfig(selectedDisplayMethod, razorpayMethod, options) {
+    if (window.console && typeof window.console.debug === "function") {
+      window.console.debug("[Megaska Express] Razorpay display config", {
+        selectedDisplayMethod,
+        razorpayMethod,
+        displayConfigApplied: Boolean(options.display),
+      });
+    }
   }
 
   function paymentMethodIcon(name) {
@@ -482,7 +514,7 @@
     return DISPLAY_PAYMENT_METHODS.map((method) => {
       const selected = method.key === selectedMethod;
       const totalLabel = state.hydration.intent !== "ready" ? "Calculating..." : money(payableAmount(method.backendMethod), state.intent?.currency);
-      return `<label class="megaska-express-payment-option ${selected ? "is-selected" : ""} ${method.key === "UPI" ? "megaska-express-payment-option--upi" : "megaska-express-payment-option--compact"}">
+      return `<label class="megaska-express-payment-option ${selected ? "is-selected" : ""} ${method.key === "UPI" ? "megaska-express-payment-option--upi" : "megaska-express-payment-option--compact"}" data-express-payment-method="${escapeHtml(method.key)}">
         <input type="radio" name="paymentMethod" value="${escapeHtml(method.key)}" ${selected ? "checked" : ""} ${disabled ? "disabled" : ""}>
         <span class="megaska-express-payment-icon">${paymentMethodIcon(method.icon)}</span>
         <span class="megaska-express-payment-copy"><span class="megaska-express-payment-title"><strong>${escapeHtml(method.label)}</strong>${method.badge ? `<em>${escapeHtml(method.badge)}</em>` : ""}</span><small>${escapeHtml(method.subtitle)}</small></span>
@@ -506,8 +538,6 @@
     const currentAddress = Object.assign({}, address(), state.addressDraft);
     const selected = payMethod();
     const selectedDisplayMethod = selectedDisplayPaymentMethod();
-    const selectedDisplayConfig = displayPaymentMethodConfig(selectedDisplayMethod);
-    const isReady = checkoutReady();
     const priceHydrating = state.hydration.intent !== "ready";
     const addressHydrating = state.hydration.session !== "ready" || state.hydration.address === "loading" || state.hydration.intent === "loading";
     const paymentHydrating = state.hydration.payment !== "ready" || state.hydration.intent !== "ready";
@@ -518,16 +548,13 @@
     const discountChip = discount ? `<p class="megaska-express-chip"><strong>${escapeHtml(discountCode)} applied</strong><br>You saved ${money(intent.discountAmountPaise, intent.currency)}</p>` : (state.discountMessage ? `<p class="megaska-express-chip">${escapeHtml(state.discountMessage)}</p>` : "");
     const hasAddress = hasCompleteAddress(currentAddress) && !state.editingAddress;
     const savedPincodeMarkup = hasAddress && state.savedPincodeMessage ? `<p class="megaska-express-saved-pincode-status" data-express-saved-pincode-message data-status="${escapeHtml(state.savedPincodeStatus)}">${escapeHtml(state.savedPincodeMessage)}</p>` : "";
-    const prepaidAmount = priceHydrating ? "Calculating..." : money(payableAmount("PREPAID"), intent.currency);
     const totalAmount = priceHydrating ? "Calculating..." : money(payableAmount(selected), intent.currency);
-    const submitLabel = !isReady ? "Preparing..." : state.orderSubmitting && state.paymentStarted ? "Opening secure payment..." : state.orderSubmitting ? "Placing order..." : selectedDisplayConfig.cta;
-    const disabledCta = !isReady || state.busy || state.orderSubmitting ? "disabled" : "";
     const addressMarkup = addressHydrating && !hasAddress
       ? `<section class="megaska-express-stack"><h3>Delivery address</h3><p class="megaska-otp-step-subtitle" aria-live="polite">Loading saved address...</p></section>`
       : hasAddress
         ? `<section class="megaska-express-stack"><div class="megaska-express-section-head"><h3>Delivery address</h3><button class="megaska-express-link-btn" type="button" data-express-action="change-address">Change Address ›</button></div><div class="megaska-express-address-card"><span class="megaska-express-address-icon" aria-hidden="true">⌖</span><div><strong>${escapeHtml(currentAddress.name)}</strong><p>${escapeHtml(currentAddress.address1)}${currentAddress.address2 ? `, ${escapeHtml(currentAddress.address2)}` : ""}</p><p>${escapeHtml(currentAddress.city)}, ${escapeHtml(currentAddress.province)} ${escapeHtml(currentAddress.zip)}, ${escapeHtml(currentAddress.country)}</p><p>${escapeHtml(intent.phoneSnapshot || currentAddress.phone)}</p>${savedPincodeMarkup}</div></div></section>`
         : `<form data-express-form="address" class="megaska-express-stack" novalidate><h3>Delivery address</h3><input name="name" value="${escapeHtml(currentAddress.name || "")}" placeholder="Full name" required><input name="email" value="${escapeHtml(currentAddress.email || state.customer?.email || "")}" placeholder="Email" type="email"><input value="${escapeHtml(intent.phoneSnapshot || currentAddress.phone || "Verified phone")}" disabled><input name="zip" value="${escapeHtml(currentAddress.zip || state.customer?.postalCode || "")}" placeholder="PIN code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required><p class="megaska-express-pincode-status" data-express-pincode-message data-status="${escapeHtml(state.pincodeStatus)}">${escapeHtml(state.pincodeMessage)}</p><p class="megaska-express-pincode-eta" data-express-pincode-eta>${state.pincodeEta ? `Estimated delivery by ${escapeHtml(formatEta(state.pincodeEta))}` : ""}</p><div class="megaska-express-fields"><input name="city" value="${escapeHtml(currentAddress.city || state.customer?.city || "")}" placeholder="City" required><input name="province" value="${escapeHtml(currentAddress.province || state.customer?.stateProvince || "")}" placeholder="State" required></div><input name="address1" value="${escapeHtml(currentAddress.address1 || state.customer?.addressLine1 || "")}" placeholder="Address line 1" required><input name="address2" value="${escapeHtml(currentAddress.address2 || state.customer?.addressLine2 || "")}" placeholder="Address line 2 / Landmark"><input name="country" value="${escapeHtml(currentAddress.country || "India")}" placeholder="Country" required><button type="submit" ${!state.intent?.id || state.busy ? "disabled" : ""}>Save address</button><p class="megaska-otp-step-subtitle">Address is saved to your checkout and profile.</p></form>`;
-    root.innerHTML = `${state.error ? `<p class="megaska-otp-error">${escapeHtml(state.error)}</p>` : ""}<header class="megaska-express-modal-header"><div class="megaska-express-logo">${logoMarkup()}</div><div><p class="megaska-otp-step-subtitle">Secure Checkout</p><h2 id="megaska-express-title" class="megaska-otp-step-title">Express checkout</h2></div></header><div class="megaska-express-progress"><span>Address</span><span>Coupon</span><span>Payment</span></div><section class="megaska-express-summary"><h3>Order summary</h3>${rows || `<p class="megaska-otp-step-subtitle">${state.hydration.cart === "loading" ? "Loading cart summary..." : "Cart details unavailable."}</p>`}${extraCount ? `<p class="megaska-otp-step-subtitle">+ ${extraCount} more item${extraCount > 1 ? "s" : ""}</p>` : ""}<div class="megaska-express-totals"><p><span>Subtotal</span><strong>${priceHydrating ? "Calculating..." : money(intent.subtotalAmountPaise, intent.currency)}</strong></p>${discountSummary(intent)}<p><span>Delivery</span><strong>${Number(intent.shippingAmountPaise || 0) ? money(intent.shippingAmountPaise, intent.currency) : "Free"}</strong></p><p class="megaska-express-total"><span>Total</span><strong>${totalAmount}</strong></p></div></section>${addressMarkup}<form data-express-form="discount" class="megaska-express-stack"><h3>Have a coupon?</h3><div class="megaska-express-inline"><input name="code" value="${escapeHtml(state.discountCode)}" placeholder="Enter coupon code"><button type="submit" ${!state.intent?.id || state.busy ? "disabled" : ""}>Apply</button></div>${discountChip}</form><section class="megaska-express-stack megaska-express-payment"><h3>Payment method</h3><p class="megaska-express-payment-intro">Select how you want to pay. Online options open Razorpay securely after you tap Pay.</p>${paymentHydrating ? `<p class="megaska-otp-step-subtitle" aria-live="polite">Loading payment options...</p>` : ""}<div class="megaska-express-payment-options">${paymentMethodRows(selectedDisplayMethod, paymentHydrating)}</div>${state.paymentUpdating ? `<p class="megaska-otp-step-subtitle">Updating payment method...</p>` : ""}${state.orderSubmitting ? `<p class="megaska-otp-step-subtitle">${state.paymentStarted ? "Opening secure payment..." : "Placing your order securely. Please wait..."}</p>` : ""}</section><div class="megaska-express-sticky-cta"><div class="megaska-express-sticky-trust"><p><span>🔒</span><strong>100% Secure Payments</strong></p><p><span>🛡</span><strong>Trusted & Reliable</strong></p></div><div class="megaska-express-sticky-main"><div><span>Total Payable</span><strong>${totalAmount}</strong></div><button class="megaska-otp-primary-btn" data-express-action="place-order" type="button" ${disabledCta}>${submitLabel}</button></div></div>`;
+    root.innerHTML = `${state.error ? `<p class="megaska-otp-error">${escapeHtml(state.error)}</p>` : ""}<header class="megaska-express-modal-header"><div class="megaska-express-logo">${logoMarkup()}</div><div><p class="megaska-otp-step-subtitle">Secure Checkout</p><h2 id="megaska-express-title" class="megaska-otp-step-title">Express checkout</h2></div></header><div class="megaska-express-progress"><span>Address</span><span>Coupon</span><span>Payment</span></div><section class="megaska-express-summary"><h3>Order summary</h3>${rows || `<p class="megaska-otp-step-subtitle">${state.hydration.cart === "loading" ? "Loading cart summary..." : "Cart details unavailable."}</p>`}${extraCount ? `<p class="megaska-otp-step-subtitle">+ ${extraCount} more item${extraCount > 1 ? "s" : ""}</p>` : ""}<div class="megaska-express-totals"><p><span>Subtotal</span><strong>${priceHydrating ? "Calculating..." : money(intent.subtotalAmountPaise, intent.currency)}</strong></p>${discountSummary(intent)}<p><span>Delivery</span><strong>${Number(intent.shippingAmountPaise || 0) ? money(intent.shippingAmountPaise, intent.currency) : "Free"}</strong></p><p class="megaska-express-total"><span>Total</span><strong>${totalAmount}</strong></p></div></section>${addressMarkup}<form data-express-form="discount" class="megaska-express-stack"><h3>Have a coupon?</h3><div class="megaska-express-inline"><input name="code" value="${escapeHtml(state.discountCode)}" placeholder="Enter coupon code"><button type="submit" ${!state.intent?.id || state.busy ? "disabled" : ""}>Apply</button></div>${discountChip}</form><section class="megaska-express-stack megaska-express-payment"><h3>Payment method</h3><p class="megaska-express-payment-intro">Tap a payment row to continue. Online options open Razorpay securely with that method selected.</p>${paymentHydrating ? `<p class="megaska-otp-step-subtitle" aria-live="polite">Loading payment options...</p>` : ""}<div class="megaska-express-payment-options">${paymentMethodRows(selectedDisplayMethod, paymentHydrating)}</div>${state.paymentUpdating ? `<p class="megaska-otp-step-subtitle">Updating payment method...</p>` : ""}${state.orderSubmitting ? `<p class="megaska-otp-step-subtitle">${state.paymentStarted ? "Opening secure payment..." : "Placing your order securely. Please wait..."}</p>` : ""}</section><div class="megaska-express-sticky-cta"><div class="megaska-express-sticky-trust"><p><span>🔒</span><strong>100% Secure Payments</strong></p><p><span>🛡</span><strong>Trusted & Reliable</strong></p></div><div class="megaska-express-sticky-main"><div><span>Total Payable</span><strong>${totalAmount}</strong></div></div></div>`;
     console.info("[EXPRESS UI] payment chips rendered", {
       paymentOptionCount: document.querySelectorAll(".megaska-express-payment-option").length,
       selectedDisplayMethod,
@@ -649,18 +676,90 @@
 
   async function ensurePaymentMethod(method) { if (state.intent?.selectedPaymentMethod !== method) await apiFetch(`/express/checkout/intents/${encodeURIComponent(state.intent.id)}/payment-method`, { method: "POST", body: { method } }); await refreshIntent(); state.optimisticPaymentMethod = null; if (state.intent?.selectedPaymentMethod !== method) throw new Error("Could not update payment method. Please try again."); }
 
+  async function proceedWithSelectedPayment(displayMethod) {
+    if (state.busy || state.orderSubmitting || state.paymentUpdating) return;
+    const nextDisplay = DISPLAY_PAYMENT_METHODS.some((method) => method.key === displayMethod) ? displayMethod : selectedDisplayPaymentMethod();
+    const next = backendPaymentMethodForDisplay(nextDisplay);
+    const previous = payMethod();
+    const previousDisplay = selectedDisplayPaymentMethod();
+    state.selectedDisplayPaymentMethod = nextDisplay;
+    state.optimisticPaymentMethod = next;
+    state.paymentUpdating = true;
+    state.error = "";
+    render();
+    try {
+      await ensurePaymentMethod(next);
+      state.paymentUpdating = false;
+      await placeOrder();
+    } catch (error) {
+      state.selectedDisplayPaymentMethod = previousDisplay;
+      state.optimisticPaymentMethod = previous;
+      state.paymentUpdating = false;
+      state.busy = false;
+      state.orderSubmitting = false;
+      state.paymentStarted = false;
+      state.error = next === "PREPAID" ? prepaidPlaceOrderMessage(error) : "We could not place your order right now. Please try again.";
+      render();
+    }
+  }
+
   async function onChange(event) {
     if (!event.target.matches('input[name="paymentMethod"]')) return;
-    const previous = payMethod(); const previousDisplay = selectedDisplayPaymentMethod(); const nextDisplay = event.target.value; const next = backendPaymentMethodForDisplay(nextDisplay); state.selectedDisplayPaymentMethod = nextDisplay; state.optimisticPaymentMethod = next; state.paymentUpdating = true; state.error = ""; render(); try { await ensurePaymentMethod(next); state.paymentUpdating = false; render(); } catch (_error) { state.selectedDisplayPaymentMethod = previousDisplay; state.optimisticPaymentMethod = previous; state.paymentUpdating = false; state.error = "Could not update payment method. Please try again."; render(); }
+    if (event.target.disabled) return;
+    await proceedWithSelectedPayment(event.target.value);
   }
 
   function loadRazorpay() { return new Promise((resolve, reject) => { if (window.Razorpay) return resolve(); const script = document.createElement("script"); script.src = "https://checkout.razorpay.com/v1/checkout.js"; script.onload = resolve; script.onerror = () => reject(new Error("Unable to load Razorpay Checkout.")); document.head.appendChild(script); }); }
   async function createOrder() { const data = await apiFetch(`/express/checkout/intents/${encodeURIComponent(state.intent.id)}/order`, { method: "POST", body: {} }); state.step = "success"; state.error = `${data.orderLink?.shopifyOrderName || data.shopifyOrder?.name || "Your order"} has been created.`; state.busy = false; state.paymentStarted = false; render(); }
-  async function placeOrder() { if (state.orderSubmitting) return; state.orderSubmitting = true; state.busy = true; state.error = ""; render(); await saveAddressFromCheckout(); if (payMethod() === "COD") return createOrder(); state.paymentStarted = true; await ensurePaymentMethod("PREPAID"); await loadRazorpay(); const data = await apiFetch(`/express/checkout/intents/${encodeURIComponent(state.intent.id)}/razorpay-order`, { method: "POST", body: {} }); const checkout = data.checkout || {}; if (!checkout.razorpayOrderId || !checkout.key) throw new MegaskaApiError("Could not start secure payment. Please try again.", { stage: "RAZORPAY_ORDER_CREATE", code: "RAZORPAY_ORDER_DETAILS_MISSING" }); new window.Razorpay({ key: checkout.key, amount: checkout.amountPaise, currency: checkout.currency || "INR", name: shopLabel(), description: "Express Checkout", order_id: checkout.razorpayOrderId, prefill: checkout.customer || {}, notes: checkout.notes || {}, handler: async (response) => { const verified = await apiFetch(`/express/checkout/intents/${encodeURIComponent(state.intent.id)}/razorpay-verify`, { method: "POST", body: response }); state.step = "success"; state.error = `${verified.orderLink?.shopifyOrderName || verified.shopifyOrder?.name || "Your order"} has been created.`; state.busy = false; state.orderSubmitting = false; state.paymentStarted = false; await refreshIntent(); render(); }, modal: { ondismiss: () => { state.busy = false; state.orderSubmitting = false; state.paymentStarted = false; state.error = "Payment was not completed. You can try again."; render(); } } }).open(); }
+  async function placeOrder() {
+    if (state.orderSubmitting) return;
+    state.orderSubmitting = true; state.busy = true; state.error = ""; render();
+    await saveAddressFromCheckout();
+    if (payMethod() === "COD") return createOrder();
+    const selectedDisplayMethod = selectedDisplayPaymentMethod();
+    state.paymentStarted = true;
+    await ensurePaymentMethod("PREPAID");
+    await loadRazorpay();
+    const data = await apiFetch(`/express/checkout/intents/${encodeURIComponent(state.intent.id)}/razorpay-order`, { method: "POST", body: {} });
+    const checkout = data.checkout || {};
+    if (!checkout.razorpayOrderId || !checkout.key) throw new MegaskaApiError("Could not start secure payment. Please try again.", { stage: "RAZORPAY_ORDER_CREATE", code: "RAZORPAY_ORDER_DETAILS_MISSING" });
+    const display = buildRazorpayDisplayConfig(selectedDisplayMethod);
+    const options = {
+      key: checkout.key, amount: checkout.amountPaise, currency: checkout.currency || "INR", name: shopLabel(), description: "Express Checkout", order_id: checkout.razorpayOrderId, prefill: checkout.customer || {}, notes: checkout.notes || {},
+      handler: async (response) => { const verified = await apiFetch(`/express/checkout/intents/${encodeURIComponent(state.intent.id)}/razorpay-verify`, { method: "POST", body: response }); state.step = "success"; state.error = `${verified.orderLink?.shopifyOrderName || verified.shopifyOrder?.name || "Your order"} has been created.`; state.busy = false; state.orderSubmitting = false; state.paymentStarted = false; await refreshIntent(); render(); },
+      modal: { ondismiss: () => { state.busy = false; state.orderSubmitting = false; state.paymentStarted = false; state.error = "Payment was not completed. You can try again."; render(); } },
+    };
+    if (display) options.display = display;
+    logRazorpayDisplayConfig(selectedDisplayMethod, display?.blocks?.selected_method?.instruments?.[0]?.method || null, options);
+    try {
+      new window.Razorpay(options).open();
+    } catch (error) {
+      if (window.console && typeof window.console.warn === "function") window.console.warn("[Megaska Express] Razorpay display config failed, retrying default checkout", error);
+      // Razorpay EMI availability can be account-, issuer-, and order-dependent; if direct EMI display config is rejected, retry the same order with card-focused checkout before falling back to default checkout.
+      if (selectedDisplayMethod === "EMI") {
+        const cardOptions = { ...options, display: buildRazorpayDisplayConfig("CARD") };
+        logRazorpayDisplayConfig(selectedDisplayMethod, cardOptions.display?.blocks?.selected_method?.instruments?.[0]?.method || null, cardOptions);
+        try { new window.Razorpay(cardOptions).open(); return; } catch (cardError) { if (window.console && typeof window.console.warn === "function") window.console.warn("[Megaska Express] Razorpay EMI card fallback failed, retrying default checkout", cardError); }
+      }
+      const fallbackOptions = { ...options };
+      delete fallbackOptions.display;
+      logRazorpayDisplayConfig(selectedDisplayMethod, null, fallbackOptions);
+      new window.Razorpay(fallbackOptions).open();
+    }
+  }
 
   async function onActionClick(event) {
+    const paymentRow = event.target.closest("[data-express-payment-method]");
+    if (paymentRow) {
+      event.preventDefault();
+      const input = paymentRow.querySelector('input[name="paymentMethod"]');
+      if (input?.disabled) return;
+      await proceedWithSelectedPayment(paymentRow.getAttribute("data-express-payment-method"));
+      return;
+    }
+
     const action = event.target.closest("[data-express-action]")?.getAttribute("data-express-action"); if (!action) return;
-    try { if (action === "retry") await open({}); if (action === "change-address") { state.editingAddress = true; render(); } if (action === "place-order" && !state.busy) await placeOrder(); } catch (error) { state.busy = false; state.orderSubmitting = false; state.paymentStarted = false; state.error = action === "place-order" ? (payMethod() === "PREPAID" ? prepaidPlaceOrderMessage(error) : "We could not place your order right now. Please try again.") : error instanceof Error ? error.message : "Something went wrong."; render(); }
+    try { if (action === "retry") await open({}); if (action === "change-address") { state.editingAddress = true; render(); } } catch (error) { state.busy = false; state.orderSubmitting = false; state.paymentStarted = false; state.error = error instanceof Error ? error.message : "Something went wrong."; render(); }
   }
 
   function bindTriggers() {
