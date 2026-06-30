@@ -528,7 +528,6 @@
   function render() {
     if (state.inlinePaymentShowing) return; // preserve inline payment form — don't overwrite DOM
   const root = ensureModal().querySelector("[data-express-root]");
-    const root = ensureModal().querySelector("[data-express-root]");
     if (state.step === "loading") renderCheckout(root);
     else if (state.step === "success") root.innerHTML = `<section class="megaska-otp-success"><div class="megaska-otp-success-icon">✓</div><h2 id="megaska-express-title">Order placed successfully</h2><p>${escapeHtml(state.error || "Your order is confirmed.")}</p><a class="megaska-otp-primary-btn" href="/">Continue shopping</a></section>`;
     else if (state.step === "error") root.innerHTML = `<h2 id="megaska-express-title" class="megaska-otp-step-title">Checkout needs attention</h2><p class="megaska-otp-error">${escapeHtml(state.error)}</p><button class="megaska-otp-primary-btn" data-express-action="retry" type="button">Retry</button><a class="megaska-otp-link" href="/checkout">Use standard checkout</a>`;
