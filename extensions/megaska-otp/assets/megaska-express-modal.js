@@ -708,7 +708,7 @@
     await proceedWithSelectedPayment(event.target.value);
   }
 
-  function loadRazorpay() { return new Promise((resolve, reject) => { if (window.Razorpay) return resolve(); const script = document.createElement("script"); script.src = "https://checkout.razorpay.com/v1/checkout.js"; script.onload = resolve; script.onerror = () => reject(new Error("Unable to load Razorpay Checkout.")); document.head.appendChild(script); }); }
+  function loadRazorpay() { return new Promise((resolve, reject) => { if (window.Razorpay) return resolve(); const script = document.createElement("script"); script.src = "https://checkout.razorpay.com/v1/razorpay.js"; script.onload = resolve; script.onerror = () => reject(new Error("Unable to load Razorpay Checkout.")); document.head.appendChild(script); }); }
   async function createOrder() { const data = await apiFetch(`/express/checkout/intents/${encodeURIComponent(state.intent.id)}/order`, { method: "POST", body: {} }); state.step = "success"; state.error = `${data.orderLink?.shopifyOrderName || data.shopifyOrder?.name || "Your order"} has been created.`; state.busy = false; state.paymentStarted = false; render(); }
   function createRazorpayEmbedContainer() {
   const modal = ensureModal();
@@ -765,8 +765,203 @@
 
   return container;
 }
+
+function renderInlinePaymentForm(rzp, basePayload, selectedDisplayMethod, totalLabel) {
+  const container = document.getElementById('megaska-rzp-container');
+  if (!container) return;
+
+  // Shared styles (inline so no CSS dependency)
+  const S = {
+    wrap:    'padding:16px',
+    label:   'display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:5px;margin-top:10px',
+    input:   'width:100%;border:1.5px solid #e2ddd5;border-radius:6px;padding:10px 12px;font-size:14px;font-family:inherit;background:#fff;color:#0f1117;outline:none;box-sizing:border-box',
+    btn:     'width:100%;background:#1a6b5e;color:#fff;border:none;border-radius:6px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:12px',
+    err:     'color:#c0392b;font-size:12px;min-height:16px;margin-top:6px',
+    hint:    'font-size:11px;color:#9ca3af;text-align:center;margin-top:8px',
+    row:     'display:flex;gap:10px',
+    walletBtn: 'width:100%;text-align:left;background:#f4f2ee;border:1.5px solid #e2ddd5;border-radius:6px;padding:11px 14px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:7px',
+  };
+
+  // ── UPI ───────────────────────────────────────────────────────────
+  if (selectedDisplayMethod === 'UPI') {
+    container.innerHTML = `
+      <div style="${S.wrap}">
+        <label style="${S.label}">UPI ID</label>
+        <input id="mzp-upi" type="text" inputmode="email" placeholder="yourname@upi"
+          autocomplete="off" style="${S.input}"/>
+        <p id="mzp-err" style="${S.err}"></p>
+        <button id="mzp-btn" type="button" style="${S.btn}">
+          Pay ${escapeHtml(totalLabel)} via UPI
+        </button>
+        <p style="${S.hint}">🔒 A collect request is sent to your UPI app. No redirect.</p>
+      </div>`;
+    const inp = container.querySelector('#mzp-upi');
+    const btn = container.querySelector('#mzp-btn');
+    const err = container.querySelector('#mzp-err');
+    inp.focus();
+    btn.addEventListener('click', () => {
+      const vpa = inp.value.trim();
+      if (!vpa || !vpa.includes('@')) { err.textContent = 'Enter a valid UPI ID (e.g. name@upi)'; return; }
+      err.textContent = '';
+      btn.disabled = true; btn.textContent = 'Sending collect request to your UPI app...';
+      rzp.createPayment({ ...basePayload, method: 'upi', vpa });
+    });
+    return;
+  }
+
+  // ── CARD ──────────────────────────────────────────────────────────
+  if (selectedDisplayMethod === 'CARD' || selectedDisplayMethod === 'EMI') {
+    const emiExtras = selectedDisplayMethod === 'EMI' ? `
+      <label style="${S.label}">Bank & Tenure</label>
+      <div style="${S.row}">
+        <select id="mzp-emi-bank" style="${S.input};flex:1">
+          <option value="">Select bank</option>
+          <option value="HDFC">HDFC Bank</option>
+          <option value="ICICI">ICICI Bank</option>
+          <option value="AXIS">Axis Bank</option>
+          <option value="KOTAK">Kotak Bank</option>
+          <option value="SBI">SBI Bank</option>
+        </select>
+        <select id="mzp-emi-tenure" style="${S.input};flex:1">
+          <option value="">Months</option>
+          <option value="3">3 months</option>
+          <option value="6">6 months</option>
+          <option value="9">9 months</option>
+          <option value="12">12 months</option>
+        </select>
+      </div>` : '';
+    container.innerHTML = `
+      <div style="${S.wrap}">
+        <label style="${S.label}">Card Number</label>
+        <input id="mzp-cnum" type="text" inputmode="numeric" maxlength="19"
+          placeholder="1234 5678 9012 3456" style="${S.input}"/>
+        <div style="${S.row};margin-top:8px">
+          <div style="flex:1">
+            <label style="${S.label}">Expiry</label>
+            <input id="mzp-cexp" type="text" placeholder="MM/YY" maxlength="5" style="${S.input}"/>
+          </div>
+          <div style="flex:1">
+            <label style="${S.label}">CVV</label>
+            <input id="mzp-ccvv" type="text" inputmode="numeric" placeholder="CVV"
+              maxlength="4" style="${S.input}"/>
+          </div>
+        </div>
+        <label style="${S.label}">Name on Card</label>
+        <input id="mzp-cname" type="text" placeholder="Name on card" style="${S.input}"/>
+        ${emiExtras}
+        <p id="mzp-err" style="${S.err}"></p>
+        <button id="mzp-btn" type="button" style="${S.btn}">
+          Pay ${escapeHtml(totalLabel)} via ${selectedDisplayMethod === 'EMI' ? 'EMI' : 'Card'}
+        </button>
+        <p style="${S.hint}">🔒 Card data is tokenised by Razorpay. Never touches your server.</p>
+      </div>`;
+    // Auto-format card number
+    const numEl = container.querySelector('#mzp-cnum');
+    numEl.addEventListener('input', e => {
+      e.target.value = e.target.value.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim().slice(0, 19);
+    });
+    // Auto-format expiry
+    const expEl = container.querySelector('#mzp-cexp');
+    expEl.addEventListener('input', e => {
+      e.target.value = e.target.value.replace(/\D/g, '').replace(/^(\d{2})(\d)/, '$1/$2').slice(0, 5);
+    });
+    const btn = container.querySelector('#mzp-btn');
+    const err = container.querySelector('#mzp-err');
+    numEl.focus();
+    btn.addEventListener('click', () => {
+      const num  = numEl.value.replace(/\s/g, '');
+      const exp  = container.querySelector('#mzp-cexp').value.trim();
+      const cvv  = container.querySelector('#mzp-ccvv').value.trim();
+      const name = container.querySelector('#mzp-cname').value.trim();
+      if (num.length < 15) { err.textContent = 'Enter a valid card number'; return; }
+      if (!exp.includes('/'))  { err.textContent = 'Enter expiry as MM/YY'; return; }
+      if (!cvv)              { err.textContent = 'Enter CVV'; return; }
+      if (!name)             { err.textContent = 'Enter name on card'; return; }
+      // EMI extra validation
+      let emiBank = '', emiTenure = 0;
+      if (selectedDisplayMethod === 'EMI') {
+        emiBank   = (container.querySelector('#mzp-emi-bank')?.value || '');
+        emiTenure = Number(container.querySelector('#mzp-emi-tenure')?.value || 0);
+        if (!emiBank)    { err.textContent = 'Select a bank'; return; }
+        if (!emiTenure) { err.textContent = 'Select EMI tenure'; return; }
+      }
+      err.textContent = '';
+      btn.disabled = true; btn.textContent = 'Processing...';
+      const payload = {
+        ...basePayload,
+        method: selectedDisplayMethod === 'EMI' ? 'emi' : 'card',
+        'card[number]': num,
+        'card[expiry]': exp,
+        'card[cvv]':    cvv,
+        'card[name]':   name,
+      };
+      if (selectedDisplayMethod === 'EMI') {
+        payload.bank         = emiBank;
+        payload.emi_duration = emiTenure;
+      }
+      rzp.createPayment(payload);
+    });
+    return;
+  }
+
+  // ── NET BANKING ───────────────────────────────────────────────────
+  if (selectedDisplayMethod === 'NETBANKING') {
+    const banks = [
+      ['HDFC', 'HDFC Bank'], ['ICICI', 'ICICI Bank'], ['SBI', 'State Bank of India'],
+      ['AXIS', 'Axis Bank'],  ['KOTAK', 'Kotak Bank'],  ['BOB', 'Bank of Baroda'],
+      ['PNB', 'Punjab National Bank'], ['UNION', 'Union Bank'],
+    ];
+    container.innerHTML = `
+      <div style="${S.wrap}">
+        <label style="${S.label}">Select Bank</label>
+        <select id="mzp-nb-bank" style="${S.input}">
+          <option value="">-- Select your bank --</option>
+          ${banks.map(([v,l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join('')}
+        </select>
+        <p id="mzp-err" style="${S.err}"></p>
+        <button id="mzp-btn" type="button" style="${S.btn}">
+          Continue to Net Banking
+        </button>
+        <p style="${S.hint}">You will be redirected to your bank's login page</p>
+      </div>`;
+    const btn = container.querySelector('#mzp-btn');
+    const err = container.querySelector('#mzp-err');
+    btn.addEventListener('click', () => {
+      const bank = container.querySelector('#mzp-nb-bank').value;
+      if (!bank) { err.textContent = 'Please select a bank'; return; }
+      btn.disabled = true; btn.textContent = 'Redirecting...';
+      rzp.createPayment({ ...basePayload, method: 'netbanking', bank });
+    });
+    return;
+  }
+
+  // ── WALLET ────────────────────────────────────────────────────────
+  if (selectedDisplayMethod === 'WALLET') {
+    const wallets = [
+      ['amazonpay', 'Amazon Pay'], ['paytm', 'Paytm'],
+      ['phonepe', 'PhonePe'],   ['freecharge', 'FreeCharge'],
+      ['mobikwik', 'MobiKwik'],  ['jiomoney', 'JioMoney'],
+    ];
+    container.innerHTML = `
+      <div style="${S.wrap}">
+        <label style="${S.label}">Select Wallet</label>
+        ${wallets.map(([v,l]) =>
+          `<button class="mzp-wallet" data-w="${v}" type="button" style="${S.walletBtn}">${escapeHtml(l)}</button>`
+        ).join('')}
+      </div>`;
+    container.querySelectorAll('.mzp-wallet').forEach(b => {
+      b.addEventListener('click', () => {
+        container.querySelectorAll('.mzp-wallet').forEach(x => { x.disabled = true; });
+        b.textContent += ' — Processing...';
+        rzp.createPayment({ ...basePayload, method: 'wallet', wallet: b.dataset.w });
+      });
+    });
+    return;
+  }
+}
+
   
-  async function placeOrder() {
+ async function placeOrder() {
   if (state.orderSubmitting) return;
   state.orderSubmitting = true;
   state.busy            = true;
@@ -780,7 +975,7 @@
   state.paymentStarted = true;
 
   await ensurePaymentMethod('PREPAID');
-  await loadRazorpay();
+  await loadRazorpay(); // now loads razorpay.js — custom checkout SDK
 
   const data = await apiFetch(
     `/express/checkout/intents/${encodeURIComponent(state.intent.id)}/razorpay-order`,
@@ -794,24 +989,11 @@
     );
   }
 
-  // ── Inject inline container BEFORE initialising Razorpay ──────────
-  createRazorpayEmbedContainer();
-  // ──────────────────────────────────────────────────────────────────
+  // ── Init razorpay.js custom checkout (NO .open(), NO popup) ────────
+  const rzp = new window.Razorpay({ key: checkout.key });
 
-  const display = buildRazorpayDisplayConfig(selectedDisplayMethod);
-  const options = {
-    key:         checkout.key,
-    amount:      checkout.amountPaise,
-    currency:    checkout.currency || 'INR',
-    name:        shopLabel(),
-    description: 'Express Checkout',
-    order_id:    checkout.razorpayOrderId,
-    prefill:     checkout.customer || {},
-    notes:       checkout.notes    || {},
-    // ← KEY LINE: render inside your modal div, never a popup
-    container:   '#megaska-rzp-container',
-    // Success handler — unchanged from your original
-    handler: async (response) => {
+  rzp.on('payment.success', async (response) => {
+    try {
       const verified = await apiFetch(
         `/express/checkout/intents/${encodeURIComponent(state.intent.id)}/razorpay-verify`,
         { method: 'POST', body: response }
@@ -825,52 +1007,42 @@
       state.paymentStarted  = false;
       await refreshIntent();
       render();
-    },
-    // modal: { ondismiss: ... }  ← REMOVED: not supported for embedded checkout.
-    // The Cancel button added by createRazorpayEmbedContainer() handles this.
+    } catch (verifyError) {
+      state.error = 'Payment received but order confirmation failed. Please contact support.';
+      state.busy = false; state.orderSubmitting = false; state.paymentStarted = false;
+      render();
+    }
+  });
+
+  rzp.on('payment.error', (errorData) => {
+    state.error           = errorData?.error?.description || 'Payment failed. Please try again.';
+    state.busy            = false;
+    state.orderSubmitting = false;
+    state.paymentStarted  = false;
+    render(); // re-shows payment method rows so user can retry
+  });
+
+  // Payload shared across all methods
+  const basePayload = {
+    order_id: checkout.razorpayOrderId,
+    amount:   checkout.amountPaise,
+    currency: checkout.currency || 'INR',
+    email:    checkout.customer?.email   || '',
+    contact:  checkout.customer?.contact || '',
   };
+  const totalLabel = money(checkout.amountPaise, checkout.currency);
 
-  if (display) options.display = display;
-  logRazorpayDisplayConfig(
-    selectedDisplayMethod,
-    display?.blocks?.selected_method?.instruments?.[0]?.method || null,
-    options
-  );
+  // Inject container + cancel button into modal
+  createRazorpayEmbedContainer();
 
-  try {
-    new window.Razorpay(options).open(); // now renders into #megaska-rzp-container
-  } catch (error) {
-    if (window.console && typeof window.console.warn === 'function') {
-      window.console.warn('[Megaska Express] Razorpay display config failed, retrying', error);
-    }
+  // Render the correct inline form for the selected method
+  renderInlinePaymentForm(rzp, basePayload, selectedDisplayMethod, totalLabel);
+  // createPayment() is called by the form's submit button — NOT here
+  // This function just renders the form; the user fills it and clicks Pay
 
-    // EMI fallback: try card-focused display (same embedded container)
-    if (selectedDisplayMethod === 'EMI') {
-      const cardOptions = { ...options, display: buildRazorpayDisplayConfig('CARD') };
-      logRazorpayDisplayConfig(
-        selectedDisplayMethod,
-        cardOptions.display?.blocks?.selected_method?.instruments?.[0]?.method || null,
-        cardOptions
-      );
-      try {
-        new window.Razorpay(cardOptions).open();
-        return;
-      } catch (cardError) {
-        if (window.console && typeof window.console.warn === 'function') {
-          window.console.warn('[Megaska Express] EMI card fallback failed, showing all methods', cardError);
-        }
-      }
-    }
-
-    // Final fallback: show all Razorpay methods inline (no display filter)
-    const fallbackOptions = { ...options };
-    delete fallbackOptions.display;
-    logRazorpayDisplayConfig(selectedDisplayMethod, null, fallbackOptions);
-    new window.Razorpay(fallbackOptions).open();
-  }
-}
-
-  
+  state.busy = false; // allow cancel button to work while form is shown
+  render(); // update loading message — but container persists (it's outside [data-express-root])
+} 
   async function onActionClick(event) {
     const paymentRow = event.target.closest("[data-express-payment-method]");
     if (paymentRow) {
