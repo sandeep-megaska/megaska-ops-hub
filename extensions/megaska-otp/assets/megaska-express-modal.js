@@ -519,8 +519,7 @@
         <span class="megaska-express-payment-icon">${paymentMethodIcon(method.icon)}</span>
         <span class="megaska-express-payment-copy"><span class="megaska-express-payment-title"><strong>${escapeHtml(method.label)}</strong>${method.badge ? `<em>${escapeHtml(method.badge)}</em>` : ""}</span><small>${escapeHtml(method.subtitle)}</small></span>
         <span class="megaska-express-payment-amount">${escapeHtml(totalLabel)}</span>
-        <span class="megaska-express-payment-status" aria-hidden="true">${selected ? "✓" : "›"}</span>
-       
+        <span class="megaska-express-payment-status" aria-hidden="true">${selected ? "✓" : "›"}</span>       
       </label>`;
     }).join("");
   }
@@ -768,54 +767,110 @@
 }
   
   async function placeOrder() {
-    if (state.orderSubmitting) return;
-    state.orderSubmitting = true; state.busy = true; state.error = ""; render();
-    await saveAddressFromCheckout();
-    if (payMethod() === "COD") return createOrder();
-    const selectedDisplayMethod = selectedDisplayPaymentMethod();
-    state.paymentStarted = true;
-    await ensurePaymentMethod("PREPAID");
-    await loadRazorpay();
-    const data = await apiFetch(`/express/checkout/intents/${encodeURIComponent(state.intent.id)}/razorpay-order`, { method: "POST", body: {} });
-    const checkout = data.checkout || {};
-    if (!checkout.razorpayOrderId || !checkout.key) throw new MegaskaApiError("Could not start secure payment. Please try again.", { stage: "RAZORPAY_ORDER_CREATE", code: "RAZORPAY_ORDER_DETAILS_MISSING" });
-    const display = buildRazorpayDisplayConfig(selectedDisplayMethod);
-    const options = {
-      key: checkout.key, amount: checkout.amountPaise, currency: checkout.currency || "INR", name: shopLabel(), description: "Express Checkout", order_id: checkout.razorpayOrderId, prefill: checkout.customer || {}, notes: checkout.notes || {},
-      handler: async (response) => { const verified = await apiFetch(`/express/checkout/intents/${encodeURIComponent(state.intent.id)}/razorpay-verify`, { method: "POST", body: response }); state.step = "success"; state.error = `${verified.orderLink?.shopifyOrderName || verified.shopifyOrder?.name || "Your order"} has been created.`; state.busy = false; state.orderSubmitting = false; state.paymentStarted = false; await refreshIntent(); render(); },
-      modal: { ondismiss: () => { state.busy = false; state.orderSubmitting = false; state.paymentStarted = false; state.error = "Payment was not completed. You can try again."; render(); } },
-    };
-    if (display) options.display = display;
-    logRazorpayDisplayConfig(selectedDisplayMethod, display?.blocks?.selected_method?.instruments?.[0]?.method || null, options);
-    try {
-      // Right before new window.Razorpay(options).open(); begin of code change
+  if (state.orderSubmitting) return;
+  state.orderSubmitting = true;
+  state.busy            = true;
+  state.error           = '';
+  render();
 
-const paymentSection = ensureModal().querySelector('.megaska-express-payment');
-let rzpContainer = modal.querySelector('#megaska-rzp-container');
-if (!rzpContainer) {
-  rzpContainer = document.createElement('div');
-  rzpContainer.id = 'megaska-rzp-container';
-  rzpContainer.style.cssText = 'min-height:320px;width:100%;border-radius:8px;overflow:hidden;';
-  paymentSection.appendChild(rzpContainer);
-}
-options.container = '#megaska-rzp-container';
-// .open() stays — it now renders into the div, not a popup End of code change
-      new window.Razorpay(options).open();
-    } catch (error) {
-      if (window.console && typeof window.console.warn === "function") window.console.warn("[Megaska Express] Razorpay display config failed, retrying default checkout", error);
-      // Razorpay EMI availability can be account-, issuer-, and order-dependent; if direct EMI display config is rejected, retry the same order with card-focused checkout before falling back to default checkout.
-      if (selectedDisplayMethod === "EMI") {
-        const cardOptions = { ...options, display: buildRazorpayDisplayConfig("CARD") };
-        logRazorpayDisplayConfig(selectedDisplayMethod, cardOptions.display?.blocks?.selected_method?.instruments?.[0]?.method || null, cardOptions);
-        try { new window.Razorpay(cardOptions).open(); return; } catch (cardError) { if (window.console && typeof window.console.warn === "function") window.console.warn("[Megaska Express] Razorpay EMI card fallback failed, retrying default checkout", cardError); }
-      }
-      const fallbackOptions = { ...options };
-      delete fallbackOptions.display;
-      logRazorpayDisplayConfig(selectedDisplayMethod, null, fallbackOptions);
-      new window.Razorpay(fallbackOptions).open();
-    }
+  await saveAddressFromCheckout();
+  if (payMethod() === 'COD') return createOrder();
+
+  const selectedDisplayMethod = selectedDisplayPaymentMethod();
+  state.paymentStarted = true;
+
+  await ensurePaymentMethod('PREPAID');
+  await loadRazorpay();
+
+  const data = await apiFetch(
+    `/express/checkout/intents/${encodeURIComponent(state.intent.id)}/razorpay-order`,
+    { method: 'POST', body: {} }
+  );
+  const checkout = data.checkout || {};
+  if (!checkout.razorpayOrderId || !checkout.key) {
+    throw new MegaskaApiError(
+      'Could not start secure payment. Please try again.',
+      { stage: 'RAZORPAY_ORDER_CREATE', code: 'RAZORPAY_ORDER_DETAILS_MISSING' }
+    );
   }
 
+  // ── Inject inline container BEFORE initialising Razorpay ──────────
+  createRazorpayEmbedContainer();
+  // ──────────────────────────────────────────────────────────────────
+
+  const display = buildRazorpayDisplayConfig(selectedDisplayMethod);
+  const options = {
+    key:         checkout.key,
+    amount:      checkout.amountPaise,
+    currency:    checkout.currency || 'INR',
+    name:        shopLabel(),
+    description: 'Express Checkout',
+    order_id:    checkout.razorpayOrderId,
+    prefill:     checkout.customer || {},
+    notes:       checkout.notes    || {},
+    // ← KEY LINE: render inside your modal div, never a popup
+    container:   '#megaska-rzp-container',
+    // Success handler — unchanged from your original
+    handler: async (response) => {
+      const verified = await apiFetch(
+        `/express/checkout/intents/${encodeURIComponent(state.intent.id)}/razorpay-verify`,
+        { method: 'POST', body: response }
+      );
+      state.step            = 'success';
+      state.error           = `${verified.orderLink?.shopifyOrderName ||
+                                  verified.shopifyOrder?.name ||
+                                  'Your order'} has been created.`;
+      state.busy            = false;
+      state.orderSubmitting = false;
+      state.paymentStarted  = false;
+      await refreshIntent();
+      render();
+    },
+    // modal: { ondismiss: ... }  ← REMOVED: not supported for embedded checkout.
+    // The Cancel button added by createRazorpayEmbedContainer() handles this.
+  };
+
+  if (display) options.display = display;
+  logRazorpayDisplayConfig(
+    selectedDisplayMethod,
+    display?.blocks?.selected_method?.instruments?.[0]?.method || null,
+    options
+  );
+
+  try {
+    new window.Razorpay(options).open(); // now renders into #megaska-rzp-container
+  } catch (error) {
+    if (window.console && typeof window.console.warn === 'function') {
+      window.console.warn('[Megaska Express] Razorpay display config failed, retrying', error);
+    }
+
+    // EMI fallback: try card-focused display (same embedded container)
+    if (selectedDisplayMethod === 'EMI') {
+      const cardOptions = { ...options, display: buildRazorpayDisplayConfig('CARD') };
+      logRazorpayDisplayConfig(
+        selectedDisplayMethod,
+        cardOptions.display?.blocks?.selected_method?.instruments?.[0]?.method || null,
+        cardOptions
+      );
+      try {
+        new window.Razorpay(cardOptions).open();
+        return;
+      } catch (cardError) {
+        if (window.console && typeof window.console.warn === 'function') {
+          window.console.warn('[Megaska Express] EMI card fallback failed, showing all methods', cardError);
+        }
+      }
+    }
+
+    // Final fallback: show all Razorpay methods inline (no display filter)
+    const fallbackOptions = { ...options };
+    delete fallbackOptions.display;
+    logRazorpayDisplayConfig(selectedDisplayMethod, null, fallbackOptions);
+    new window.Razorpay(fallbackOptions).open();
+  }
+}
+
+  
   async function onActionClick(event) {
     const paymentRow = event.target.closest("[data-express-payment-method]");
     if (paymentRow) {
