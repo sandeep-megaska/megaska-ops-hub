@@ -520,7 +520,7 @@
         <span class="megaska-express-payment-copy"><span class="megaska-express-payment-title"><strong>${escapeHtml(method.label)}</strong>${method.badge ? `<em>${escapeHtml(method.badge)}</em>` : ""}</span><small>${escapeHtml(method.subtitle)}</small></span>
         <span class="megaska-express-payment-amount">${escapeHtml(totalLabel)}</span>
         <span class="megaska-express-payment-status" aria-hidden="true">${selected ? "✓" : "›"}</span>
-        ${method.key === "UPI" ? upiExpandedPanel(totalLabel) : ""}
+       /* ${method.key === "UPI" ? upiExpandedPanel(totalLabel) : ""}*/
       </label>`;
     }).join("");
   }
@@ -732,6 +732,18 @@
     if (display) options.display = display;
     logRazorpayDisplayConfig(selectedDisplayMethod, display?.blocks?.selected_method?.instruments?.[0]?.method || null, options);
     try {
+      // Right before new window.Razorpay(options).open(); begin of code change
+
+const paymentSection = ensureModal().querySelector('.megaska-express-payment');
+let rzpContainer = modal.querySelector('#megaska-rzp-container');
+if (!rzpContainer) {
+  rzpContainer = document.createElement('div');
+  rzpContainer.id = 'megaska-rzp-container';
+  rzpContainer.style.cssText = 'min-height:320px;width:100%;border-radius:8px;overflow:hidden;';
+  paymentSection.appendChild(rzpContainer);
+}
+options.container = '#megaska-rzp-container';
+// .open() stays — it now renders into the div, not a popup End of code change
       new window.Razorpay(options).open();
     } catch (error) {
       if (window.console && typeof window.console.warn === "function") window.console.warn("[Megaska Express] Razorpay display config failed, retrying default checkout", error);
