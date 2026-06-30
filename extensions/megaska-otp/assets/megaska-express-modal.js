@@ -760,7 +760,7 @@
   function renderPaymentMethodList() {
     const selectedMethod = selectedDisplayPaymentMethod();
     const paymentHydrating = state.hydration.payment !== "ready" || state.hydration.intent !== "ready";
-    return `<h3>Payment method</h3><p class="megaska-express-payment-intro">Choose a payment option.  In case of any refund, the refund amount will be issued as megaska store credit which you can utilize for future purchases. However, for card and UPI payments, the refund amount will be directly transferred to your original payment metho</p>${paymentHydrating ? `<p class="megaska-otp-step-subtitle" aria-live="polite">Loading payment options...</p>` : ""}<div class="megaska-express-payment-options">${paymentMethodRows(selectedMethod, paymentHydrating)}</div>`;
+    return `<h3>Payment method</h3><p class="megaska-express-payment-intro">Choose a payment option.  In case of any refund, the refund amount will be issued as megaska store credit. However, for card and UPI payments, the refund amount will be directly transferred to your original payment method</p>${paymentHydrating ? `<p class="megaska-otp-step-subtitle" aria-live="polite">Loading payment options...</p>` : ""}<div class="megaska-express-payment-options">${paymentMethodRows(selectedMethod, paymentHydrating)}</div>`;
   }
 
   function renderInlinePaymentPanel(method) {
