@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { ExpressCheckoutIntentStatus } from "../../../../../../../generated/prisma";
 import { getSessionTokenFromRequest } from "../../../../../../../services/auth/session";
 import { withCors, handleOptions } from "../../../../../_lib/cors";
 import { prisma } from "../../../../../../../services/db/prisma";
@@ -11,16 +12,26 @@ import { CheckoutStateDb, transitionCheckoutIntent } from "../../../../../../../
 
 export const runtime = "nodejs";
 
-const BLOCKED_STATUSES = ["EXPIRED", "CANCELLED", "FAILED", "ORDER_CREATED", "ORDER_COMPLETED"];
+const PAYMENT_METHOD_MUTABLE_STATUSES = new Set<ExpressCheckoutIntentStatus>([
+  "SESSION_VERIFIED",
+  "CART_SNAPSHOT_LOCKED",
+  "ADDRESS_CAPTURED",
+  "ADDRESS_COMPLETED",
+  "DELIVERY_VALIDATED",
+  "PAYMENT_METHOD_SELECTED",
+  "PAYMENT_SELECTED",
+  "COUPON_APPLIED",
+]);
 const PAYMENT_METHODS = ["COD", "PREPAID"] as const;
 
 type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 const COD_STATE_ORDER = ["INITIATED", "SESSION_VERIFIED", "ADDRESS_COMPLETED", "DELIVERY_VALIDATED", "PAYMENT_SELECTED", "DRAFT_ORDER_CREATED", "ORDER_COMPLETED"] as const;
-const COD_LEGACY_STATUS_EQUIVALENTS: Record<string, (typeof COD_STATE_ORDER)[number]> = { CREATED: "INITIATED", CUSTOMER_AUTHENTICATED: "SESSION_VERIFIED", CART_SNAPSHOT_LOCKED: "SESSION_VERIFIED", ADDRESS_CAPTURED: "ADDRESS_COMPLETED", DISCOUNT_APPLIED: "ADDRESS_COMPLETED", PAYMENT_METHOD_SELECTED: "PAYMENT_SELECTED", ORDER_CREATED: "ORDER_COMPLETED" };
+const COD_LEGACY_STATUS_EQUIVALENTS: Partial<Record<ExpressCheckoutIntentStatus, (typeof COD_STATE_ORDER)[number]>> = { CREATED: "INITIATED", CUSTOMER_AUTHENTICATED: "SESSION_VERIFIED", CART_SNAPSHOT_LOCKED: "SESSION_VERIFIED", ADDRESS_CAPTURED: "ADDRESS_COMPLETED", DISCOUNT_APPLIED: "ADDRESS_COMPLETED", PAYMENT_METHOD_SELECTED: "PAYMENT_SELECTED", ORDER_CREATED: "ORDER_COMPLETED" };
 
 async function transitionCodIntent(input: { intent: { id: string; shopId: string; status: string }; toStatus: (typeof COD_STATE_ORDER)[number]; reason: string; metadata?: Record<string, unknown> }) {
-  const effectiveStatus = COD_LEGACY_STATUS_EQUIVALENTS[input.intent.status] || input.intent.status;
+  const legacyStatus = COD_LEGACY_STATUS_EQUIVALENTS[input.intent.status as ExpressCheckoutIntentStatus];
+  const effectiveStatus = legacyStatus || input.intent.status;
   const fromIndex = COD_STATE_ORDER.indexOf(effectiveStatus as (typeof COD_STATE_ORDER)[number]);
   const toIndex = COD_STATE_ORDER.indexOf(input.toStatus);
 
@@ -29,10 +40,10 @@ async function transitionCodIntent(input: { intent: { id: string; shopId: string
     return { ok: true as const, fromStatus: input.intent.status, toStatus: input.toStatus, changed: false };
   }
 
-  if (effectiveStatus !== input.intent.status) {
+  if (legacyStatus) {
     console.info("[CHECKOUT STATE] cod_legacy_status_normalized", { shopId: input.intent.shopId, intentId: input.intent.id, fromStatus: input.intent.status, effectiveStatus, toStatus: input.toStatus, reason: input.reason, metadata: input.metadata || {} });
-    await (prisma as unknown as CheckoutStateDb).expressCheckoutIntent.updateMany({ where: { id: input.intent.id, shopId: input.intent.shopId, status: input.intent.status }, data: { status: effectiveStatus } });
-    return transitionCheckoutIntent({ db: prisma as unknown as CheckoutStateDb, intent: { ...input.intent, status: effectiveStatus }, toStatus: input.toStatus, reason: input.reason, metadata: input.metadata });
+    await (prisma as unknown as CheckoutStateDb).expressCheckoutIntent.updateMany({ where: { id: input.intent.id, shopId: input.intent.shopId, status: input.intent.status }, data: { status: legacyStatus } });
+    return transitionCheckoutIntent({ db: prisma as unknown as CheckoutStateDb, intent: { ...input.intent, status: legacyStatus }, toStatus: input.toStatus, reason: input.reason, metadata: input.metadata });
   }
 
   return transitionCheckoutIntent({ db: prisma as unknown as CheckoutStateDb, intent: input.intent, toStatus: input.toStatus, reason: input.reason, metadata: input.metadata });
@@ -91,7 +102,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const intent = await prisma.expressCheckoutIntent.findFirst({ where: intentWhere });
 
   if (!intent) return jsonWithCors(req, { ok: false, error: "Intent not found" }, { status: 404 });
-  if (BLOCKED_STATUSES.includes(intent.status)) {
+  if (!PAYMENT_METHOD_MUTABLE_STATUSES.has(intent.status)) {
     return jsonWithCors(req, { ok: false, error: `Intent status ${intent.status} cannot be updated` }, { status: 409 });
   }
   if (intent.expiresAt && intent.expiresAt <= new Date()) return jsonWithCors(req, { ok: false, error: "Intent expired" }, { status: 409 });
@@ -104,32 +115,38 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const paymentStatus = method === "COD" ? "NOT_REQUIRED" : "PENDING";
 
   const persistStartedAt = Date.now();
+  let intentWasMutable = true;
   const result = await prisma.$transaction(async (tx) => {
+    const updateResult = await tx.expressCheckoutIntent.updateMany({
+      where: { ...intentWhere, status: { in: Array.from(PAYMENT_METHOD_MUTABLE_STATUSES) } },
+      data: { selectedPaymentMethod: method, codFeeAmountPaise, totalAmountPaise },
+    });
+
+    if (updateResult.count === 0) {
+      intentWasMutable = false;
+      return { intent, payment: null };
+    }
+
     await tx.expressCheckoutPayment.deleteMany({ where: { shopId: shop.shopId, intentId, method, status: "PENDING", intent: { customerProfileId } } });
 
     const payment = await tx.expressCheckoutPayment.create({ data: { shopId: shop.shopId, intentId, method, status: paymentStatus, amountPaise, currency: intent.currency } });
-
-    await tx.expressCheckoutIntent.updateMany({ where: intentWhere, data: { selectedPaymentMethod: method, codFeeAmountPaise, totalAmountPaise, ...(method === "PREPAID" ? { status: "PAYMENT_METHOD_SELECTED" } : {}) } });
     const updatedIntent = await tx.expressCheckoutIntent.findFirstOrThrow({ where: intentWhere });
 
     return { intent: updatedIntent, payment };
   });
 
-  if (method === "COD") {
-    const deliveryTransition = await transitionCodIntent({
+  if (!intentWasMutable) {
+    const latestIntent = await prisma.expressCheckoutIntent.findFirst({ where: intentWhere });
+    return jsonWithCors(req, { ok: false, error: `Intent status ${latestIntent?.status || intent.status} cannot be updated` }, { status: 409 });
+  }
+
+  if (["DELIVERY_VALIDATED", "COUPON_APPLIED"].includes(result.intent.status)) {
+    const paymentTransition = await transitionCodIntent({
       intent: { id: result.intent.id, shopId: result.intent.shopId, status: result.intent.status },
-      toStatus: "DELIVERY_VALIDATED",
-      reason: "cod_delivery_validated",
-      metadata: { source: "payment_method_selection" },
+      toStatus: "PAYMENT_SELECTED",
+      reason: "payment_method_selected",
+      metadata: { method },
     });
-    const paymentTransition = deliveryTransition.ok
-      ? await transitionCodIntent({
-          intent: { id: result.intent.id, shopId: result.intent.shopId, status: COD_STATE_ORDER.indexOf(result.intent.status as (typeof COD_STATE_ORDER)[number]) > COD_STATE_ORDER.indexOf("DELIVERY_VALIDATED") ? result.intent.status : "DELIVERY_VALIDATED" },
-          toStatus: "PAYMENT_SELECTED",
-          reason: "cod_payment_selected",
-          metadata: { method },
-        })
-      : deliveryTransition;
     if (!paymentTransition.ok) {
       return jsonWithCors(req, { ok: false, error: `Intent status ${paymentTransition.fromStatus} cannot be updated` }, { status: 409 });
     }
