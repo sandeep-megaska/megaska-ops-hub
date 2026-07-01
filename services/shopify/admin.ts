@@ -345,7 +345,12 @@ async function getRuntimeAdminAccessToken(shopDomain: string): Promise<RuntimeAd
       expiresAt: cachedRuntimeTokenExpiresAt,
     };
   }
-
+console.info("[SHOPIFY ADMIN TOKEN SOURCE]", {
+  shopDomain: shopConfig.shopDomain,
+  tokenSource: shopConfig.accessToken
+    ? "shop_stored_token"
+    : "runtime_credentials",
+});
   console.log("[SHOPIFY AUTH SERVER] fetching runtime admin access token", {
     shopDomain,
     hasApiKey: Boolean(apiKey),
