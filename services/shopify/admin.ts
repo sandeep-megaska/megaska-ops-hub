@@ -434,31 +434,28 @@ async function adminGraphql<T>(
   const preferredShopDomain = normalizeShopDomain(options?.shopDomain);
   const shopConfig = await resolveShopConfig(preferredShopDomain);
   const shopDomain = shopConfig.shopDomain;
-  const staticFallbackToken =
-    shopConfig.accessToken || getEnvTrimmed("SHOPIFY_ADMIN_ACCESS_TOKEN");
-  const runtimeConfigured = hasRuntimeCredentialConfig();
+  const envFallbackToken = getEnvTrimmed("SHOPIFY_ADMIN_ACCESS_TOKEN");
 
   let token = "";
-  let tokenSource:
-    | "shop_stored_token"
-    | "runtime_client_credentials"
-    | "env_fallback" = "env_fallback";
+  let tokenSource: "shop_stored_token" | "env_fallback" = "env_fallback";
 
-  if (runtimeConfigured) {
-    const runtimeToken = await getRuntimeAdminAccessToken(shopDomain);
-    token = runtimeToken.accessToken;
-    tokenSource = "runtime_client_credentials";
-  } else if (shopConfig.accessToken) {
+  if (shopConfig.accessToken) {
     token = shopConfig.accessToken;
     tokenSource = "shop_stored_token";
   } else {
-    token = staticFallbackToken;
+    token = envFallbackToken;
     tokenSource = "env_fallback";
   }
 
-  if (!shopDomain || !token) {
+  if (!shopDomain) {
     throw new Error(
-      "Shopify admin sync is not configured (missing store domain or admin access token)"
+      "Shopify admin sync is not configured (missing store domain)"
+    );
+  }
+
+  if (!token) {
+    throw new Error(
+      `Missing installed Shopify Admin token. Reinstall app through /api/auth/install?shop=${shopDomain}`
     );
   }
 
