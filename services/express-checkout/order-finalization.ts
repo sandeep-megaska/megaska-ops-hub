@@ -1,12 +1,13 @@
 import { prisma } from "../db/prisma";
 import { ShopifyAdminConfigError, shopifyAdminGraphql } from "./shopify-admin";
+import { consumeStoreCreditReservationForOrder, getActiveStoreCreditReservation, releaseStoreCreditReservation } from "./store-credit";
 
-type OrderLink = { shopifyOrderId?: string | null; shopifyOrderName?: string | null; financialStatus?: string | null; fulfillmentStatus?: string | null; draftOrderId?: string | null; draftOrderName?: string | null };
-type IntentRecord = { id: string; selectedPaymentMethod?: string | null; customerProfileId?: string | null; cartSnapshot?: unknown; subtotalAmountPaise: number; discountAmountPaise: number; shippingAmountPaise: number; discounts?: unknown[] };
+type OrderLink = { id?: string; shopifyOrderId?: string | null; shopifyOrderName?: string | null; financialStatus?: string | null; fulfillmentStatus?: string | null; draftOrderId?: string | null; draftOrderName?: string | null };
+type IntentRecord = { id: string; selectedPaymentMethod?: string | null; customerProfileId?: string | null; cartSnapshot?: unknown; subtotalAmountPaise: number; discountAmountPaise: number; shippingAmountPaise: number; totalAmountPaise: number; discounts?: unknown[] };
 type AddressRecord = { name: string; phone: string; email?: string | null; address1: string; address2?: string | null; city: string; province: string; country: string; zip: string };
 type CustomerRecord = { email?: string | null; phoneE164?: string | null; shopifyCustomerId?: string | null };
 type TxClient = {
-  expressCheckoutOrderLink: { create(args: unknown): Promise<OrderLink> };
+  expressCheckoutOrderLink: { findFirst(args: unknown): Promise<OrderLink | null>; create(args: unknown): Promise<OrderLink>; update(args: unknown): Promise<OrderLink> };
   expressCheckoutIntent: { update(args: unknown): Promise<IntentRecord> };
 };
 type ExpressCheckoutDb = {
@@ -20,6 +21,25 @@ type ExpressCheckoutDb = {
 const db = prisma as unknown as ExpressCheckoutDb;
 
 type JsonRecord = Record<string, unknown>;
+
+async function writeExpressCheckoutOrderLink(client: TxClient, input: { shopId: string; intentId: string; data: Record<string, unknown> }) {
+  const where = { shopId: input.shopId, intentId: input.intentId };
+  const existing = await client.expressCheckoutOrderLink.findFirst({ where });
+  if (existing?.shopifyOrderId) return existing;
+  if (existing?.id) return client.expressCheckoutOrderLink.update({ where: { id: existing.id }, data: input.data });
+
+  try {
+    return await client.expressCheckoutOrderLink.create({ data: { shopId: input.shopId, intentId: input.intentId, ...input.data } });
+  } catch (error) {
+    const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
+    if (code !== "P2002") throw error;
+    const raced = await client.expressCheckoutOrderLink.findFirst({ where });
+    if (raced?.shopifyOrderId) return raced;
+    if (raced?.id) return client.expressCheckoutOrderLink.update({ where: { id: raced.id }, data: input.data });
+    throw error;
+  }
+}
+
 
 type FinalizeParams = {
   shopId: string;
@@ -164,7 +184,9 @@ export async function finalizePrepaidExpressCheckoutOrder(params: FinalizeParams
 
   const { firstName, lastName } = nameParts(address.name);
   const shippingAddress = { firstName, lastName, address1: address.address1, address2: address.address2, city: address.city, province: normalizeProvince(address.province), country: address.country, zip: address.zip, phone: address.phone };
-  const discountAmount = Math.max(0, Math.min(intent.subtotalAmountPaise, intent.discountAmountPaise));
+  const storeCreditReservation = await getActiveStoreCreditReservation({ shopId: params.shopId, customerProfileId: params.customerProfileId, checkoutIntentId: params.intentId });
+  const storeCreditAmountPaise = Math.min(Number(storeCreditReservation?.reservedAmount || 0), Math.max(0, intent.totalAmountPaise));
+  const discountAmount = Math.max(0, Math.min(intent.subtotalAmountPaise + intent.shippingAmountPaise, intent.discountAmountPaise + storeCreditAmountPaise));
   const discountValue = Number(paiseToAmountNumber(discountAmount));
   const appliedDiscount = Number.isFinite(discountValue) && discountValue > 0
     ? { title: "Express checkout discount", value: discountValue, valueType: "FIXED_AMOUNT" }
@@ -174,6 +196,12 @@ export async function finalizePrepaidExpressCheckoutOrder(params: FinalizeParams
     { key: "megaska_customer_profile_id", value: params.customerProfileId },
     { key: "megaska_payment_method", value: "PREPAID" },
     { key: "megaska_discount_snapshot", value: JSON.stringify(intent.discounts) },
+    ...(storeCreditAmountPaise > 0 ? [
+      { key: "store_credit_applied", value: "true" },
+      { key: "store_credit_amount", value: String(storeCreditAmountPaise) },
+      { key: "wallet_reservation_id", value: storeCreditReservation?.id || "" },
+      { key: "checkout_intent_id", value: params.intentId },
+    ] : []),
     ...(params.razorpayOrderId ? [{ key: "megaska_razorpay_order_id", value: params.razorpayOrderId }] : []),
     ...(params.razorpayPaymentId ? [{ key: "megaska_razorpay_payment_id", value: params.razorpayPaymentId }] : []),
   ];
@@ -183,7 +211,7 @@ export async function finalizePrepaidExpressCheckoutOrder(params: FinalizeParams
     phone: address.phone || customer?.phoneE164 || undefined,
     shippingAddress,
     billingAddress: shippingAddress,
-    note: `Megaska Express Checkout intent ${intent.id}`,
+    note: storeCreditAmountPaise > 0 ? `Megaska Express Checkout intent ${intent.id} | Megaska Store Credit: ${paiseToAmount(storeCreditAmountPaise)}` : `Megaska Express Checkout intent ${intent.id}`,
     tags: ["Megaska Express Checkout"],
     customAttributes,
     shippingLine: intent.shippingAmountPaise > 0 ? { title: "Shipping", price: paiseToAmount(intent.shippingAmountPaise) } : undefined,
@@ -205,16 +233,22 @@ export async function finalizePrepaidExpressCheckoutOrder(params: FinalizeParams
     const createResult = created.draftOrderCreate;
     if (createResult?.userErrors?.length || !createResult?.draftOrder?.id) throw new ExpressCheckoutOrderFinalizationError(422, "Payment received, but we could not create your order automatically. Please contact support.", userErrorMessage(createResult?.userErrors));
 
+    console.info("[EXPRESS PREPAID FINALIZATION] draft_order_complete_start", { shopId: params.shopId, intentId: params.intentId, paymentId: params.paymentId || null, paymentMethod: "PREPAID", selectedPaymentMethod: "PREPAID", paymentPending: false, markAsPaid: true, paid: true, draftOrderId: createResult.draftOrder.id });
     const completed = await shopifyAdminGraphql<DraftOrderCompletePayload>(params.shopDomain, `mutation DraftOrderComplete($id: ID!, $paymentPending: Boolean) { draftOrderComplete(id: $id, paymentPending: $paymentPending) { draftOrder { id name order { id name displayFinancialStatus displayFulfillmentStatus } } userErrors { field message } } }`, { id: createResult.draftOrder.id, paymentPending: false }, { shopId: params.shopId });
     const completeResult = completed.draftOrderComplete;
     if (completeResult?.userErrors?.length || !completeResult?.draftOrder?.order?.id) throw new ExpressCheckoutOrderFinalizationError(422, "Payment received, but we could not create your order automatically. Please contact support.", userErrorMessage(completeResult?.userErrors));
 
     const order = completeResult.draftOrder.order;
     const written = await db.$transaction(async (tx) => {
-      const link = await tx.expressCheckoutOrderLink.create({ data: { shopId: params.shopId, intentId: params.intentId, draftOrderId: completeResult.draftOrder?.id || createResult.draftOrder?.id || null, draftOrderName: completeResult.draftOrder?.name || createResult.draftOrder?.name || null, shopifyOrderId: order.id || null, shopifyOrderName: order.name || null, financialStatus: order.displayFinancialStatus || "PAID", fulfillmentStatus: order.displayFulfillmentStatus || null } });
+      const link = await writeExpressCheckoutOrderLink(tx, {
+        shopId: params.shopId,
+        intentId: params.intentId,
+        data: { draftOrderId: completeResult.draftOrder?.id || createResult.draftOrder?.id || null, draftOrderName: completeResult.draftOrder?.name || createResult.draftOrder?.name || null, shopifyOrderId: order.id || null, shopifyOrderName: order.name || null, financialStatus: order.displayFinancialStatus || "PAID", fulfillmentStatus: order.displayFulfillmentStatus || null },
+      });
       const updatedIntent = await tx.expressCheckoutIntent.update({ where: { id: params.intentId }, data: { status: "ORDER_COMPLETED" } });
       return { link, updatedIntent };
     });
+    if (storeCreditAmountPaise > 0) await consumeStoreCreditReservationForOrder({ shopId: params.shopId, customerProfileId: params.customerProfileId, checkoutIntentId: params.intentId, shopifyOrderId: order.id || "", orderNumber: order.name || null });
     console.info("[EXPRESS PREPAID FINALIZATION] shopify_order_create_success", { shopId: params.shopId, intentId: params.intentId, paymentId: params.paymentId || null, razorpayOrderId: params.razorpayOrderId || null, razorpayPaymentId: params.razorpayPaymentId || null, financialStatus: written.link.financialStatus || null, shopifyOrderId: written.link.shopifyOrderId || null, shopifyOrderName: written.link.shopifyOrderName || null });
     console.info("[EXPRESS PREPAID FINALIZATION] complete", { shopId: params.shopId, intentId: params.intentId, paymentId: params.paymentId || null, razorpayOrderId: params.razorpayOrderId || null, razorpayPaymentId: params.razorpayPaymentId || null, financialStatus: written.link.financialStatus || null });
     return { ok: true, intent: written.updatedIntent, orderLink: written.link, shopifyOrder: order, idempotent: false };
@@ -228,6 +262,7 @@ export async function finalizePrepaidExpressCheckoutOrder(params: FinalizeParams
       }
     }
     const status = error instanceof ExpressCheckoutOrderFinalizationError || error instanceof ShopifyAdminConfigError ? error.status : 502;
+    if (storeCreditAmountPaise > 0) await releaseStoreCreditReservation({ shopId: params.shopId, customerProfileId: params.customerProfileId, checkoutIntentId: params.intentId, reason: "shopify-prepaid-order-create-failed" });
     console.error("[EXPRESS PREPAID FINALIZATION] order_create_failed_after_payment_confirmed", { shopId: params.shopId, intentId: params.intentId, paymentId: params.paymentId || null, razorpayOrderId: params.razorpayOrderId || null, razorpayPaymentId: params.razorpayPaymentId || null, errorName: error instanceof Error ? error.name : "UnknownError", errorMessage: error instanceof Error ? error.message : "Unknown error" });
     throw new ExpressCheckoutOrderFinalizationError(status, "Payment received, but we could not create your order automatically. Please contact support.", error instanceof Error ? error.message : "Order finalization failed");
   }
