@@ -6,6 +6,8 @@ type ResolvedShopConfig = {
   id: string | null;
   shopDomain: string;
   accessToken: string | null;
+  accessTokenEncrypted: string | null;
+  accessTokenDirect: string | null;
   storefrontAccessToken: string | null;
 };
 
@@ -101,6 +103,8 @@ export async function resolveShopConfig(preferredShopDomain?: string | null): Pr
         id: shop.id,
         shopDomain: shop.shopDomain,
         accessToken: shop.accessToken || decryptShopifyToken(shop.accessTokenEncrypted),
+        accessTokenEncrypted: shop.accessTokenEncrypted,
+        accessTokenDirect: shop.accessToken,
         storefrontAccessToken: shop.storefrontAccessToken || decryptShopifyToken(shop.storefrontTokenEncrypted),
       };
     }
@@ -112,6 +116,8 @@ export async function resolveShopConfig(preferredShopDomain?: string | null): Pr
       id: defaultShop.id,
       shopDomain: defaultShop.shopDomain,
       accessToken: defaultShop.accessToken || decryptShopifyToken(defaultShop.accessTokenEncrypted),
+      accessTokenEncrypted: defaultShop.accessTokenEncrypted,
+      accessTokenDirect: defaultShop.accessToken,
       storefrontAccessToken: defaultShop.storefrontAccessToken || decryptShopifyToken(defaultShop.storefrontTokenEncrypted),
     };
   }
@@ -120,6 +126,8 @@ export async function resolveShopConfig(preferredShopDomain?: string | null): Pr
     id: null,
     shopDomain: normalizeShopDomain(trimEnv("SHOPIFY_STORE_DOMAIN")),
     accessToken: trimEnv("SHOPIFY_ADMIN_ACCESS_TOKEN") || null,
+    accessTokenEncrypted: null,
+    accessTokenDirect: trimEnv("SHOPIFY_ADMIN_ACCESS_TOKEN") || null,
     storefrontAccessToken: trimEnv("SHOPIFY_STOREFRONT_ACCESS_TOKEN") || null,
   };
 }
