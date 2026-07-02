@@ -14,23 +14,29 @@ export default async function AdminWalletDetailPage({ params }: { params: Promis
   const { customerProfileId } = await params;
 
   const customer = await prisma.customerProfile.findUnique({
-    where: { id: customerProfileId },
-    select: {
-      id: true,
-      phoneE164: true,
-      email: true,
-      firstName: true,
-      lastName: true,
-      fullName: true,
-    },
-  });
+  where: { id: customerProfileId },
+  select: {
+    id: true,
+    shopId: true,
+    phoneE164: true,
+    email: true,
+    firstName: true,
+    lastName: true,
+    fullName: true,
+  },
+});
 
-  if (!customer) {
-    return <main style={{ padding: 24 }}>Customer not found.</main>;
-  }
+  if (!customer.shopId) {
+  return <main style={{ padding: 24 }}>Customer shop context not found.</main>;
+}
 
-  const wallet = await getOrCreateWalletAccount(customer.id, "INR");
-  const transactions = await listWalletTransactions(customer.id, "INR", 200);
+  const wallet = await getOrCreateWalletAccount(customer.id, "INR", {
+  shopId: customer.shopId,
+});
+
+const transactions = await listWalletTransactions(customer.id, "INR", 200, {
+  shopId: customer.shopId,
+});
   const reservations = await listWalletReservationsForAdmin(customer.id);
 
   return (
