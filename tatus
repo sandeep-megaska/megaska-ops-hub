@@ -1,0 +1,10 @@
+  codex/create-new-branch-for-otp-changes[m
+  codex/disable-profile-step-in-otp-process[m
+  codex/implement-simplified-india-d2c-otp-checkout[m
+  codex/remove-mini-profile-step-from-checkout[m
+  codex/remove-profile-ui-from-checkout-flow[m
+  codex/revise-otp-checkout-flow-for-new-customers[m
+  fix/dashboard-rich-orders[m
+  gst-ops-wiring-local[m
+  main[m
+* [32mrelease/sc-1-11-cod-checkout-hardening[m
