@@ -73,12 +73,8 @@ export async function getOrCreateWalletAccount(customerProfileId: string, curren
       ON CONFLICT ("shopId", "customerProfileId", "currency") DO NOTHING
     `;
   } else {
-    await prisma.$executeRaw`
-      INSERT INTO "WalletAccount" ("id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
-      VALUES (${walletId}, ${customerProfileId}, ${currency}, 0, NOW(), NOW())
-      ON CONFLICT ("customerProfileId", "currency") DO NOTHING
-    `;
-  }
+  throw new Error("shopId is required for wallet account operations");
+}
 
   const rows = shopId
     ? await prisma.$queryRaw<WalletAccountRow[]>`
@@ -142,13 +138,9 @@ export async function applyWalletTransaction(input: WalletMutationInput & Wallet
         VALUES (${walletId}, ${shopId}, ${input.customerProfileId}, ${currency}, 0, NOW(), NOW())
         ON CONFLICT ("shopId", "customerProfileId", "currency") DO NOTHING
       `;
-    } else {
-      await tx.$executeRaw`
-        INSERT INTO "WalletAccount" ("id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
-        VALUES (${walletId}, ${input.customerProfileId}, ${currency}, 0, NOW(), NOW())
-        ON CONFLICT ("shopId", "customerProfileId", "currency") DO NOTHING
-      `;
-    }
+   } else {
+  throw new Error("shopId is required for wallet transactions");
+}
 
     const accounts = shopId
       ? await tx.$queryRaw<WalletAccountRow[]>`
