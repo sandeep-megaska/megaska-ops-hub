@@ -9,7 +9,6 @@ type WalletActorType = "SYSTEM" | "ADMIN";
 
 export type WalletAccountRow = {
   id: string;
-  shopId?: string;
   customerProfileId: string;
   currency: string;
   currentBalance: number;
@@ -60,32 +59,40 @@ export function parseAmountToMinorUnits(value: string | number) {
   return Math.round(Number(match[0]) * 100);
 }
 
-export async function getOrCreateWalletAccount(
-  customerProfileId: string,
-  currency = "INR",
-  options?: { shopId?: string | null }
-) {
-  const shopId = options?.shopId ?? null;
+type WalletAccountLookupOptions = {
+  shopId?: string | null;
+};
 
-  // existing logic... {
-  const profileRows = await prisma.$queryRaw<Array<{ shopId: string }>>`
-    SELECT "shopId" FROM "CustomerProfile" WHERE "id" = ${customerProfileId} LIMIT 1
-  `;
-  const resolvedShopId = String(shopId || profileRows[0]?.shopId || "").trim();
-  if (!resolvedShopId) throw new Error("Customer shop scope required for Store Credit account");
+export async function getOrCreateWalletAccount(customerProfileId: string, currency = "INR", options: WalletAccountLookupOptions = {}) {
   const walletId = randomUUID();
-  await prisma.$executeRaw`
-    INSERT INTO "WalletAccount" ("id", "shopId", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
-    VALUES (${walletId}, ${resolvedShopId}, ${customerProfileId}, ${currency}, 0, NOW(), NOW())
-    ON CONFLICT ("shopId", "customerProfileId", "currency") DO NOTHING
-  `;
+  const shopId = String(options.shopId || "").trim();
+  if (shopId) {
+    await prisma.$executeRaw`
+      INSERT INTO "WalletAccount" ("id", "shopId", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
+      VALUES (${walletId}, ${shopId}, ${customerProfileId}, ${currency}, 0, NOW(), NOW())
+      ON CONFLICT ("shopId", "customerProfileId", "currency") DO NOTHING
+    `;
+  } else {
+    await prisma.$executeRaw`
+      INSERT INTO "WalletAccount" ("id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
+      VALUES (${walletId}, ${customerProfileId}, ${currency}, 0, NOW(), NOW())
+      ON CONFLICT ("customerProfileId", "currency") DO NOTHING
+    `;
+  }
 
-  const rows = await prisma.$queryRaw<WalletAccountRow[]>`
-    SELECT "id", "shopId", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt"
-    FROM "WalletAccount"
-    WHERE "shopId" = ${resolvedShopId} AND "customerProfileId" = ${customerProfileId} AND "currency" = ${currency}
-    LIMIT 1
-  `;
+  const rows = shopId
+    ? await prisma.$queryRaw<WalletAccountRow[]>`
+        SELECT "id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt"
+        FROM "WalletAccount"
+        WHERE "shopId" = ${shopId} AND "customerProfileId" = ${customerProfileId} AND "currency" = ${currency}
+        LIMIT 1
+      `
+    : await prisma.$queryRaw<WalletAccountRow[]>`
+        SELECT "id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt"
+        FROM "WalletAccount"
+        WHERE "shopId" IS NULL AND "customerProfileId" = ${customerProfileId} AND "currency" = ${currency}
+        LIMIT 1
+      `;
 
   if (!rows[0]) {
     throw new Error("Failed to create or load wallet account");
@@ -94,13 +101,21 @@ export async function getOrCreateWalletAccount(
   return rows[0];
 }
 
-listWalletTransactions(
-  customerId: string,
-  currency = "INR",
-  limit = 20,
-  options?: { shopId?: string | null }
-) {
-  const shopId = options?.shopId ?? null;
+export async function listWalletTransactions(customerProfileId: string, currency = "INR", limit = 15, options: WalletAccountLookupOptions = {}) {
+  const shopId = String(options.shopId || "").trim();
+
+  if (shopId) {
+    return prisma.$queryRaw<WalletTransactionRow[]>`
+      SELECT wt."id", wt."walletAccountId", wt."customerProfileId", wt."direction", wt."transactionType", wt."amount", wt."currency",
+        wt."sourceType", wt."sourceId", wt."sourceReference", wt."orderNumber", wt."reason", wt."adminNote", wt."createdByType", wt."createdById", wt."createdAt"
+      FROM "WalletTransaction" wt
+      INNER JOIN "WalletAccount" wa ON wa."id" = wt."walletAccountId"
+      WHERE wa."shopId" = ${shopId} AND wt."customerProfileId" = ${customerProfileId} AND wt."currency" = ${currency}
+      ORDER BY wt."createdAt" DESC
+      LIMIT ${limit}
+    `;
+  }
+
   return prisma.$queryRaw<WalletTransactionRow[]>`
     SELECT "id", "walletAccountId", "customerProfileId", "direction", "transactionType", "amount", "currency",
       "sourceType", "sourceId", "sourceReference", "orderNumber", "reason", "adminNote", "createdByType", "createdById", "createdAt"
@@ -111,27 +126,43 @@ listWalletTransactions(
   `;
 }
 
-export async function applyWalletTransaction(input: WalletMutationInput) {
+export async function applyWalletTransaction(input: WalletMutationInput & WalletAccountLookupOptions) {
   if (!Number.isInteger(input.amount) || input.amount <= 0) {
     throw new Error("amount must be a positive integer in minor currency units");
   }
 
   const currency = String(input.currency || "INR").trim() || "INR";
+  const shopId = String(input.shopId || "").trim();
 
   return prisma.$transaction(async (tx) => {
     const walletId = randomUUID();
-    await tx.$executeRaw`
-      INSERT INTO "WalletAccount" ("id", "shopId", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
-      SELECT ${walletId}, cp."shopId", ${input.customerProfileId}, ${currency}, 0, NOW(), NOW() FROM "CustomerProfile" cp WHERE cp."id" = ${input.customerProfileId}
-      ON CONFLICT ("shopId", "customerProfileId", "currency") DO NOTHING
-    `;
+    if (shopId) {
+      await tx.$executeRaw`
+        INSERT INTO "WalletAccount" ("id", "shopId", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
+        VALUES (${walletId}, ${shopId}, ${input.customerProfileId}, ${currency}, 0, NOW(), NOW())
+        ON CONFLICT ("shopId", "customerProfileId", "currency") DO NOTHING
+      `;
+    } else {
+      await tx.$executeRaw`
+        INSERT INTO "WalletAccount" ("id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
+        VALUES (${walletId}, ${input.customerProfileId}, ${currency}, 0, NOW(), NOW())
+        ON CONFLICT ("shopId", "customerProfileId", "currency") DO NOTHING
+      `;
+    }
 
-    const accounts = await tx.$queryRaw<WalletAccountRow[]>`
-      SELECT "id", "shopId", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt"
-      FROM "WalletAccount"
-      WHERE "customerProfileId" = ${input.customerProfileId} AND "currency" = ${currency}
-      LIMIT 1
-    `;
+    const accounts = shopId
+      ? await tx.$queryRaw<WalletAccountRow[]>`
+          SELECT "id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt"
+          FROM "WalletAccount"
+          WHERE "shopId" = ${shopId} AND "customerProfileId" = ${input.customerProfileId} AND "currency" = ${currency}
+          LIMIT 1
+        `
+      : await tx.$queryRaw<WalletAccountRow[]>`
+          SELECT "id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt"
+          FROM "WalletAccount"
+          WHERE "shopId" IS NULL AND "customerProfileId" = ${input.customerProfileId} AND "currency" = ${currency}
+          LIMIT 1
+        `;
 
     const wallet = accounts[0];
     if (!wallet) throw new Error("Wallet account not found");
@@ -144,10 +175,10 @@ export async function applyWalletTransaction(input: WalletMutationInput) {
     const transactionId = randomUUID();
     const transactionRows = await tx.$queryRaw<WalletTransactionRow[]>`
       INSERT INTO "WalletTransaction" (
-        "id", "shopId", "walletAccountId", "customerProfileId", "direction", "transactionType", "amount", "currency",
+        "id", "walletAccountId", "customerProfileId", "direction", "transactionType", "amount", "currency",
         "sourceType", "sourceId", "sourceReference", "orderNumber", "reason", "adminNote", "createdByType", "createdById", "createdAt"
       ) VALUES (
-        ${transactionId}, ${wallet.shopId}, ${wallet.id}, ${input.customerProfileId}, ${input.direction}::"WalletDirection",
+        ${transactionId}, ${wallet.id}, ${input.customerProfileId}, ${input.direction}::"WalletDirection",
         ${input.transactionType}::"WalletTransactionType", ${input.amount}, ${currency}, ${input.sourceType}::"WalletSourceType",
         ${input.sourceId || null}, ${input.sourceReference || null}, ${input.orderNumber || null}, ${input.reason || null},
         ${input.adminNote || null}, ${input.createdByType}::"WalletActorType", ${input.createdById || null}, NOW()
