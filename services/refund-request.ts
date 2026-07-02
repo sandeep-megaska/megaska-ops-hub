@@ -6,6 +6,7 @@ type CreateRefundRequestInput = {
   orderId: string;
   amount: number;
   reason?: string | null;
+  adminNote?: string | null;
   source: RefundSource;
   sourceId: string;
   customer?: { id?: string | null } | null;
@@ -14,9 +15,9 @@ type CreateRefundRequestInput = {
   createdBy?: { type: "SYSTEM" | "ADMIN"; id?: string | null };
 };
 
-function detectRefundMethodFromGateway(paymentGatewayName: string | null | undefined): RefundMethod {
+export function detectRefundMethodFromGateway(paymentGatewayName: string | null | undefined): RefundMethod {
   const normalized = String(paymentGatewayName || "").trim().toLowerCase();
-  if (normalized === "cod" || normalized === "cash on delivery") return "COD";
+  if (normalized.includes("cod") || normalized.includes("cash on delivery")) return "COD";
   return "PREPAID";
 }
 
@@ -63,6 +64,7 @@ export async function createRefundRequest(input: CreateRefundRequestInput) {
     status,
     amount: Math.trunc(input.amount),
     reason: input.reason || null,
+    adminNote: input.adminNote || null,
     customerProfileId: input.customer?.id || order.customerProfileId || null,
     orderActionRequestId: order.id,
     shopifyOrderId: order.shopifyOrderId || null,
@@ -102,8 +104,21 @@ export async function createRefundRequest(input: CreateRefundRequestInput) {
       },
     });
     if (!existing) throw error;
-    console.info("[refund-request] duplicate-skip", { id: existing.id, source: input.source, sourceId: input.sourceId });
-    return existing;
+    const updated = await prisma.refundRequest.update({
+      where: { id: existing.id },
+      data: {
+        method: existing.method || method,
+        status: existing.status || status,
+        amount: existing.amount || Math.trunc(input.amount),
+        customerProfileId: existing.customerProfileId || input.customer?.id || order.customerProfileId || null,
+        orderActionRequestId: existing.orderActionRequestId || order.id,
+        shopifyOrderId: existing.shopifyOrderId || order.shopifyOrderId || null,
+        reason: existing.reason || input.reason || null,
+        adminNote: existing.adminNote || input.adminNote || null,
+      },
+    });
+    console.info("[refund-request] duplicate-update", { id: updated.id, source: input.source, sourceId: input.sourceId, method: updated.method, status: updated.status });
+    return updated;
   }
 }
 
