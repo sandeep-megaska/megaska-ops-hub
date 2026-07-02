@@ -76,16 +76,7 @@ export async function getDefaultShopFromConfig() {
   const envStorefrontToken = trimEnv("SHOPIFY_STOREFRONT_ACCESS_TOKEN") || null;
 
   // TODO(multistore): remove env bootstrap fallback once install flow persists shop tokens for every store.
-  console.info("[DASHBOARD SUMMARY ON CONFLICT DIAGNOSTIC] attempting_default_shop_upsert", {
-    table: "Shop",
-    conflictTarget: ["shopDomain"],
-    operation: "INSERT ... ON CONFLICT DO UPDATE",
-    shopDomain: envDomain,
-  });
-
-  let rows: ShopRow[];
-  try {
-    rows = await prisma.$queryRawUnsafe<ShopRow[]>(
+  const rows = await prisma.$queryRawUnsafe<ShopRow[]>(
     `INSERT INTO "Shop" ("id", "shopDomain", "accessToken", "storefrontAccessToken", "isActive", "installedAt", "createdAt", "updatedAt")
      VALUES (gen_random_uuid()::text, $1, $2, $3, true, NOW(), NOW(), NOW())
      ON CONFLICT ("shopDomain")
@@ -98,18 +89,7 @@ export async function getDefaultShopFromConfig() {
     envDomain,
     envAdminToken,
     envStorefrontToken
-    );
-  } catch (error) {
-    console.error("[DASHBOARD SUMMARY ON CONFLICT DIAGNOSTIC] default_shop_upsert_failed", {
-      table: "Shop",
-      conflictTarget: ["shopDomain"],
-      operation: "INSERT ... ON CONFLICT DO UPDATE",
-      shopDomain: envDomain,
-      errorName: error instanceof Error ? error.name : "UnknownError",
-      errorMessage: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
-  }
+  );
 
   return rows[0] || null;
 }

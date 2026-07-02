@@ -66,43 +66,18 @@ type WalletAccountLookupOptions = {
 export async function getOrCreateWalletAccount(customerProfileId: string, currency = "INR", options: WalletAccountLookupOptions = {}) {
   const walletId = randomUUID();
   const shopId = String(options.shopId || "").trim();
-  const conflictTarget = ["shopId", "customerProfileId", "currency"];
-
-  console.info("[DASHBOARD SUMMARY ON CONFLICT DIAGNOSTIC] attempting_wallet_account_upsert", {
-    table: "WalletAccount",
-    conflictTarget,
-    operation: "INSERT ... ON CONFLICT DO NOTHING",
-    shopId: shopId || null,
-    customerProfileId,
-    currency,
-  });
-
-  try {
-    if (shopId) {
-      await prisma.$executeRaw`
-        INSERT INTO "WalletAccount" ("id", "shopId", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
-        VALUES (${walletId}, ${shopId}, ${customerProfileId}, ${currency}, 0, NOW(), NOW())
-        ON CONFLICT ("shopId", "customerProfileId", "currency") DO NOTHING
-      `;
-    } else {
-      await prisma.$executeRaw`
-        INSERT INTO "WalletAccount" ("id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
-        VALUES (${walletId}, ${customerProfileId}, ${currency}, 0, NOW(), NOW())
-        ON CONFLICT ("shopId", "customerProfileId", "currency") DO NOTHING
-      `;
-    }
-  } catch (error) {
-    console.error("[DASHBOARD SUMMARY ON CONFLICT DIAGNOSTIC] wallet_account_upsert_failed", {
-      table: "WalletAccount",
-      conflictTarget,
-      operation: "INSERT ... ON CONFLICT DO NOTHING",
-      shopId: shopId || null,
-      customerProfileId,
-      currency,
-      errorName: error instanceof Error ? error.name : "UnknownError",
-      errorMessage: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
+  if (shopId) {
+    await prisma.$executeRaw`
+      INSERT INTO "WalletAccount" ("id", "shopId", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
+      VALUES (${walletId}, ${shopId}, ${customerProfileId}, ${currency}, 0, NOW(), NOW())
+      ON CONFLICT ("shopId", "customerProfileId", "currency") DO NOTHING
+    `;
+  } else {
+    await prisma.$executeRaw`
+      INSERT INTO "WalletAccount" ("id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
+      VALUES (${walletId}, ${customerProfileId}, ${currency}, 0, NOW(), NOW())
+      ON CONFLICT ("customerProfileId", "currency") DO NOTHING
+    `;
   }
 
   const rows = shopId
