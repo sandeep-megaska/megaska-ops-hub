@@ -30,8 +30,7 @@ export default async function AdminIssueDetailPage({ params }: { params: Promise
       refundRequests: {
         where: { source: "ISSUE_REQUEST" },
         orderBy: { createdAt: "desc" },
-        include: { walletTransaction: true },
-      },
+            },
     },
   });
 
