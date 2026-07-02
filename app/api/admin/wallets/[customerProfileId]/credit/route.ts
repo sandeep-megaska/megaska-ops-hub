@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { applyWalletTransaction, parseAmountToMinorUnits } from "../../../../../../services/wallet";
-import { notifyManualStoreCreditApplied } from "../../../../../../services/notifications/store-credit";
 
 function isAdmin(req: NextRequest) {
   const key = req.headers.get("x-admin-key") || "";
@@ -38,11 +37,6 @@ export async function POST(req: NextRequest, context: { params: Promise<{ custom
       adminNote,
       createdByType: "ADMIN",
       createdById,
-    });
-
-    notifyManualStoreCreditApplied({
-      walletTransactionId: result.transaction.id,
-      transactionType: result.transaction.transactionType,
     });
 
     return NextResponse.json({ wallet: result.account, transaction: result.transaction });
