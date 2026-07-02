@@ -76,7 +76,8 @@ model Shop {
   orderActionRequests   OrderActionRequest[]
  megaskaOrders         MegaskaOrder[]
   walletReservations    WalletReservation[]
-  walletAccounts        WalletAccount[]
+  walletAccounts      WalletAccount[]
+  walletTransactions  WalletTransaction[]
   gstSettings           GstSettings[]
   gstProductTaxMaps     GstProductTaxMap[]
   gstSkuTaxMaps         GstSkuTaxMap[]
@@ -151,6 +152,7 @@ enum ExchangeRequestStatus {
   PICKUP_COMPLETED
   ITEM_RECEIVED
   APPROVED
+  RETURN_RECEIVED
   REJECTED
   REPLACEMENT_PROCESSING
   REPLACEMENT_SHIPPED
@@ -518,6 +520,9 @@ enum WalletSourceType {
   ISSUE_REQUEST
   ADMIN_MANUAL
   WALLET_RESERVATION
+  REFUND_REQUEST
+  CHECKOUT_INTENT
+  SHOPIFY_ORDER
 }
 
 enum WalletActorType {
@@ -527,25 +532,26 @@ enum WalletActorType {
 
 model WalletAccount {
   id                String   @id @default(uuid())
-  shopId            String?
+  shopId            String
   customerProfileId String
   currency          String   @default("INR")
   currentBalance    Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  shop              Shop?               @relation(fields: [shopId], references: [id], onDelete: SetNull)
+  shop              Shop                @relation(fields: [shopId], references: [id], onDelete: Cascade)
   customer          CustomerProfile     @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
   transactions      WalletTransaction[]
   reservations      WalletReservation[]
 
   @@unique([shopId, customerProfileId, currency])
+  @@index([shopId])
   @@index([customerProfileId])
-  @@index([shopId, customerProfileId])
 }
 
 model WalletTransaction {
   id                  String                @id @default(uuid())
+  shopId              String
   walletAccountId     String
   customerProfileId   String
   direction           WalletDirection
@@ -562,12 +568,16 @@ model WalletTransaction {
   createdById         String?
   createdAt           DateTime              @default(now())
 
+  shop                Shop                  @relation(fields: [shopId], references: [id], onDelete: Cascade)
   walletAccount       WalletAccount         @relation(fields: [walletAccountId], references: [id], onDelete: Cascade)
   customer            CustomerProfile       @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  settledRefundRequests RefundRequest[]
 
   @@index([customerProfileId, createdAt])
   @@index([walletAccountId, createdAt])
   @@index([sourceType, sourceId])
+  @@index([shopId, customerProfileId, createdAt])
+  @@index([shopId, sourceType, sourceId])
   @@unique([sourceType, sourceId, transactionType])
 }
 
@@ -627,6 +637,7 @@ model RefundRequest {
   amount                  Int
   customerProfileId       String?
   orderActionRequestId    String?
+  walletTransactionId     String?
   shopifyOrderId          String?
   shopifyRefundId         String?
   reason                  String?
@@ -643,6 +654,7 @@ model RefundRequest {
   shop                    Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
   customerProfile         CustomerProfile? @relation(fields: [customerProfileId], references: [id], onDelete: SetNull)
   orderActionRequest      OrderActionRequest? @relation(fields: [orderActionRequestId], references: [id], onDelete: SetNull)
+  walletTransaction       WalletTransaction? @relation(fields: [walletTransactionId], references: [id], onDelete: SetNull)
   payoutDetails           RefundPayoutDetails?
   payouts                 RefundPayout[]
   events                  RefundEvent[]
@@ -651,6 +663,7 @@ model RefundRequest {
   @@index([shopId, status, createdAt])
   @@index([customerProfileId, createdAt])
   @@index([orderActionRequestId])
+  @@index([walletTransactionId])
 }
 
 model RefundPayoutDetails {
