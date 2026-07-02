@@ -61,11 +61,32 @@ export function parseAmountToMinorUnits(value: string | number) {
 
 export async function getOrCreateWalletAccount(customerProfileId: string, currency = "INR") {
   const walletId = randomUUID();
-  await prisma.$executeRaw`
+  console.info("[DASHBOARD SUMMARY ON CONFLICT DIAGNOSTIC] attempting_wallet_account_upsert", {
+    table: "WalletAccount",
+    conflictTarget: ["customerProfileId", "currency"],
+    operation: "INSERT ... ON CONFLICT DO NOTHING",
+    customerProfileId,
+    currency,
+  });
+
+  try {
+    await prisma.$executeRaw`
     INSERT INTO "WalletAccount" ("id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
     VALUES (${walletId}, ${customerProfileId}, ${currency}, 0, NOW(), NOW())
     ON CONFLICT ("customerProfileId", "currency") DO NOTHING
-  `;
+    `;
+  } catch (error) {
+    console.error("[DASHBOARD SUMMARY ON CONFLICT DIAGNOSTIC] wallet_account_upsert_failed", {
+      table: "WalletAccount",
+      conflictTarget: ["customerProfileId", "currency"],
+      operation: "INSERT ... ON CONFLICT DO NOTHING",
+      customerProfileId,
+      currency,
+      errorName: error instanceof Error ? error.name : "UnknownError",
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 
   const rows = await prisma.$queryRaw<WalletAccountRow[]>`
     SELECT "id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt"
