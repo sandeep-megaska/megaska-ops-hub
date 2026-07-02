@@ -60,7 +60,14 @@ export function parseAmountToMinorUnits(value: string | number) {
   return Math.round(Number(match[0]) * 100);
 }
 
-export async function getOrCreateWalletAccount(customerProfileId: string, currency = "INR", shopId?: string | null) {
+export async function getOrCreateWalletAccount(
+  customerProfileId: string,
+  currency = "INR",
+  options?: { shopId?: string | null }
+) {
+  const shopId = options?.shopId ?? null;
+
+  // existing logic... {
   const profileRows = await prisma.$queryRaw<Array<{ shopId: string }>>`
     SELECT "shopId" FROM "CustomerProfile" WHERE "id" = ${customerProfileId} LIMIT 1
   `;
@@ -87,7 +94,13 @@ export async function getOrCreateWalletAccount(customerProfileId: string, curren
   return rows[0];
 }
 
-export async function listWalletTransactions(customerProfileId: string, currency = "INR", limit = 15) {
+listWalletTransactions(
+  customerId: string,
+  currency = "INR",
+  limit = 20,
+  options?: { shopId?: string | null }
+) {
+  const shopId = options?.shopId ?? null;
   return prisma.$queryRaw<WalletTransactionRow[]>`
     SELECT "id", "walletAccountId", "customerProfileId", "direction", "transactionType", "amount", "currency",
       "sourceType", "sourceId", "sourceReference", "orderNumber", "reason", "adminNote", "createdByType", "createdById", "createdAt"
