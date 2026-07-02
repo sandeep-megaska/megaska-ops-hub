@@ -26,10 +26,13 @@ export default async function AdminWalletDetailPage({ params }: { params: Promis
   },
 });
 
-  if (!customer.shopId) {
-  return <main style={{ padding: 24 }}>Customer shop context not found.</main>;
+ if (!customer) {
+  return <main style={{ padding: 24 }}>Customer not found.</main>;
 }
 
+if (!customer.shopId) {
+  return <main style={{ padding: 24 }}>Customer shop context not found.</main>;
+}
   const wallet = await getOrCreateWalletAccount(customer.id, "INR", {
   shopId: customer.shopId,
 });
