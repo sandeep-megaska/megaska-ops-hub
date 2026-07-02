@@ -59,27 +59,44 @@ export function parseAmountToMinorUnits(value: string | number) {
   return Math.round(Number(match[0]) * 100);
 }
 
-export async function getOrCreateWalletAccount(customerProfileId: string, currency = "INR") {
+type WalletAccountLookupOptions = {
+  shopId?: string | null;
+};
+
+export async function getOrCreateWalletAccount(customerProfileId: string, currency = "INR", options: WalletAccountLookupOptions = {}) {
   const walletId = randomUUID();
+  const shopId = String(options.shopId || "").trim();
+  const conflictTarget = shopId ? ["shopId", "customerProfileId", "currency"] : ["customerProfileId", "currency"];
+
   console.info("[DASHBOARD SUMMARY ON CONFLICT DIAGNOSTIC] attempting_wallet_account_upsert", {
     table: "WalletAccount",
-    conflictTarget: ["customerProfileId", "currency"],
+    conflictTarget,
     operation: "INSERT ... ON CONFLICT DO NOTHING",
+    shopId: shopId || null,
     customerProfileId,
     currency,
   });
 
   try {
-    await prisma.$executeRaw`
-    INSERT INTO "WalletAccount" ("id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
-    VALUES (${walletId}, ${customerProfileId}, ${currency}, 0, NOW(), NOW())
-    ON CONFLICT ("customerProfileId", "currency") DO NOTHING
-    `;
+    if (shopId) {
+      await prisma.$executeRaw`
+        INSERT INTO "WalletAccount" ("id", "shopId", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
+        VALUES (${walletId}, ${shopId}, ${customerProfileId}, ${currency}, 0, NOW(), NOW())
+        ON CONFLICT ("shopId", "customerProfileId", "currency") DO NOTHING
+      `;
+    } else {
+      await prisma.$executeRaw`
+        INSERT INTO "WalletAccount" ("id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
+        VALUES (${walletId}, ${customerProfileId}, ${currency}, 0, NOW(), NOW())
+        ON CONFLICT ("customerProfileId", "currency") DO NOTHING
+      `;
+    }
   } catch (error) {
     console.error("[DASHBOARD SUMMARY ON CONFLICT DIAGNOSTIC] wallet_account_upsert_failed", {
       table: "WalletAccount",
-      conflictTarget: ["customerProfileId", "currency"],
+      conflictTarget,
       operation: "INSERT ... ON CONFLICT DO NOTHING",
+      shopId: shopId || null,
       customerProfileId,
       currency,
       errorName: error instanceof Error ? error.name : "UnknownError",
@@ -88,12 +105,19 @@ export async function getOrCreateWalletAccount(customerProfileId: string, curren
     throw error;
   }
 
-  const rows = await prisma.$queryRaw<WalletAccountRow[]>`
-    SELECT "id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt"
-    FROM "WalletAccount"
-    WHERE "customerProfileId" = ${customerProfileId} AND "currency" = ${currency}
-    LIMIT 1
-  `;
+  const rows = shopId
+    ? await prisma.$queryRaw<WalletAccountRow[]>`
+        SELECT "id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt"
+        FROM "WalletAccount"
+        WHERE "shopId" = ${shopId} AND "customerProfileId" = ${customerProfileId} AND "currency" = ${currency}
+        LIMIT 1
+      `
+    : await prisma.$queryRaw<WalletAccountRow[]>`
+        SELECT "id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt"
+        FROM "WalletAccount"
+        WHERE "customerProfileId" = ${customerProfileId} AND "currency" = ${currency}
+        LIMIT 1
+      `;
 
   if (!rows[0]) {
     throw new Error("Failed to create or load wallet account");

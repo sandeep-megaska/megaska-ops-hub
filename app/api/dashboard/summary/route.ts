@@ -216,7 +216,7 @@ if (isShopifyAdminConfigured()) {
       isCancellationStatusBlocking(request.status)
     ).length;
 
-    const walletAccount = await getOrCreateWalletAccount(customer.id, "INR");
+    const walletAccount = await getOrCreateWalletAccount(customer.id, "INR", { shopId: shop.id });
     const walletTransactions = await listWalletTransactions(customer.id, "INR", 15);
 
     const walletReservedRows = await prisma.$queryRaw<Array<{ total: number }>>`
