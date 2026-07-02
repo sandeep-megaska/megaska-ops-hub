@@ -25,6 +25,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ custome
         firstName: true,
         lastName: true,
         fullName: true,
+        shopId: true,
       },
     });
 
@@ -32,8 +33,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ custome
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
-    const wallet = await getOrCreateWalletAccount(customerProfileId, "INR");
-    const transactions = await listWalletTransactions(customerProfileId, "INR", 150);
+    const wallet = await getOrCreateWalletAccount(customerProfileId, "INR", { shopId: customer.shopId });
+    const transactions = await listWalletTransactions(customerProfileId, "INR", 150, { shopId: customer.shopId });
 
     return NextResponse.json({ customer, wallet, transactions });
   } catch (error) {

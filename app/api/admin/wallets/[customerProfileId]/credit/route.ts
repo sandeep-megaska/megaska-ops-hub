@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "../../../../../../services/db/prisma";
 import { applyWalletTransaction, parseAmountToMinorUnits } from "../../../../../../services/wallet";
 
 function isAdmin(req: NextRequest) {
@@ -14,6 +15,11 @@ export async function POST(req: NextRequest, context: { params: Promise<{ custom
     }
 
     const { customerProfileId } = await context.params;
+    const customer = await prisma.customerProfile.findUnique({ where: { id: customerProfileId }, select: { shopId: true } });
+    if (!customer) {
+      return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+    }
+
     const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
     const reason = String(body?.reason || "").trim();
     const adminNote = String(body?.adminNote || "").trim();
@@ -37,6 +43,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ custom
       adminNote,
       createdByType: "ADMIN",
       createdById,
+      shopId: customer.shopId,
     });
 
     return NextResponse.json({ wallet: result.account, transaction: result.transaction });

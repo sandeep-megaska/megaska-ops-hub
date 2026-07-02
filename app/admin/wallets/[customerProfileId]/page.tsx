@@ -22,6 +22,7 @@ export default async function AdminWalletDetailPage({ params }: { params: Promis
       firstName: true,
       lastName: true,
       fullName: true,
+      shopId: true,
     },
   });
 
@@ -29,9 +30,9 @@ export default async function AdminWalletDetailPage({ params }: { params: Promis
     return <main style={{ padding: 24 }}>Customer not found.</main>;
   }
 
-  const wallet = await getOrCreateWalletAccount(customer.id, "INR");
-  const transactions = await listWalletTransactions(customer.id, "INR", 200);
-  const reservations = await listWalletReservationsForAdmin(customer.id);
+  const wallet = await getOrCreateWalletAccount(customer.id, "INR", { shopId: customer.shopId });
+  const transactions = await listWalletTransactions(customer.id, "INR", 200, { shopId: customer.shopId });
+  const reservations = await listWalletReservationsForAdmin(customer.id, customer.shopId);
 
   return (
     <main style={{ padding: 24, display: "grid", gap: 14 }}>
