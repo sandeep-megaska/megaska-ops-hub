@@ -217,12 +217,13 @@ if (isShopifyAdminConfigured()) {
     ).length;
 
     const walletAccount = await getOrCreateWalletAccount(customer.id, "INR", { shopId: shop.id });
-    const walletTransactions = await listWalletTransactions(customer.id, "INR", 15);
+    const walletTransactions = await listWalletTransactions(customer.id, "INR", 15, { shopId: shop.id });
 
     const walletReservedRows = await prisma.$queryRaw<Array<{ total: number }>>`
       SELECT COALESCE(SUM("reservedAmount"), 0)::int AS total
       FROM "WalletReservation"
-      WHERE "customerProfileId" = ${customer.id}
+      WHERE "shopId" = ${shop.id}
+        AND "customerProfileId" = ${customer.id}
         AND "status" = 'ACTIVE'::"WalletReservationStatus"
         AND "expiresAt" > NOW()
     `;

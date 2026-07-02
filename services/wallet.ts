@@ -66,7 +66,7 @@ type WalletAccountLookupOptions = {
 export async function getOrCreateWalletAccount(customerProfileId: string, currency = "INR", options: WalletAccountLookupOptions = {}) {
   const walletId = randomUUID();
   const shopId = String(options.shopId || "").trim();
-  const conflictTarget = shopId ? ["shopId", "customerProfileId", "currency"] : ["customerProfileId", "currency"];
+  const conflictTarget = ["shopId", "customerProfileId", "currency"];
 
   console.info("[DASHBOARD SUMMARY ON CONFLICT DIAGNOSTIC] attempting_wallet_account_upsert", {
     table: "WalletAccount",
@@ -88,7 +88,7 @@ export async function getOrCreateWalletAccount(customerProfileId: string, curren
       await prisma.$executeRaw`
         INSERT INTO "WalletAccount" ("id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
         VALUES (${walletId}, ${customerProfileId}, ${currency}, 0, NOW(), NOW())
-        ON CONFLICT ("customerProfileId", "currency") DO NOTHING
+        ON CONFLICT ("shopId", "customerProfileId", "currency") DO NOTHING
       `;
     }
   } catch (error) {
@@ -115,7 +115,7 @@ export async function getOrCreateWalletAccount(customerProfileId: string, curren
     : await prisma.$queryRaw<WalletAccountRow[]>`
         SELECT "id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt"
         FROM "WalletAccount"
-        WHERE "customerProfileId" = ${customerProfileId} AND "currency" = ${currency}
+        WHERE "shopId" IS NULL AND "customerProfileId" = ${customerProfileId} AND "currency" = ${currency}
         LIMIT 1
       `;
 
@@ -126,7 +126,21 @@ export async function getOrCreateWalletAccount(customerProfileId: string, curren
   return rows[0];
 }
 
-export async function listWalletTransactions(customerProfileId: string, currency = "INR", limit = 15) {
+export async function listWalletTransactions(customerProfileId: string, currency = "INR", limit = 15, options: WalletAccountLookupOptions = {}) {
+  const shopId = String(options.shopId || "").trim();
+
+  if (shopId) {
+    return prisma.$queryRaw<WalletTransactionRow[]>`
+      SELECT wt."id", wt."walletAccountId", wt."customerProfileId", wt."direction", wt."transactionType", wt."amount", wt."currency",
+        wt."sourceType", wt."sourceId", wt."sourceReference", wt."orderNumber", wt."reason", wt."adminNote", wt."createdByType", wt."createdById", wt."createdAt"
+      FROM "WalletTransaction" wt
+      INNER JOIN "WalletAccount" wa ON wa."id" = wt."walletAccountId"
+      WHERE wa."shopId" = ${shopId} AND wt."customerProfileId" = ${customerProfileId} AND wt."currency" = ${currency}
+      ORDER BY wt."createdAt" DESC
+      LIMIT ${limit}
+    `;
+  }
+
   return prisma.$queryRaw<WalletTransactionRow[]>`
     SELECT "id", "walletAccountId", "customerProfileId", "direction", "transactionType", "amount", "currency",
       "sourceType", "sourceId", "sourceReference", "orderNumber", "reason", "adminNote", "createdByType", "createdById", "createdAt"
@@ -137,27 +151,43 @@ export async function listWalletTransactions(customerProfileId: string, currency
   `;
 }
 
-export async function applyWalletTransaction(input: WalletMutationInput) {
+export async function applyWalletTransaction(input: WalletMutationInput & WalletAccountLookupOptions) {
   if (!Number.isInteger(input.amount) || input.amount <= 0) {
     throw new Error("amount must be a positive integer in minor currency units");
   }
 
   const currency = String(input.currency || "INR").trim() || "INR";
+  const shopId = String(input.shopId || "").trim();
 
   return prisma.$transaction(async (tx) => {
     const walletId = randomUUID();
-    await tx.$executeRaw`
-      INSERT INTO "WalletAccount" ("id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
-      VALUES (${walletId}, ${input.customerProfileId}, ${currency}, 0, NOW(), NOW())
-      ON CONFLICT ("customerProfileId", "currency") DO NOTHING
-    `;
+    if (shopId) {
+      await tx.$executeRaw`
+        INSERT INTO "WalletAccount" ("id", "shopId", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
+        VALUES (${walletId}, ${shopId}, ${input.customerProfileId}, ${currency}, 0, NOW(), NOW())
+        ON CONFLICT ("shopId", "customerProfileId", "currency") DO NOTHING
+      `;
+    } else {
+      await tx.$executeRaw`
+        INSERT INTO "WalletAccount" ("id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt")
+        VALUES (${walletId}, ${input.customerProfileId}, ${currency}, 0, NOW(), NOW())
+        ON CONFLICT ("shopId", "customerProfileId", "currency") DO NOTHING
+      `;
+    }
 
-    const accounts = await tx.$queryRaw<WalletAccountRow[]>`
-      SELECT "id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt"
-      FROM "WalletAccount"
-      WHERE "customerProfileId" = ${input.customerProfileId} AND "currency" = ${currency}
-      LIMIT 1
-    `;
+    const accounts = shopId
+      ? await tx.$queryRaw<WalletAccountRow[]>`
+          SELECT "id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt"
+          FROM "WalletAccount"
+          WHERE "shopId" = ${shopId} AND "customerProfileId" = ${input.customerProfileId} AND "currency" = ${currency}
+          LIMIT 1
+        `
+      : await tx.$queryRaw<WalletAccountRow[]>`
+          SELECT "id", "customerProfileId", "currency", "currentBalance", "createdAt", "updatedAt"
+          FROM "WalletAccount"
+          WHERE "shopId" IS NULL AND "customerProfileId" = ${input.customerProfileId} AND "currency" = ${currency}
+          LIMIT 1
+        `;
 
     const wallet = accounts[0];
     if (!wallet) throw new Error("Wallet account not found");

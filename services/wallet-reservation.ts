@@ -604,7 +604,30 @@ export async function releaseWalletReservation(input: { reservationId: string; r
   return { ok: true, reservationId: reservation.id, status: reservation.status };
 }
 
-export async function listWalletReservationsForAdmin(customerProfileId: string) {
+export async function listWalletReservationsForAdmin(customerProfileId: string, shopId?: string | null) {
+  const normalizedShopId = String(shopId || "").trim();
+  if (normalizedShopId) {
+    return prisma.$queryRaw<Array<{
+    id: string;
+    reservedAmount: number;
+    currency: string;
+    status: WalletReservationStatus;
+    discountCode: string | null;
+    orderNumber: string | null;
+    shopifyOrderId: string | null;
+    expiresAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
+  }>>`
+    SELECT "id", "reservedAmount", "currency", "status", "discountCode", "orderNumber", "shopifyOrderId", "expiresAt", "createdAt", "updatedAt"
+    FROM "WalletReservation"
+    WHERE "shopId" = ${normalizedShopId}
+      AND "customerProfileId" = ${customerProfileId}
+    ORDER BY "createdAt" DESC
+    LIMIT 100
+  `;
+  }
+
   return prisma.$queryRaw<Array<{
     id: string;
     reservedAmount: number;

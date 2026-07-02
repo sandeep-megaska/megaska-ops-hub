@@ -76,6 +76,7 @@ model Shop {
   orderActionRequests   OrderActionRequest[]
  megaskaOrders         MegaskaOrder[]
   walletReservations    WalletReservation[]
+  walletAccounts        WalletAccount[]
   gstSettings           GstSettings[]
   gstProductTaxMaps     GstProductTaxMap[]
   gstSkuTaxMaps         GstSkuTaxMap[]
@@ -526,18 +527,21 @@ enum WalletActorType {
 
 model WalletAccount {
   id                String   @id @default(uuid())
+  shopId            String?
   customerProfileId String
   currency          String   @default("INR")
   currentBalance    Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  shop              Shop?               @relation(fields: [shopId], references: [id], onDelete: SetNull)
   customer          CustomerProfile     @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
   transactions      WalletTransaction[]
   reservations      WalletReservation[]
 
-  @@unique([customerProfileId, currency])
+  @@unique([shopId, customerProfileId, currency])
   @@index([customerProfileId])
+  @@index([shopId, customerProfileId])
 }
 
 model WalletTransaction {
