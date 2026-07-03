@@ -39,6 +39,9 @@ export default function IssueLifecycleControls({ requestId, currentStatus, allow
   }
 
   async function updateStatus() {
+   
+    }
+
     const refundAmountResult = approvingRefund ? parseRefundAmountPaise() : { refundAmountPaise: null, error: null };
     if (refundAmountResult.error) {
       setMessage(refundAmountResult.error);
@@ -56,7 +59,7 @@ export default function IssueLifecycleControls({ requestId, currentStatus, allow
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-      },
+              },
       body: JSON.stringify(payload),
     });
 
@@ -144,13 +147,22 @@ export default function IssueLifecycleControls({ requestId, currentStatus, allow
           </>
         ) : null}
         <button
-          type="button"
-          onClick={updateStatus}
-          disabled={!allowedTransitions.length}
-          className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none"
-        >
-          {ACTION_LABELS[nextStatus] || "Apply Status"}
-        </button>
+  type="button"
+  onClick={updateStatus}
+  disabled={!allowedTransitions.length}
+  style={{
+    marginTop: 8,
+    border: "none",
+    borderRadius: 10,
+    background: allowedTransitions.length ? "#111827" : "#9ca3af",
+    color: "#fff",
+    fontWeight: 700,
+    padding: "10px 16px",
+    cursor: allowedTransitions.length ? "pointer" : "not-allowed",
+  }}
+>
+  {ACTION_LABELS[nextStatus] || "Apply Status"}
+</button>
       </div>
 
       <hr className="my-5 border-slate-200" />
@@ -160,13 +172,21 @@ export default function IssueLifecycleControls({ requestId, currentStatus, allow
           Admin Note
           <textarea value={adminNote} onChange={(event) => setAdminNote(event.target.value)} className={`${fieldClassName} min-h-28`} />
         </label>
-        <button
-          type="button"
-          onClick={saveNote}
-          className="rounded-lg border border-slate-300 bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
-        >
-          Save Note
-        </button>
+       <button
+  type="button"
+  onClick={saveNote}
+  style={{
+    border: "1px solid #111827",
+    borderRadius: 10,
+    background: "#fff",
+    color: "#111827",
+    fontWeight: 700,
+    padding: "10px 16px",
+    cursor: "pointer",
+  }}
+>
+  Save Note
+</button>
       </div>
       {message ? <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">{message}</p> : null}
     </section>
