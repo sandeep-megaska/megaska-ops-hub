@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../../../services/db/prisma";
+import { requireShopFromRequest, ShopResolutionError } from "../../../../../../services/shopify/shop";
 import {
   CANCELLATION_ALLOWED_STATUS_TRANSITIONS,
   evaluateCancellationEligibility,
@@ -10,11 +11,6 @@ export const runtime = "nodejs";
 
 type RefundType = "COD" | "PREPAID" | "NO_REFUND";
 
-function isAdmin(req: NextRequest) {
-  const key = req.headers.get("x-admin-key") || "";
-  const expected = String(process.env.ADMIN_OPS_KEY || "").trim();
-  return Boolean(expected && key === expected);
-}
 
 function detectPaymentMethod(paymentGatewayName: string | null | undefined): Exclude<RefundType, "NO_REFUND"> {
   const normalized = String(paymentGatewayName || "").trim().toLowerCase();
@@ -38,10 +34,7 @@ function shouldForceCodRefund(body: Record<string, unknown> | null): boolean {
 
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    if (!isAdmin(req)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
+    const shop = await requireShopFromRequest(req);
     const { id } = await context.params;
     const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
     const nextStatus = String(body?.nextStatus || "").trim();
@@ -52,7 +45,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     }
 
     const existing = await prisma.orderActionRequest.findFirst({
-      where: { id, requestType: "CANCELLATION" },
+      where: { id, shopId: shop.id, requestType: "CANCELLATION" },
       include: {
         payments: { orderBy: { createdAt: "desc" }, take: 1 },
         items: { orderBy: { createdAt: "asc" }, take: 1, select: { eligibilitySnapshot: true } },
@@ -100,9 +93,8 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           : refundMethod
         : "NO_REFUND";
 
-      if (existing.shopId) {
-        await createRefundRequest({
-          shop: { id: String(existing.shopId) },
+      await createRefundRequest({
+          shop: { id: shop.id },
           orderId: existing.id,
           amount: hasValidAmount ? Math.trunc(refundAmountMinor) : 1,
           reason: "Cancellation approved",
@@ -119,9 +111,6 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           createdBy: { type: "ADMIN", id: req.headers.get("x-admin-id") || null },
         });
         orchestrationNote = `RefundRequest created after cancellation approval (${refundType}).`;
-      } else {
-        orchestrationNote = "No RefundRequest created: cancellation approved but shop context missing.";
-      }
     }
 
     const updated = await prisma.orderActionRequest.update({
@@ -135,6 +124,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
     return NextResponse.json({ request: updated });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Failed" }, { status: 500 });
+    const status = error instanceof ShopResolutionError ? error.status : 500;
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Failed" }, { status });
   }
 }
