@@ -7,7 +7,6 @@ import {
   getSessionTokenFromRequest,
 } from "../../../../services/auth/session";
 import {
-  debugShopifyAdminAuth,
   findShopifyCustomerIdByIdentity,
   isShopifyAdminConfigured,
 } from "../../../../services/shopify/admin";
@@ -26,6 +25,15 @@ import {
   formatRequestLockReason,
 } from "../../../../services/exchange/request-interlocks";
 import { isIssueStatusBlocking } from "../../../../services/exchange/issue";
+import {
+  EXCHANGE_REQUEST_WINDOW_LOCK_REASON,
+  ISSUE_REQUEST_WINDOW_LOCK_REASON,
+  REVERSE_PICKUP_WINDOW_LOCK_REASON,
+  getRequestWindowExpiresAt,
+  getReversePickupWindowExpiresAt,
+  isWithinRequestWindow,
+  isWithinReversePickupWindow,
+} from "../../../../services/exchange/deadlines";
 import {
   getOrCreateWalletAccount,
   listWalletTransactions,
@@ -293,8 +301,19 @@ export async function GET(req: NextRequest) {
         })
       : [];
 
-    const cancellationRefundRequests = cancellationRequests.length
-      ? await (prisma as any).refundRequest.findMany({
+    type CancellationRefundSummary = {
+      orderActionRequestId: string | null;
+      status?: string | null;
+      amount?: number | null;
+    };
+    const cancellationRefundRequests: CancellationRefundSummary[] = cancellationRequests.length
+      ? await (
+          prisma as typeof prisma & {
+            refundRequest: {
+              findMany: (args: unknown) => Promise<CancellationRefundSummary[]>;
+            };
+          }
+        ).refundRequest.findMany({
           where: {
             orderActionRequestId: {
               in: cancellationRequests.map((request) => request.id),
@@ -303,7 +322,7 @@ export async function GET(req: NextRequest) {
           orderBy: { updatedAt: "desc" },
         })
       : [];
-    const cancellationRefundsByRequestId = new Map<string, any[]>();
+    const cancellationRefundsByRequestId = new Map<string, CancellationRefundSummary[]>();
     for (const refund of cancellationRefundRequests) {
       const key = String(refund.orderActionRequestId || "");
       if (!cancellationRefundsByRequestId.has(key))
@@ -502,8 +521,13 @@ export async function GET(req: NextRequest) {
         .trim()
         .toUpperCase()
         .replace(/[\s-]+/g, "_");
+      const deliveredAt = String(order?.deliveredAt || "").trim() || null;
+      const requestWindowExpiresAt = getRequestWindowExpiresAt(deliveredAt);
+      const reversePickupWindowExpiresAt = getReversePickupWindowExpiresAt(deliveredAt);
+      const withinRequestWindow = isWithinRequestWindow(deliveredAt);
+      const withinReversePickupWindow = isWithinReversePickupWindow(deliveredAt);
       const delivered =
-        Boolean(order?.deliveredAt) || fulfillmentStatus === "DELIVERED";
+        Boolean(deliveredAt) || fulfillmentStatus === "DELIVERED";
       const shippedOrInTransit =
         Boolean((order as { fulfilledAt?: string | null })?.fulfilledAt) ||
         [
@@ -516,21 +540,43 @@ export async function GET(req: NextRequest) {
         ].includes(fulfillmentStatus);
       const notShipped = !delivered && !shippedOrInTransit;
       const inTransit = !delivered && shippedOrInTransit;
+      const deadlineRequestLockReason = delivered
+        ? !deliveredAt || !withinRequestWindow
+          ? EXCHANGE_REQUEST_WINDOW_LOCK_REASON
+          : null
+        : null;
+      const issueLockReason = delivered
+        ? !deliveredAt || !withinRequestWindow
+          ? ISSUE_REQUEST_WINDOW_LOCK_REASON
+          : null
+        : null;
+      const reversePickupLockReason = delivered
+        ? !deliveredAt || !withinReversePickupWindow
+          ? REVERSE_PICKUP_WINDOW_LOCK_REASON
+          : null
+        : null;
       const requestLockReason =
         activeLockReason ||
+        deadlineRequestLockReason ||
         (inTransit
           ? "Requests are available after delivery; cancellation is no longer available once shipped."
           : null);
       const canRequestCancellation = notShipped && !activeRequest;
-      const canRequestExchange = delivered && !activeRequest;
-      const canReportIssue = delivered && !activeRequest;
+      const canRequestExchange = delivered && Boolean(deliveredAt) && withinRequestWindow && !activeRequest;
+      const canReportIssue = delivered && Boolean(deliveredAt) && withinRequestWindow && !activeRequest;
+      const canCreateReversePickup = delivered && Boolean(deliveredAt) && withinReversePickupWindow;
 
       return {
         ...order,
         canRequestCancellation,
         canRequestExchange,
         canReportIssue,
+        canCreateReversePickup,
+        requestWindowExpiresAt: requestWindowExpiresAt?.toISOString() || null,
+        reversePickupWindowExpiresAt: reversePickupWindowExpiresAt?.toISOString() || null,
         requestLockReason,
+        issueLockReason: activeLockReason || issueLockReason,
+        reversePickupLockReason,
         latestCancellationStatus: latestCancellation?.status || null,
         latestCancellationRefundStatus:
           latestCancellation?.cancellationOutcome.refundRequirementLabel ||
