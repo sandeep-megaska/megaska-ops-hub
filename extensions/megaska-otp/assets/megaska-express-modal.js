@@ -38,7 +38,6 @@
     customerDefaultAddress: null,
      settings: { codFeeAmountPaise: 0, codInformationText: "You need to pay to the delivery agent at the time of delivery. In case of any refund, the refund amount will be issued as Megaska store credit which you can utilize for future purchases. However, for card and UPI payments, the refund amount will be directly transferred to your original payment method." },
     delivery: { serviceable: true, codAvailable: true },
-    delivery: { serviceable: true, codAvailable: true },
     pincode: "",
     pincodeStatus: "idle",
     pincodeMessage: "Enter 6-digit PIN code to check delivery.",
@@ -827,7 +826,7 @@ function renderStoreCreditOrderPanel() {
   }
 
   function renderInlinePaymentPanel(method) {
-    if (remainingBasePayablePaise() <= 0) return renderStoreCreditOrderPanel(); `<div class="megaska-express-inline-panel"><div class="megaska-express-inline-fields"><p><strong>Payment required: ₹0</strong></p><p class="megaska-express-secure-note">Megaska Store Credit covers this order.</p></div><button class="megaska-otp-primary-btn" type="button" data-express-action="store-credit-order" ${state.busy || state.orderSubmitting ? "disabled" : ""}>${state.orderSubmitting ? "Placing order..." : "Place Order with Store Credit"}</button></div>`;
+    if (remainingBasePayablePaise() <= 0) return renderStoreCreditOrderPanel(); 
     if (method === "COD" && isCodUnavailable()) method = "UPI";
     const totalLabel = money(payableAmount(backendPaymentMethodForDisplay(method)), state.intent?.currency);
     const title = method === "UPI" ? "Enter your UPI ID" : (DISPLAY_PAYMENT_METHODS.find((item) => item.key === method)?.label || method);
@@ -1226,7 +1225,7 @@ function renderStoreCreditOrderPanel() {
     const data = await apiFetch(`/express/checkout/intents/${encodeURIComponent(currentIntentId)}/order`, { method: "POST", body: {} });
     const responsePaymentMethod = data?.paymentMethod || paymentMethod;
     console.info("[Megaska Express] checkout_order_response", { currentIntentId, returnedIntentId: checkoutResponseIntentId(data), returnedOrderName: checkoutResponseOrderName(data) || null, returnedOrderId: checkoutResponseOrderId(data) || null, selectedPaymentMethod: paymentMethod, freshCompletion: data?.freshCompletion === true, completionSource: data?.completionSource || null });
-    showCheckoutSuccess(data, paymentMethod);
+   showCheckoutSuccess(data, responsePaymentMethod);
     render();
   }
 
