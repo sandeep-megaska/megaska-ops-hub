@@ -7,6 +7,7 @@ type Props = {
   currentStatus: string;
   allowedTransitions: string[];
   currentAdminNote: string;
+  shopDomain?: string;
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -25,6 +26,7 @@ export default function IssueLifecycleControls({
   currentStatus,
   allowedTransitions,
   currentAdminNote,
+  shopDomain,
 }: Props) {
   const [nextStatus, setNextStatus] = useState(allowedTransitions[0] || currentStatus);
   const [adminNote, setAdminNote] = useState(currentAdminNote);
@@ -43,6 +45,12 @@ export default function IssueLifecycleControls({
     return { refundAmountPaise: Math.round(numeric * 100), error: null };
   }
 
+  function getHeaders() {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (shopDomain) headers["x-shopify-shop-domain"] = shopDomain;
+    return headers;
+  }
+
   async function updateStatus() {
     const refundAmountResult = approvingRefund ? parseRefundAmountPaise() : { refundAmountPaise: null, error: null };
     if (refundAmountResult.error) {
@@ -59,7 +67,7 @@ export default function IssueLifecycleControls({
 
     const response = await fetch(`/api/admin/issue-requests/${requestId}/status`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: getHeaders(),
       body: JSON.stringify(payload),
     });
 
@@ -85,7 +93,7 @@ export default function IssueLifecycleControls({
   async function saveNote() {
     const response = await fetch(`/api/admin/issue-requests/${requestId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: getHeaders(),
       body: JSON.stringify({ adminNote }),
     });
 
