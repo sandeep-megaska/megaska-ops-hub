@@ -41,6 +41,30 @@ import {
 
 export const runtime = "nodejs";
 
+const DELIVERY_REQUIRED_LOCK_REASON =
+  "Exchange and issue requests are available only after delivery.";
+
+function isValidDateValue(value: string | Date | null | undefined) {
+  if (!value) return false;
+  const date = value instanceof Date ? value : new Date(value);
+  return !Number.isNaN(date.getTime());
+}
+
+function normalizeFulfillmentStatus(value: string | null | undefined) {
+  return String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, "_");
+}
+
+function findInternalDeliveredAt(tracking: DashboardTracking | null | undefined) {
+  const deliveredShipment = tracking?.shipments.find(
+    (shipment) => shipment.normalizedStatus === "DELIVERED",
+  );
+  const deliveredAt = deliveredShipment?.statusUpdatedAt || null;
+  return isValidDateValue(deliveredAt) ? String(deliveredAt) : null;
+}
+
 type DashboardTracking = {
   orderStatus: string | null;
   fallback: { title: string; message: string };
@@ -523,17 +547,19 @@ export async function GET(req: NextRequest) {
           : []),
       ]);
       const activeLockReason = formatRequestLockReason(activeRequest);
-      const fulfillmentStatus = String(order?.fulfillmentStatus || "")
-        .trim()
-        .toUpperCase()
-        .replace(/[\s-]+/g, "_");
-      const deliveredAt = String(order?.deliveredAt || "").trim() || null;
+      const fulfillmentStatus = normalizeFulfillmentStatus(
+        order?.fulfillmentStatus,
+      );
+      const shopifyDeliveredAt = String(order?.deliveredAt || "").trim() || null;
+      const tracking = orderTrackingByOrderName.get(orderNumber);
+      const internalDeliveredAt = findInternalDeliveredAt(tracking);
+      const deliveredAt = shopifyDeliveredAt || internalDeliveredAt;
+      const hasTrustedDeliveredAt = isValidDateValue(deliveredAt);
       const requestWindowExpiresAt = getRequestWindowExpiresAt(deliveredAt);
       const reversePickupWindowExpiresAt = getReversePickupWindowExpiresAt(deliveredAt);
       const withinRequestWindow = isWithinRequestWindow(deliveredAt);
       const withinReversePickupWindow = isWithinReversePickupWindow(deliveredAt);
-      const delivered =
-        Boolean(deliveredAt) || fulfillmentStatus === "DELIVERED";
+      const delivered = hasTrustedDeliveredAt;
       const shippedOrInTransit =
         Boolean((order as { fulfilledAt?: string | null })?.fulfilledAt) ||
         [
@@ -543,9 +569,9 @@ export async function GET(req: NextRequest) {
           "OUT_FOR_DELIVERY",
           "PARTIAL",
           "PARTIALLY_FULFILLED",
+          "DELIVERED",
         ].includes(fulfillmentStatus);
       const notShipped = !delivered && !shippedOrInTransit;
-      const inTransit = !delivered && shippedOrInTransit;
       const deadlineRequestLockReason = delivered
         ? !deliveredAt || !withinRequestWindow
           ? EXCHANGE_REQUEST_WINDOW_LOCK_REASON
@@ -564,13 +590,11 @@ export async function GET(req: NextRequest) {
       const requestLockReason =
         activeLockReason ||
         deadlineRequestLockReason ||
-        (inTransit
-          ? "Requests are available after delivery; cancellation is no longer available once shipped."
-          : null);
+        (!delivered ? DELIVERY_REQUIRED_LOCK_REASON : null);
       const canRequestCancellation = notShipped && !activeRequest;
-      const canRequestExchange = delivered && Boolean(deliveredAt) && withinRequestWindow && !activeRequest;
-      const canReportIssue = delivered && Boolean(deliveredAt) && withinRequestWindow && !activeRequest;
-      const canCreateReversePickup = delivered && Boolean(deliveredAt) && withinReversePickupWindow;
+      const canRequestExchange = delivered && hasTrustedDeliveredAt && withinRequestWindow && !activeRequest;
+      const canReportIssue = delivered && hasTrustedDeliveredAt && withinRequestWindow && !activeRequest;
+      const canCreateReversePickup = delivered && hasTrustedDeliveredAt && withinReversePickupWindow;
 
       return {
         ...order,

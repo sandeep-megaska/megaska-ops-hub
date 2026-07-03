@@ -53,7 +53,7 @@ export function evaluateIssueEligibility(input: {
   }
 
   const fulfillmentStatus = normalize(input.fulfillmentStatus);
-  const deliveredAtRaw = String(input.deliveredAt || input.fulfilledAt || "").trim();
+  const deliveredAtRaw = String(input.deliveredAt || "").trim();
   const deliveredAt = deliveredAtRaw ? new Date(deliveredAtRaw) : null;
   const hasValidDeliveredAt = Boolean(deliveredAt && !Number.isNaN(deliveredAt.getTime()));
 
