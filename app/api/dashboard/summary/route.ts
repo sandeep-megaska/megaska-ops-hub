@@ -775,6 +775,7 @@ for (const request of exchangeRequests) {
         latestCancellationExplanation:
           latestCancellation?.cancellationOutcome.customerExplanation || null,
         latestExchangeStatus: latestExchange?.status || null,
+        exchangeProgress: latestExchange?.progress || null,
         latestIssueStatus: latestIssue?.status || null,
         tracking: (() => {
           const tracking = orderTrackingByOrderName.get(orderNumber) || null;
