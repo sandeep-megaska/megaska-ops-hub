@@ -302,9 +302,15 @@ export async function GET(req: NextRequest) {
       : [];
 
     type CancellationRefundSummary = {
+      id: string;
+      status: string;
+      method: string;
+      amount: number;
+      currency: string;
       orderActionRequestId: string | null;
-      status?: string | null;
-      amount?: number | null;
+      walletTransactionId?: string | null;
+      createdAt?: Date | string | null;
+      updatedAt?: Date | string | null;
     };
     const cancellationRefundRequests: CancellationRefundSummary[] = cancellationRequests.length
       ? await (
