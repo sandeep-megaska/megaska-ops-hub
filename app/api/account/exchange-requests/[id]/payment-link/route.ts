@@ -8,6 +8,7 @@ import {
   REVERSE_PICKUP_CURRENCY,
   REVERSE_PICKUP_FEE_PAISE,
 } from "../../../../../../services/exchange/constants";
+import { getReversePickupPaymentExpiresAt } from "../../../../../../services/exchange/deadlines";
 
 export async function OPTIONS(req: NextRequest) {
   return handleOptions(req);
@@ -90,7 +91,22 @@ export async function POST(
       return withCors(req, NextResponse.json({ payment: existingPayment, reused: true }));
     }
 
+    if (
+      existingPayment?.status === "PENDING" &&
+      existingPayment.expiresAt &&
+      existingPayment.expiresAt.getTime() <= Date.now()
+    ) {
+      return withCors(
+        req,
+        NextResponse.json(
+          { error: "Reverse pickup payment link has expired. Please contact support for admin review." },
+          { status: 400 }
+        )
+      );
+    }
+
     const amount = existingPayment?.amount || REVERSE_PICKUP_FEE_PAISE;
+    const expiresAt = existingPayment?.expiresAt || getReversePickupPaymentExpiresAt();
     const paymentLink = await createReversePickupPaymentLink({
       requestId: requestRow.id,
       customerName: requestRow.customerNameSnapshot,
@@ -98,6 +114,7 @@ export async function POST(
       customerEmail: requestRow.customerEmailSnapshot,
       amount,
       currency: existingPayment?.currency || REVERSE_PICKUP_CURRENCY,
+      expiresAt,
     });
 
     const payment = existingPayment
@@ -110,7 +127,7 @@ export async function POST(
             paymentLinkId: paymentLink.id,
             paymentLinkUrl: paymentLink.shortUrl,
             providerReferenceId: paymentLink.referenceId,
-            expiresAt: paymentLink.expiresAt,
+            expiresAt: paymentLink.expiresAt || expiresAt,
           },
         })
       : await prisma.requestPayment.create({
@@ -124,7 +141,7 @@ export async function POST(
             paymentLinkId: paymentLink.id,
             paymentLinkUrl: paymentLink.shortUrl,
             providerReferenceId: paymentLink.referenceId,
-            expiresAt: paymentLink.expiresAt,
+            expiresAt: paymentLink.expiresAt || expiresAt,
           },
         });
 

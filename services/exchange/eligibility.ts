@@ -142,7 +142,7 @@ export function evaluateExchangeEligibility(input: EligibilityInput) {
     if (days > EXCHANGE_ALLOWED_DAYS_WINDOW) {
       return {
         decision: "REJECTED" as const,
-        reason: `Exchange requests cannot be processed more than ${EXCHANGE_ALLOWED_DAYS_WINDOW} days after delivery.`,
+        reason: "Exchange requests are allowed within 2 days of delivery.",
         blocked: true,
         stockReviewMessage: STOCK_REVIEW_MESSAGE,
       };

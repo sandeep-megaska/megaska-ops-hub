@@ -8,6 +8,7 @@ type CreatePaymentLinkInput = {
   customerEmail?: string | null;
   amount?: number;
   currency?: string;
+  expiresAt?: Date | null;
 };
 
 function getCreds() {
@@ -43,6 +44,7 @@ export async function createReversePickupPaymentLink(input: CreatePaymentLinkInp
     notify: { sms: true, email: true },
     reminder_enable: true,
     callback_method: "get",
+    expire_by: input.expiresAt ? Math.floor(input.expiresAt.getTime() / 1000) : undefined,
   };
 
   const response = await fetch("https://api.razorpay.com/v1/payment_links", {

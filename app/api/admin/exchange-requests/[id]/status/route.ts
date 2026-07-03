@@ -14,6 +14,11 @@ import {
 } from "../../../../../../services/notifications/exchange";
 import { createReversePickupPaymentLink } from "../../../../../../services/exchange/razorpay";
 import { REVERSE_PICKUP_CURRENCY } from "../../../../../../services/exchange/constants";
+import {
+  REVERSE_PICKUP_WINDOW_LOCK_REASON,
+  getReversePickupPaymentExpiresAt,
+  isWithinReversePickupWindow,
+} from "../../../../../../services/exchange/deadlines";
 
 export const runtime = "nodejs";
 
@@ -137,6 +142,15 @@ export async function PATCH(
 
     const shouldRequirePayment = isApprovalFlow && returnMethod === "REVERSE_PICKUP";
 
+    if (shouldRequirePayment && !isWithinReversePickupWindow(existing.deliveryDateSnapshot)) {
+      return NextResponse.json(
+        { error: REVERSE_PICKUP_WINDOW_LOCK_REASON },
+        { status: 400 }
+      );
+    }
+
+    const reversePickupPaymentExpiresAt = getReversePickupPaymentExpiresAt();
+
     const { updated, reversePickupPayment } = await prisma.$transaction(async (tx) => {
       let reversePickupPaymentRow: {
         id: string;
@@ -152,9 +166,10 @@ export async function PATCH(
       if (shouldRequirePayment) {
         const latestPayment = existing.payments[0];
         if (latestPayment) {
+          const pendingLinkIsActive = hasActivePendingPaymentLink(latestPayment);
           const nextPaymentStatus = latestPayment.status === "PAID"
             ? "PAID"
-            : latestPayment.status === "PENDING"
+            : pendingLinkIsActive
               ? "PENDING"
               : "NOT_CREATED";
           reversePickupPaymentRow = await tx.requestPayment.update({
@@ -164,22 +179,22 @@ export async function PATCH(
               currency: "INR",
               status: nextPaymentStatus,
               paymentLinkId:
-                latestPayment.status === "PAID" || latestPayment.status === "PENDING"
+                latestPayment.status === "PAID" || pendingLinkIsActive
                   ? latestPayment.paymentLinkId
                   : null,
               paymentLinkUrl:
-                latestPayment.status === "PAID" || latestPayment.status === "PENDING"
+                latestPayment.status === "PAID" || pendingLinkIsActive
                   ? latestPayment.paymentLinkUrl
                   : null,
               providerReferenceId:
-                latestPayment.status === "PAID" || latestPayment.status === "PENDING"
+                latestPayment.status === "PAID" || pendingLinkIsActive
                   ? latestPayment.providerReferenceId
                   : null,
               paymentId: latestPayment.status === "PAID" ? latestPayment.paymentId : null,
               expiresAt:
-                latestPayment.status === "PAID" || latestPayment.status === "PENDING"
+                latestPayment.status === "PAID" || pendingLinkIsActive
                   ? latestPayment.expiresAt
-                  : null,
+                  : reversePickupPaymentExpiresAt,
             },
           });
         } else {
@@ -191,6 +206,7 @@ export async function PATCH(
               amount: pickupChargePaise,
               currency: "INR",
               status: "NOT_CREATED",
+              expiresAt: reversePickupPaymentExpiresAt,
             },
           });
         }
@@ -233,6 +249,7 @@ export async function PATCH(
         customerEmail: updated.customerEmailSnapshot,
         amount: reversePickupPayment.amount,
         currency: reversePickupPayment.currency || REVERSE_PICKUP_CURRENCY,
+        expiresAt: reversePickupPayment.expiresAt || reversePickupPaymentExpiresAt,
       });
 
       await prisma.requestPayment.update({

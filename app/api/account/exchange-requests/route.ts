@@ -183,9 +183,6 @@ export async function POST(req: NextRequest) {
     const currentSize = String(body?.currentSize || "").trim() || null;
     const reason = String(body?.reason || "").trim();
     const customerNote = String(body?.customerNote || "").trim() || null;
-    const deliveredAtRaw = String(body?.deliveredAt || "").trim() || null;
-    const fulfilledAtRaw = String(body?.fulfilledAt || "").trim() || null;
-    const effectiveDeliveredAt = deliveredAtRaw || fulfilledAtRaw;
     const fulfillmentStatus =
       String(body?.fulfillmentStatus || "").trim() || null;
     const quantity = Number(body?.quantity || 1);
@@ -221,8 +218,7 @@ export async function POST(req: NextRequest) {
       shopifyOrderId,
     });
 
-    const resolvedDeliveredAt =
-      trustedFulfillment?.deliveredAt ?? effectiveDeliveredAt;
+    const resolvedDeliveredAt = trustedFulfillment?.deliveredAt ?? null;
     const resolvedFulfillmentStatus =
       trustedFulfillment?.fulfillmentStatus ?? fulfillmentStatus;
 

@@ -61,15 +61,15 @@ export function evaluateIssueEligibility(input: {
     return { eligible: false, reason: "Issue can be reported only after the order is delivered." };
   }
 
-  if (!fulfillmentStatus && !hasValidDeliveredAt) {
-    return { eligible: false, reason: "We could not verify delivery status for this order yet." };
+  if (!hasValidDeliveredAt) {
+    return { eligible: false, reason: "We could not verify the delivery date for this order yet." };
   }
 
   if (hasValidDeliveredAt && deliveredAt) {
     const elapsedMs = Date.now() - deliveredAt.getTime();
     const elapsedDays = elapsedMs / (1000 * 60 * 60 * 24);
     if (elapsedDays > 2) {
-      return { eligible: false, reason: "Issue requests must be created within 2 days of delivery." };
+      return { eligible: false, reason: "Issue reporting is allowed within 2 days of delivery." };
     }
   }
 

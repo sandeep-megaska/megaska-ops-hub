@@ -107,8 +107,6 @@ export async function POST(req: NextRequest) {
       String(body?.shopifyLineItemId || "").trim() || null;
     const issueReason = String(body?.reason || "").trim();
     const customerDescription = String(body?.customerNote || "").trim() || null;
-    const deliveredAtRaw = String(body?.deliveredAt || "").trim() || null;
-    const fulfilledAtRaw = String(body?.fulfilledAt || "").trim() || null;
     const fulfillmentStatus =
       String(body?.fulfillmentStatus || "").trim() || null;
     const amountSnapshot =
@@ -139,13 +137,12 @@ export async function POST(req: NextRequest) {
     });
     const resolvedFulfillmentStatus =
       trustedFulfillment?.fulfillmentStatus ?? fulfillmentStatus;
-    const resolvedDeliveredAt =
-      trustedFulfillment?.deliveredAt ?? deliveredAtRaw;
+    const resolvedDeliveredAt = trustedFulfillment?.deliveredAt ?? null;
 
     const eligibility = evaluateIssueEligibility({
       fulfillmentStatus: resolvedFulfillmentStatus,
       deliveredAt: resolvedDeliveredAt,
-      fulfilledAt: fulfilledAtRaw,
+      fulfilledAt: null,
       declaredUnused,
       declaredUnwashed,
       declaredTagsIntact,
@@ -179,7 +176,7 @@ export async function POST(req: NextRequest) {
       return withCors(req, NextResponse.json({ error }, { status: 400 }));
     }
 
-    const effectiveDeliveredAt = resolvedDeliveredAt || fulfilledAtRaw;
+    const effectiveDeliveredAt = resolvedDeliveredAt;
 
     const created = await prisma.orderActionRequest.create({
       data: {

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../../../services/db/prisma";
 import { requireShopFromRequest, ShopResolutionError } from "../../../../../../services/shopify/shop";
+import {
+  REVERSE_PICKUP_WINDOW_LOCK_REASON,
+  isWithinReversePickupWindow,
+} from "../../../../../../services/exchange/deadlines";
 
 
 function parseDate(value: unknown) {
@@ -49,11 +53,18 @@ export async function PATCH(
         shopId: shop.id,
         requestType: "EXCHANGE",
       },
-      select: { id: true },
+      select: { id: true, deliveryDateSnapshot: true },
     });
 
     if (!existing) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    if (direction.toUpperCase() === "REVERSE_PICKUP" && !isWithinReversePickupWindow(existing.deliveryDateSnapshot)) {
+      return NextResponse.json(
+        { error: REVERSE_PICKUP_WINDOW_LOCK_REASON },
+        { status: 400 }
+      );
     }
 
     const dateFields = {
