@@ -5,8 +5,12 @@ import { ShopResolutionError } from "../../../../services/shopify/shop";
 import { getAuthenticatedExchangeCustomer } from "../../../../services/exchange/auth";
 import { evaluateExchangeEligibility } from "../../../../services/exchange/eligibility";
 import { sendExchangeRequestCreatedEmail } from "../../../../services/notifications/exchange";
-import { ACTIVE_EXCHANGE_STATUSES } from "../../../../services/exchange/lifecycle";
 import { getMegaskaCustomerDashboardData } from "../../../../services/shopify/dashboard";
+import {
+  findActiveRequest,
+  formatRequestLockReason,
+  orderNumberVariants,
+} from "../../../../services/exchange/request-interlocks";
 
 function normalizeOrderNumber(value: string | null | undefined) {
   const trimmed = String(value || "").trim();
@@ -23,7 +27,12 @@ function resolveCustomerSnapshots(customer: Record<string, unknown>) {
   const compositeName = `${firstName} ${lastName}`.trim();
 
   const customerNameSnapshot =
-    compositeName || fullName || displayName || profileName || shopifyName || null;
+    compositeName ||
+    fullName ||
+    displayName ||
+    profileName ||
+    shopifyName ||
+    null;
 
   const customerEmailSnapshot =
     String(customer.email || "").trim() ||
@@ -60,7 +69,9 @@ async function resolveTrustedFulfillment(input: {
       shopId: input.shopId,
       customerProfileId: input.customerProfileId,
       OR: [
-        ...(input.shopifyOrderId ? [{ shopifyOrderId: input.shopifyOrderId }] : []),
+        ...(input.shopifyOrderId
+          ? [{ shopifyOrderId: input.shopifyOrderId }]
+          : []),
         ...(targetOrderNumber ? [{ shopifyOrderName: targetOrderNumber }] : []),
       ],
     },
@@ -80,11 +91,13 @@ async function resolveTrustedFulfillment(input: {
 
   if (localOrder) {
     const deliveredShipment = localOrder.shipments.find(
-      (shipment) => shipment.normalizedStatus === "DELIVERED"
+      (shipment) => shipment.normalizedStatus === "DELIVERED",
     );
     if (deliveredShipment) {
       return {
-        deliveredAt: (deliveredShipment.statusUpdatedAt || deliveredShipment.updatedAt).toISOString(),
+        deliveredAt: (
+          deliveredShipment.statusUpdatedAt || deliveredShipment.updatedAt
+        ).toISOString(),
         fulfillmentStatus: "delivered",
       };
     }
@@ -112,9 +125,12 @@ async function resolveTrustedFulfillment(input: {
 
     const matchingOrder =
       dashboard?.recentOrders.find((order) => {
-        const matchesById = Boolean(input.shopifyOrderId && order.shopifyOrderId === input.shopifyOrderId);
+        const matchesById = Boolean(
+          input.shopifyOrderId && order.shopifyOrderId === input.shopifyOrderId,
+        );
         const matchesByName = Boolean(
-          targetOrderNumber && normalizeOrderNumber(order.name) === targetOrderNumber
+          targetOrderNumber &&
+          normalizeOrderNumber(order.name) === targetOrderNumber,
         );
         return matchesById || matchesByName;
       }) || null;
@@ -148,14 +164,17 @@ export async function POST(req: NextRequest) {
     if (!auth) {
       return withCors(
         req,
-        NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
       );
     }
 
     const { shop, session } = auth;
     const customer = session.customer;
 
-    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+    const body = (await req.json().catch(() => null)) as Record<
+      string,
+      unknown
+    > | null;
     const orderNumber = String(body?.orderNumber || "").trim();
     const shopifyOrderId = String(body?.shopifyOrderId || "").trim() || null;
     const productTitle = String(body?.productTitle || "").trim();
@@ -167,18 +186,27 @@ export async function POST(req: NextRequest) {
     const deliveredAtRaw = String(body?.deliveredAt || "").trim() || null;
     const fulfilledAtRaw = String(body?.fulfilledAt || "").trim() || null;
     const effectiveDeliveredAt = deliveredAtRaw || fulfilledAtRaw;
-    const fulfillmentStatus = String(body?.fulfillmentStatus || "").trim() || null;
+    const fulfillmentStatus =
+      String(body?.fulfillmentStatus || "").trim() || null;
     const quantity = Number(body?.quantity || 1);
-    const amountSnapshot = String(body?.orderAmountSnapshot || "").trim() || null;
-    const shopifyLineItemId = String(body?.shopifyLineItemId || "").trim() || null;
+    const amountSnapshot =
+      String(body?.orderAmountSnapshot || "").trim() || null;
+    const shopifyLineItemId =
+      String(body?.shopifyLineItemId || "").trim() || null;
     const sku = String(body?.sku || "").trim() || null;
-    const preferredReturnMethodRaw = String(body?.preferredReturnMethod || "").trim().toUpperCase();
-    const preferredReturnMethod = preferredReturnMethodRaw === "SELF_SHIP" ? "SELF_SHIP" : "REVERSE_PICKUP";
+    const preferredReturnMethodRaw = String(body?.preferredReturnMethod || "")
+      .trim()
+      .toUpperCase();
+    const preferredReturnMethod =
+      preferredReturnMethodRaw === "SELF_SHIP" ? "SELF_SHIP" : "REVERSE_PICKUP";
 
     if (!orderNumber || !productTitle || !requestedSize) {
       return withCors(
         req,
-        NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+        NextResponse.json(
+          { error: "Missing required fields" },
+          { status: 400 },
+        ),
       );
     }
 
@@ -211,49 +239,29 @@ export async function POST(req: NextRequest) {
     if (eligibility.blocked) {
       return withCors(
         req,
-        NextResponse.json({ error: eligibility.reason }, { status: 400 })
+        NextResponse.json({ error: eligibility.reason }, { status: 400 }),
       );
     }
 
-    const existingActiveRequest = await prisma.orderActionRequest.findFirst({
+    const existingRequests = await prisma.orderActionRequest.findMany({
       where: {
         shopId: shop.id,
         customerProfileId: customer.id,
-        requestType: "EXCHANGE",
-        orderNumber,
-        status: { in: [...ACTIVE_EXCHANGE_STATUSES] },
-        items: {
-          some: {
-            ...(shopifyLineItemId
-              ? { shopifyLineItemId }
-              : {
-                  productTitle: {
-                    equals: productTitle,
-                    mode: "insensitive" as const,
-                  },
-                  ...(variantTitle
-                    ? {
-                        variantTitle: {
-                          equals: variantTitle,
-                          mode: "insensitive" as const,
-                        },
-                      }
-                    : {}),
-                }),
-          },
-        },
+        requestType: { in: ["CANCELLATION", "EXCHANGE", "ISSUE"] },
+        orderNumber: { in: orderNumberVariants(orderNumber) },
       },
-      select: { id: true },
+      orderBy: { requestedAt: "desc" },
+      select: { id: true, requestType: true, status: true },
     });
+    const activeRequest = findActiveRequest(existingRequests);
 
-    if (existingActiveRequest) {
-      return withCors(
-        req,
-        NextResponse.json(
-          { error: "An exchange request already exists for this order." },
-          { status: 400 }
-        )
-      );
+    if (activeRequest) {
+      const error =
+        activeRequest.requestType === "EXCHANGE"
+          ? "An exchange request already exists for this order."
+          : `Cannot request exchange while ${formatRequestLockReason(activeRequest)?.toLowerCase()}`;
+
+      return withCors(req, NextResponse.json({ error }, { status: 400 }));
     }
 
     const initialStatus = "OPEN";
@@ -262,7 +270,9 @@ export async function POST(req: NextRequest) {
       ? `${normalizedCustomerNote}\n\nPreferred return method: ${preferredReturnMethod}`
       : `Preferred return method: ${preferredReturnMethod}`;
 
-    const customerSnapshots = resolveCustomerSnapshots(customer as unknown as Record<string, unknown>);
+    const customerSnapshots = resolveCustomerSnapshots(
+      customer as unknown as Record<string, unknown>,
+    );
 
     const created = await prisma.orderActionRequest.create({
       data: {
@@ -336,8 +346,8 @@ export async function POST(req: NextRequest) {
             eligibility.stockReviewMessage ||
             "Exchange approval depends on the availability of the requested size. If unavailable, our team will contact you with next steps.",
         },
-        { status: 201 }
-      )
+        { status: 201 },
+      ),
     );
   } catch (error) {
     const status = error instanceof ShopResolutionError ? error.status : 500;
@@ -346,8 +356,8 @@ export async function POST(req: NextRequest) {
       req,
       NextResponse.json(
         { error: error instanceof Error ? error.message : "Failed" },
-        { status }
-      )
+        { status },
+      ),
     );
   }
 }
@@ -358,7 +368,7 @@ export async function GET(req: NextRequest) {
     if (!auth) {
       return withCors(
         req,
-        NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
       );
     }
 
@@ -407,8 +417,8 @@ export async function GET(req: NextRequest) {
       req,
       NextResponse.json(
         { error: error instanceof Error ? error.message : "Failed" },
-        { status }
-      )
+        { status },
+      ),
     );
   }
 }
