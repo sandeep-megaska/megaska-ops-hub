@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../services/db/prisma";
-
-function isAdmin(req: NextRequest) {
-  const key = req.headers.get("x-admin-key") || "";
-  const expected = String(process.env.ADMIN_OPS_KEY || "").trim();
-  return Boolean(expected && key === expected);
-}
+import { deriveCancellationOutcome } from "../../../../services/exchange/cancellation";
+import { requireShopFromRequest, ShopResolutionError } from "../../../../services/shopify/shop";
 
 function parseDateStart(value: string | null) {
   if (!value) return null;
@@ -25,9 +21,7 @@ function parseDateEnd(value: string | null) {
 
 export async function GET(req: NextRequest) {
   try {
-    if (!isAdmin(req)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const shop = await requireShopFromRequest(req);
 
     const status = req.nextUrl.searchParams.get("status")?.trim();
     const orderNumber = req.nextUrl.searchParams.get("orderNumber")?.trim();
@@ -39,6 +33,7 @@ export async function GET(req: NextRequest) {
     const data = await prisma.orderActionRequest.findMany({
       where: {
         requestType: "CANCELLATION",
+        shopId: shop.id,
         ...(status ? { status: status as never } : {}),
         ...(orderNumber ? { orderNumber: { contains: orderNumber, mode: "insensitive" } } : {}),
         ...(customerPhone
@@ -62,8 +57,31 @@ export async function GET(req: NextRequest) {
       take: 300,
     });
 
-    return NextResponse.json({ requests: data });
+    const refundRequests = data.length
+      ? await (prisma as any).refundRequest.findMany({
+          where: { orderActionRequestId: { in: data.map((request) => request.id) } },
+          orderBy: { updatedAt: "desc" },
+        })
+      : [];
+    const refundsByRequestId = new Map<string, any[]>();
+    for (const refund of refundRequests) {
+      const key = String(refund.orderActionRequestId || "");
+      if (!refundsByRequestId.has(key)) refundsByRequestId.set(key, []);
+      refundsByRequestId.get(key)?.push(refund);
+    }
+
+    return NextResponse.json({
+      requests: data.map((request) => ({
+        ...request,
+        cancellationOutcome: deriveCancellationOutcome({
+          cancellationStatus: request.status,
+          orderAmountSnapshot: request.orderAmountSnapshot,
+          refundRequests: refundsByRequestId.get(request.id) || [],
+        }),
+      })),
+    });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Failed" }, { status: 500 });
+    const status = error instanceof ShopResolutionError ? error.status : 500;
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Failed" }, { status });
   }
 }

@@ -9,6 +9,9 @@ type CancellationNotifyPayload = {
   customerEmail?: string | null;
   reason?: string | null;
   adminNote?: string | null;
+  refundStatusLabel?: string | null;
+  customerExplanation?: string | null;
+  opsNextStep?: string | null;
 };
 
 function buildBody(payload: CancellationNotifyPayload) {
@@ -23,6 +26,9 @@ function buildBody(payload: CancellationNotifyPayload) {
     `Customer Phone: ${payload.customerPhone || "-"}`,
     `Customer Email: ${payload.customerEmail || "-"}`,
     `Reason: ${payload.reason || "-"}`,
+    `Refund Status: ${payload.refundStatusLabel || "-"}`,
+    `Customer Explanation: ${payload.customerExplanation || "-"}`,
+    `Ops Next Step: ${payload.opsNextStep || "-"}`,
     `Admin Note: ${payload.adminNote || "-"}`,
     `Admin URL: ${adminUrl}`,
   ].join("\n");

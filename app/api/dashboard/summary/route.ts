@@ -13,7 +13,7 @@ import {
   ShopResolutionError,
   requireShopFromRequest,
 } from "../../../../services/shopify/shop";
-import { isCancellationStatusBlocking } from "../../../../services/exchange/cancellation";
+import { deriveCancellationOutcome, isCancellationStatusBlocking } from "../../../../services/exchange/cancellation";
 import { ACTIVE_EXCHANGE_STATUSES } from "../../../../services/exchange/lifecycle";
 import { getOrCreateWalletAccount, listWalletTransactions } from "../../../../services/wallet";
 
@@ -254,16 +254,36 @@ if (isShopifyAdminConfigured()) {
             orderNumber: true,
             status: true,
             requestedAt: true,
+            orderAmountSnapshot: true,
+            id: true,
           },
         })
       : [];
 
-    const latestCancellationByOrder = new Map<string, { status: string; requestedAt: Date }>();
+    const cancellationRefundRequests = cancellationRequests.length
+      ? await (prisma as any).refundRequest.findMany({
+          where: { orderActionRequestId: { in: cancellationRequests.map((request) => request.id) } },
+          orderBy: { updatedAt: "desc" },
+        })
+      : [];
+    const cancellationRefundsByRequestId = new Map<string, any[]>();
+    for (const refund of cancellationRefundRequests) {
+      const key = String(refund.orderActionRequestId || "");
+      if (!cancellationRefundsByRequestId.has(key)) cancellationRefundsByRequestId.set(key, []);
+      cancellationRefundsByRequestId.get(key)?.push(refund);
+    }
+
+    const latestCancellationByOrder = new Map<string, { status: string; requestedAt: Date; cancellationOutcome: ReturnType<typeof deriveCancellationOutcome> }>();
     for (const request of cancellationRequests) {
       if (!latestCancellationByOrder.has(request.orderNumber)) {
         latestCancellationByOrder.set(request.orderNumber, {
           status: request.status,
           requestedAt: request.requestedAt,
+          cancellationOutcome: deriveCancellationOutcome({
+            cancellationStatus: request.status,
+            orderAmountSnapshot: request.orderAmountSnapshot,
+            refundRequests: cancellationRefundsByRequestId.get(request.id) || [],
+          }),
         });
       }
     }
@@ -405,6 +425,8 @@ if (isShopifyAdminConfigured()) {
       return {
         ...order,
         latestCancellationStatus: latestCancellation?.status || null,
+        latestCancellationRefundStatus: latestCancellation?.cancellationOutcome.refundRequirementLabel || null,
+        latestCancellationExplanation: latestCancellation?.cancellationOutcome.customerExplanation || null,
         latestExchangeStatus: latestExchange?.status || null,
         latestIssueStatus: latestIssue?.status || null,
         tracking: (() => {

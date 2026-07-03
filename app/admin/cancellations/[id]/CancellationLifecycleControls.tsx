@@ -61,10 +61,34 @@ export default function CancellationLifecycleControls({
 
   const fieldClassName = "mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-500";
   const labelClassName = "text-sm font-medium text-slate-700";
+  const currentStatusNormalized = currentStatus.toUpperCase();
+  const lifecycleSteps = [
+    { key: "REQUESTED", label: "Requested", active: ["OPEN", "APPROVED", "REJECTED", "CLOSED"].includes(currentStatusNormalized) },
+    { key: "DECISION", label: currentStatusNormalized === "REJECTED" ? "Rejected" : "Approved/Rejected", active: ["APPROVED", "REJECTED", "CLOSED"].includes(currentStatusNormalized) },
+    { key: "REFUND_REVIEW", label: "Refund Review", active: ["APPROVED", "CLOSED"].includes(currentStatusNormalized) },
+    { key: "CLOSED", label: "Closed", active: currentStatusNormalized === "CLOSED" },
+  ];
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h3 className="text-lg font-semibold text-slate-900">Lifecycle Action Controls</h3>
+      <div className="mt-4 grid gap-2 md:grid-cols-4">
+        {lifecycleSteps.map((step, index) => (
+          <div
+            key={step.key}
+            className={`rounded-lg border p-3 text-sm font-semibold ${
+              step.active
+                ? "border-blue-200 bg-blue-50 text-blue-900"
+                : "border-slate-200 bg-slate-50 text-slate-500"
+            }`}
+          >
+            <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs shadow-sm">
+              {index + 1}
+            </span>
+            {step.label}
+          </div>
+        ))}
+      </div>
 
       <div className="mt-4 grid max-w-xl gap-3">
         <label className={labelClassName}>
