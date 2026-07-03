@@ -19,8 +19,116 @@ import { getOrCreateWalletAccount, listWalletTransactions } from "../../../../se
 
 export const runtime = "nodejs";
 
+type DashboardTracking = {
+  orderStatus: string | null;
+  fallback: { title: string; message: string };
+  shipments: Array<{
+    id: string;
+    provider: string | null;
+    awb: string | null;
+    trackingUrl: string | null;
+    normalizedStatus: string | null;
+    statusLabel: string;
+    statusUpdatedAt: Date | string | null;
+    isMock: boolean;
+    timeline: Array<{
+      id: string;
+      normalizedStatus: string | null;
+      statusLabel: string;
+      occurredAt: Date | string;
+      description: string | null;
+      location: string | null;
+      isMock: boolean;
+    }>;
+    source?: string;
+  }>;
+  hasTracking?: boolean;
+  source?: string;
+};
+
 function formatShipmentTimelineStatus(status: MegaskaOrderStatus) {
   return status.replace(/_/g, " ");
+}
+
+function formatShopifyTrackingStatus(status: string | null | undefined) {
+  const normalized = String(status || "").trim();
+  if (!normalized) return "Tracking available";
+  return normalized.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function buildShopifyFulfillmentTracking(order: {
+  fulfillmentStatus?: string | null;
+  fulfillments?: Array<{
+    id?: string | null;
+    status?: string | null;
+    createdAt?: string | null;
+    deliveredAt?: string | null;
+    trackingInfo?: Array<{
+      company?: string | null;
+      number?: string | null;
+      url?: string | null;
+    }> | null;
+  } | null> | null;
+}): DashboardTracking | null {
+  const shipments: DashboardTracking["shipments"] = (order.fulfillments || []).flatMap((fulfillment) => {
+    const trackingEntries = (fulfillment?.trackingInfo || []).filter((entry) =>
+      Boolean(String(entry?.number || entry?.url || entry?.company || "").trim())
+    );
+
+    return trackingEntries.map((entry, index) => {
+      const statusLabel = formatShopifyTrackingStatus(fulfillment?.status || order.fulfillmentStatus);
+      const statusUpdatedAt = fulfillment?.deliveredAt || fulfillment?.createdAt || null;
+      const timeline: DashboardTracking["shipments"][number]["timeline"] = [];
+      if (fulfillment?.createdAt) {
+        timeline.push({
+          id: `${fulfillment?.id || "shopify-fulfillment"}-${index}-created`,
+          normalizedStatus: fulfillment?.status || order.fulfillmentStatus || null,
+          statusLabel,
+          occurredAt: fulfillment.createdAt,
+          description: "Fulfillment created in Shopify",
+          location: null,
+          isMock: false,
+        });
+      }
+      if (fulfillment?.deliveredAt) {
+        timeline.push({
+          id: `${fulfillment?.id || "shopify-fulfillment"}-${index}-delivered`,
+          normalizedStatus: "DELIVERED",
+          statusLabel: "Delivered",
+          occurredAt: fulfillment.deliveredAt,
+          description: "Shipment delivered",
+          location: null,
+          isMock: false,
+        });
+      }
+
+      return {
+        id: `${fulfillment?.id || "shopify-fulfillment"}-${index}`,
+        provider: entry?.company || null,
+        awb: entry?.number || null,
+        trackingUrl: entry?.url || null,
+        normalizedStatus: fulfillment?.status || order.fulfillmentStatus || null,
+        statusLabel,
+        statusUpdatedAt,
+        isMock: false,
+        timeline,
+        source: "shopify_fulfillment_tracking_info",
+      };
+    });
+  });
+
+  if (!shipments.length) return null;
+
+  return {
+    orderStatus: null,
+    fallback: {
+      title: "Tracking from Shopify",
+      message: "Tracking details are provided by Shopify fulfillment data.",
+    },
+    shipments,
+    hasTracking: shipments.some((shipment) => Boolean(String(shipment.awb || shipment.trackingUrl || "").trim())),
+    source: "shopify_fulfillment_tracking_info",
+  };
 }
 
 
@@ -256,7 +364,7 @@ if (isShopifyAdminConfigured()) {
         })
       : [];
 
-    const orderTrackingByOrderName = new Map(
+    const orderTrackingByOrderName = new Map<string, DashboardTracking>(
       megaskaOrders.map((order) => [
         order.shopifyOrderName,
         {
@@ -301,8 +409,13 @@ if (isShopifyAdminConfigured()) {
         latestIssueStatus: latestIssue?.status || null,
         tracking: (() => {
           const tracking = orderTrackingByOrderName.get(orderNumber) || null;
-          if (!tracking) return null;
+          const shopifyFallbackTracking = buildShopifyFulfillmentTracking(order);
+
+          if (!tracking) return shopifyFallbackTracking;
+
           const hasShipmentWithAwb = tracking.shipments.some((shipment) => Boolean(String(shipment.awb || "").trim()));
+          if (!hasShipmentWithAwb && shopifyFallbackTracking) return shopifyFallbackTracking;
+
           return {
             ...tracking,
             hasTracking: hasShipmentWithAwb,
