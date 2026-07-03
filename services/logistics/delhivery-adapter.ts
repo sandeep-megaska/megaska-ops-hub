@@ -1,6 +1,6 @@
 import { CourierProvider, MegaskaOrderStatus } from "../../generated/prisma";
 import { getDelhiveryCapabilityState } from "./delhivery";
-import type { CourierAdapter, CourierTrackingSnapshot } from "./courier-service";
+import type { CourierAdapter, CourierTrackingEvent, CourierTrackingSnapshot } from "./courier-service";
 
 const DELHIVERY_STATUS_MAP: Record<string, MegaskaOrderStatus> = {
   Manifested: "READY_FOR_PICKUP",
@@ -14,26 +14,145 @@ const DELHIVERY_STATUS_MAP: Record<string, MegaskaOrderStatus> = {
   Cancelled: "CANCELLED",
 };
 
+export class DelhiveryTrackingError extends Error {
+  statusCode: number;
+
+  constructor(message: string, statusCode = 502) {
+    super(message);
+    this.name = "DelhiveryTrackingError";
+    this.statusCode = statusCode;
+  }
+}
+
+function clean(value: unknown) {
+  return String(value || "").trim();
+}
+
+function getEnv(name: string) {
+  return clean(process.env[name]);
+}
+
+function resolveTrackingEndpoint(awb: string) {
+  const baseUrl = getEnv("DELHIVERY_BASE_URL").replace(/\/+$/, "");
+  const path = getEnv("DELHIVERY_TRACKING_PATH") || "/api/v1/packages/json/";
+  const endpoint = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+  const url = new URL(endpoint);
+  if (!url.searchParams.has("waybill") && !url.searchParams.has("awb")) {
+    url.searchParams.set("waybill", awb);
+  }
+  return url.toString();
+}
+
+function buildTrackingUrl(awb: string | null) {
+  if (!awb) return null;
+  const template = getEnv("DELHIVERY_TRACKING_URL_TEMPLATE");
+  if (template) return template.replace("{awb}", encodeURIComponent(awb));
+  return `https://www.delhivery.com/track/package/${encodeURIComponent(awb)}`;
+}
+
+function findFirstObjectWithAnyKey(source: unknown, keys: string[]): Record<string, unknown> | null {
+  if (!source || typeof source !== "object") return null;
+  if (Array.isArray(source)) {
+    for (const item of source) {
+      const found = findFirstObjectWithAnyKey(item, keys);
+      if (found) return found;
+    }
+    return null;
+  }
+  const record = source as Record<string, unknown>;
+  if (keys.some((key) => key in record)) return record;
+  for (const value of Object.values(record)) {
+    const found = findFirstObjectWithAnyKey(value, keys);
+    if (found) return found;
+  }
+  return null;
+}
+
+function pickFirstString(source: unknown, keys: string[]) {
+  if (!source || typeof source !== "object") return null;
+  const record = source as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" || typeof value === "number") {
+      const cleaned = clean(value);
+      if (cleaned) return cleaned;
+    }
+  }
+  return null;
+}
+
+function parseDate(value: unknown) {
+  const cleaned = clean(value);
+  if (!cleaned) return null;
+  const parsed = new Date(cleaned);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export function normalizeDelhiveryRawStatus(rawStatus: string | null): MegaskaOrderStatus {
+  if (!rawStatus) return "PROCESSING";
+  const direct = DELHIVERY_STATUS_MAP[rawStatus];
+  if (direct) return direct;
+  const normalized = rawStatus.toLowerCase().replace(/[^a-z]/g, "");
+  if (["pickupcreated", "manifested", "pending", "scheduled"].some((token) => normalized.includes(token))) return "READY_FOR_PICKUP";
+  if (["intransit", "picked", "pickupdone", "pickedup", "dispatched"].some((token) => normalized.includes(token))) return "IN_TRANSIT";
+  if (["delivered", "received"].some((token) => normalized.includes(token))) return "DELIVERED";
+  if (["failed", "cancelled", "canceled", "exception"].some((token) => normalized.includes(token))) return rawStatus.toLowerCase().includes("cancel") ? "CANCELLED" : "DELIVERY_FAILED";
+  return "IN_TRANSIT";
+}
+
+export function normalizeDelhiveryTrackingResponse(rawResponse: unknown, awb: string | null, providerReference?: string | null): CourierTrackingSnapshot {
+  const shipment = findFirstObjectWithAnyKey(rawResponse, ["Status", "status", "ScanType", "Scan", "Instructions"]) || {};
+  const rawStatus = pickFirstString(shipment, ["Status", "status", "ScanType", "Scan", "Instructions", "status_type"]);
+  const statusUpdatedAt = parseDate(pickFirstString(shipment, ["StatusDateTime", "status_date_time", "date", "ScanDateTime", "scan_date_time"]));
+  const rawEvents = Array.isArray((shipment as Record<string, unknown>).Scans) ? ((shipment as Record<string, unknown>).Scans as unknown[]) : [];
+  const events: CourierTrackingEvent[] = rawEvents.map((event) => {
+    const eventRecord = findFirstObjectWithAnyKey(event, ["Scan", "ScanType", "Status", "Instructions"]) || {};
+    const eventStatus = pickFirstString(eventRecord, ["Scan", "ScanType", "Status", "Instructions"]);
+    return {
+      occurredAt: parseDate(pickFirstString(eventRecord, ["ScanDateTime", "StatusDateTime", "date"])) || new Date(),
+      normalizedStatus: normalizeDelhiveryRawStatus(eventStatus),
+      rawStatus: eventStatus,
+      description: pickFirstString(eventRecord, ["Instructions", "Scan", "Status"]),
+      location: pickFirstString(eventRecord, ["ScannedLocation", "location", "city"]),
+      metadata: eventRecord,
+    };
+  });
+
+  return {
+    provider: CourierProvider.DELHIVERY,
+    providerReference: providerReference || null,
+    awb,
+    trackingUrl: buildTrackingUrl(awb),
+    normalizedStatus: normalizeDelhiveryRawStatus(rawStatus),
+    rawStatus,
+    statusUpdatedAt: statusUpdatedAt || new Date(),
+    events,
+    metadata: { source: "delhivery-tracking-api", rawResponse },
+  };
+}
+
 export class DelhiveryAdapter implements CourierAdapter {
   provider = CourierProvider.DELHIVERY;
 
   async fetchTracking(input: { awb?: string | null; providerReference?: string | null }): Promise<CourierTrackingSnapshot | null> {
     const capability = getDelhiveryCapabilityState();
     if (!capability.configured) return null;
+    const awb = clean(input.awb);
+    if (!awb) throw new DelhiveryTrackingError("AWB is required to fetch Delhivery tracking.", 400);
 
-    // Placeholder for existing/future Delhivery API wrapper usage.
-    const rawStatus = null;
-    const normalizedStatus = rawStatus ? DELHIVERY_STATUS_MAP[rawStatus] || "IN_TRANSIT" : "PROCESSING";
+    const response = await fetch(resolveTrackingEndpoint(awb), {
+      method: "GET",
+      headers: { Authorization: `Token ${getEnv("DELHIVERY_API_TOKEN")}`, Accept: "application/json" },
+    });
+    const rawText = await response.text();
+    let rawResponse: unknown = rawText;
+    try {
+      rawResponse = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      rawResponse = { raw: rawText };
+    }
 
-    return {
-      provider: CourierProvider.DELHIVERY,
-      providerReference: input.providerReference || null,
-      awb: input.awb || null,
-      normalizedStatus,
-      rawStatus,
-      statusUpdatedAt: new Date(),
-      events: [],
-      metadata: { source: "delhivery-adapter-placeholder" },
-    };
+    if (!response.ok) throw new DelhiveryTrackingError(`Delhivery tracking API returned HTTP ${response.status}.`, 502);
+    return normalizeDelhiveryTrackingResponse(rawResponse, awb, input.providerReference);
   }
 }
