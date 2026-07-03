@@ -210,11 +210,79 @@
     if (Number.isNaN(date.getTime())) return String(value);
     try { return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(date); } catch (_error) { return String(value); }
   }
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + Number(days || 0));
+  return d;
+}
 
-  function pincodeDeliveryMessage(result) {
-    if (!result?.eta) return "Delivery available";
-    return `Delivery available • Estimated delivery: ${formatEta(result.eta+2)}`;
+function isSunday(date) {
+  return date.getDay() === 0;
+}
+
+function getPublicHolidays() {
+  return Array.isArray(window.MEGASKA_PUBLIC_HOLIDAYS)
+    ? window.MEGASKA_PUBLIC_HOLIDAYS
+    : [];
+}
+
+function toDateKey(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function isPublicHoliday(date) {
+  return getPublicHolidays().includes(toDateKey(date));
+}
+
+function isWorkingDay(date) {
+  return !isSunday(date) && !isPublicHoliday(date);
+}
+
+function nextWorkingDay(date) {
+  let d = new Date(date);
+  do {
+    d = addDays(d, 1);
+  } while (!isWorkingDay(d));
+  return d;
+}
+
+function getDispatchDate() {
+  const now = new Date();
+  const beforeNoon = now.getHours() < 12;
+
+  if (beforeNoon && isWorkingDay(now)) {
+    return now;
   }
+
+  return nextWorkingDay(now);
+}
+
+function buildBufferedEta(rawEta) {
+  if (!rawEta) return "";
+
+  const delhiveryEta = new Date(rawEta);
+  if (Number.isNaN(delhiveryEta.getTime())) return rawEta;
+
+  const now = new Date();
+  const dispatchDate = getDispatchDate();
+
+  const dispatchDelayDays = Math.max(
+    0,
+    Math.ceil((dispatchDate.setHours(0, 0, 0, 0) - new Date(now).setHours(0, 0, 0, 0)) / 86400000)
+  );
+
+  const bufferDays = dispatchDelayDays === 0 ? 1 : 2;
+  return addDays(delhiveryEta, bufferDays).toISOString().slice(0, 10);
+}
+
+  
+  function pincodeDeliveryMessage(result) {
+  if (!result?.eta) return "Delivery available";
+
+  const bufferedEta = buildBufferedEta(result.eta);
+
+  return `Delivery available • Estimated delivery: ${formatEta(bufferedEta)}`;
+}
 
   function setPincodeState(status, message, details) {
     state.pincodeStatus = status;
