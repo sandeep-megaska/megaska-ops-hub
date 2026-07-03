@@ -159,6 +159,7 @@ export default function ExchangeLifecycleControls({
   const [reverseShipmentLoading, setReverseShipmentLoading] = useState(false);
   const [forwardShipmentLoading, setForwardShipmentLoading] = useState(false);
   const [invoiceLoadingId, setInvoiceLoadingId] = useState<string | null>(null);
+  const [delhiveryLoading, setDelhiveryLoading] = useState(false);
 
   const stepState = useMemo(() => getStepState(currentStatus), [currentStatus]);
   const latestPayment = payments[0] || null;
@@ -168,6 +169,8 @@ export default function ExchangeLifecycleControls({
   const canCreateReverseShipment = !reversePickupRequired || paymentCompleted;
   const canCreateForwardShipment = ["ITEM_RECEIVED", "REPLACEMENT_PROCESSING", "REPLACEMENT_SHIPPED", "CLOSED"].includes(currentStatus);
   const canApprove = currentStatus === "OPEN" || currentStatus === "AWAITING_PAYMENT";
+  const delhiveryEligibleStatus = ["PAYMENT_RECEIVED", "APPROVED", "PICKUP_PENDING"].includes(currentStatus);
+  const canCreateDelhiveryReversePickup = delhiveryCapability.configured && latestPayment?.status === "PAID" && !reverseShipment?.awb && delhiveryEligibleStatus;
 
 
   function setError(text: string) {
@@ -322,7 +325,39 @@ export default function ExchangeLifecycleControls({
       setForwardShipmentLoading(false);
     }
   }
+  async function createDelhiveryReversePickup() {
+    if (!ensureAdminContext()) return;
+    setDelhiveryLoading(true);
+    setMessage(null);
 
+    try {
+      const response = await fetch(`/api/admin/exchange-requests/${requestId}/delhivery/reverse-pickup`, {
+        method: "POST",
+        headers: getHeaders(),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to create Delhivery reverse pickup");
+      }
+
+      const shipment = data?.shipment;
+      if (shipment?.awb) {
+        setReverseCarrier(shipment.carrier || "DELHIVERY");
+        setReverseAwb(shipment.awb || "");
+        setReverseTrackingUrl(shipment.trackingUrl || "");
+        setReverseShipmentStatus(shipment.status || "SCHEDULED");
+      }
+
+      setSuccess(data?.idempotent
+        ? "Existing Delhivery reverse pickup found. Refresh to view latest shipment."
+        : "Delhivery reverse pickup created. Refresh to view latest shipment and status.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to create Delhivery reverse pickup");
+    } finally {
+      setDelhiveryLoading(false);
+    }
+  }
 
 
   return (
@@ -532,14 +567,17 @@ export default function ExchangeLifecycleControls({
         <h2 className={cardTitleClass()}>Delhivery automation</h2>
         <p className="mt-2 text-sm text-slate-600">
           {delhiveryCapability.configured
-            ? "Delhivery credentials detected. API wiring can be connected in next pass."
+            ? "Delhivery credentials detected. Create reverse pickup is available after payment while the request is pickup-eligible."
             : delhiveryCapability.reason}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" disabled className="cursor-not-allowed rounded-lg border px-3 py-2 text-xs text-slate-500">Create reverse pickup (Coming next)</button>
+          <button type="button" onClick={createDelhiveryReversePickup} disabled={!canCreateDelhiveryReversePickup || delhiveryLoading} className="rounded-lg border px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">{delhiveryLoading ? "Creating reverse pickup..." : "Create reverse pickup"}</button>
           <button type="button" disabled className="cursor-not-allowed rounded-lg border px-3 py-2 text-xs text-slate-500">Generate manifest/slip (Coming next)</button>
           <button type="button" disabled className="cursor-not-allowed rounded-lg border px-3 py-2 text-xs text-slate-500">Create replacement shipment (Coming next)</button>
         </div>
+        {!canCreateDelhiveryReversePickup ? (
+          <p className="mt-2 text-xs text-slate-500">Requires Delhivery config, paid reverse pickup fee, eligible status, and no existing AWB.</p>
+        ) : null}
       </section>
 
 
