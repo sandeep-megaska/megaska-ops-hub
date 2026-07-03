@@ -160,6 +160,7 @@ export default function ExchangeLifecycleControls({
   const [forwardShipmentLoading, setForwardShipmentLoading] = useState(false);
   const [invoiceLoadingId, setInvoiceLoadingId] = useState<string | null>(null);
   const [delhiveryLoading, setDelhiveryLoading] = useState(false);
+  const [delhiverySyncLoading, setDelhiverySyncLoading] = useState(false);
 
   const stepState = useMemo(() => getStepState(currentStatus), [currentStatus]);
   const latestPayment = payments[0] || null;
@@ -171,6 +172,7 @@ export default function ExchangeLifecycleControls({
   const canApprove = currentStatus === "OPEN" || currentStatus === "AWAITING_PAYMENT";
   const delhiveryEligibleStatus = ["PAYMENT_RECEIVED", "APPROVED", "PICKUP_PENDING"].includes(currentStatus);
   const canCreateDelhiveryReversePickup = delhiveryCapability.configured && latestPayment?.status === "PAID" && !reverseShipment?.awb && delhiveryEligibleStatus;
+  const canSyncDelhiveryReversePickup = Boolean(reverseShipment?.awb && reverseShipment.carrier === "DELHIVERY");
 
 
   function setError(text: string) {
@@ -356,6 +358,41 @@ export default function ExchangeLifecycleControls({
       setError(error instanceof Error ? error.message : "Failed to create Delhivery reverse pickup");
     } finally {
       setDelhiveryLoading(false);
+    }
+  }
+
+
+  async function syncDelhiveryReversePickupTracking() {
+    if (!ensureAdminContext()) return;
+    setDelhiverySyncLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/admin/exchange-requests/${requestId}/delhivery/reverse-pickup/sync`, {
+        method: "POST",
+        headers: getHeaders(),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to sync Delhivery reverse pickup tracking");
+      }
+
+      const shipment = data?.shipment;
+      if (shipment) {
+        setReverseCarrier(shipment.carrier || "DELHIVERY");
+        setReverseAwb(shipment.awb || "");
+        setReverseTrackingUrl(shipment.trackingUrl || "");
+        setReverseShipmentStatus(shipment.status || "PENDING");
+        setReverseDeliveredAt(toDateTimeLocal(shipment.deliveredAt));
+        setReverseRemarks(shipment.remarks || "");
+      }
+
+      setSuccess(`Delhivery tracking synced (${shipment?.status || "updated"}). Refresh to view latest request status.`);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to sync Delhivery reverse pickup tracking");
+    } finally {
+      setDelhiverySyncLoading(false);
     }
   }
 
@@ -572,11 +609,12 @@ export default function ExchangeLifecycleControls({
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <button type="button" onClick={createDelhiveryReversePickup} disabled={!canCreateDelhiveryReversePickup || delhiveryLoading} className="rounded-lg border px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">{delhiveryLoading ? "Creating reverse pickup..." : "Create reverse pickup"}</button>
+          <button type="button" onClick={syncDelhiveryReversePickupTracking} disabled={!canSyncDelhiveryReversePickup || delhiverySyncLoading} className="rounded-lg border px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">{delhiverySyncLoading ? "Syncing tracking..." : "Sync reverse pickup tracking"}</button>
           <button type="button" disabled className="cursor-not-allowed rounded-lg border px-3 py-2 text-xs text-slate-500">Generate manifest/slip (Coming next)</button>
           <button type="button" disabled className="cursor-not-allowed rounded-lg border px-3 py-2 text-xs text-slate-500">Create replacement shipment (Coming next)</button>
         </div>
         {!canCreateDelhiveryReversePickup ? (
-          <p className="mt-2 text-xs text-slate-500">Requires Delhivery config, paid reverse pickup fee, eligible status, and no existing AWB.</p>
+          <p className="mt-2 text-xs text-slate-500">Create requires Delhivery config, paid reverse pickup fee, eligible status, and no existing AWB. Sync requires a Delhivery reverse pickup AWB.</p>
         ) : null}
       </section>
 
