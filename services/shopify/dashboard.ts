@@ -355,7 +355,7 @@ function mapOrder(order: ShopifyOrderNode): MegaskaDashboardOrder {
     name: String(order.name || "").trim(),
     processedAt: order.processedAt || null,
     createdAt: order.createdAt || null,
-    deliveredAt: deliveredAt || order.processedAt || null,
+    deliveredAt,
     closedAt: order.closedAt || null,
     cancelledAt: order.cancelledAt || null,
     cancelReason: order.cancelReason || null,

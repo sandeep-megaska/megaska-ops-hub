@@ -136,9 +136,12 @@ async function resolveTrustedFulfillment(input: {
       }) || null;
 
     if (matchingOrder) {
+      const deliveredAt = matchingOrder.deliveredAt || null;
       return {
-        deliveredAt: matchingOrder.deliveredAt || null,
-        fulfillmentStatus: matchingOrder.fulfillmentStatus || null,
+        deliveredAt,
+        fulfillmentStatus: deliveredAt
+          ? "delivered"
+          : matchingOrder.fulfillmentStatus || null,
       };
     }
   } catch (error) {
