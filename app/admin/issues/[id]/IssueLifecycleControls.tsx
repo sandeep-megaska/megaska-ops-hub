@@ -21,7 +21,6 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 export default function IssueLifecycleControls({ requestId, currentStatus, allowedTransitions, currentAdminNote }: Props) {
-  const [adminKey, setAdminKey] = useState("");
   const [nextStatus, setNextStatus] = useState(allowedTransitions[0] || currentStatus);
   const [adminNote, setAdminNote] = useState(currentAdminNote);
   const [refundAmount, setRefundAmount] = useState("");
@@ -40,9 +39,7 @@ export default function IssueLifecycleControls({ requestId, currentStatus, allow
   }
 
   async function updateStatus() {
-    if (!adminKey) {
-      setMessage("Admin key is required");
-      return;
+   
     }
 
     const refundAmountResult = approvingRefund ? parseRefundAmountPaise() : { refundAmountPaise: null, error: null };
@@ -62,8 +59,7 @@ export default function IssueLifecycleControls({ requestId, currentStatus, allow
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "x-admin-key": adminKey,
-      },
+              },
       body: JSON.stringify(payload),
     });
 
@@ -159,7 +155,23 @@ export default function IssueLifecycleControls({ requestId, currentStatus, allow
             </label>
           </>
         ) : null}
-        <button type="button" onClick={updateStatus} disabled={!allowedTransitions.length}>{ACTION_LABELS[nextStatus] || "Apply Status"}</button>
+        <button
+  type="button"
+  onClick={updateStatus}
+  disabled={!allowedTransitions.length}
+  style={{
+    marginTop: 8,
+    border: "none",
+    borderRadius: 10,
+    background: allowedTransitions.length ? "#111827" : "#9ca3af",
+    color: "#fff",
+    fontWeight: 700,
+    padding: "10px 16px",
+    cursor: allowedTransitions.length ? "pointer" : "not-allowed",
+  }}
+>
+  {ACTION_LABELS[nextStatus] || "Apply Status"}
+</button>
       </div>
 
       <hr style={{ margin: "16px 0" }} />
@@ -169,7 +181,21 @@ export default function IssueLifecycleControls({ requestId, currentStatus, allow
           Admin Note
           <textarea value={adminNote} onChange={(event) => setAdminNote(event.target.value)} style={{ display: "block", width: "100%" }} />
         </label>
-        <button type="button" onClick={saveNote}>Save Note</button>
+       <button
+  type="button"
+  onClick={saveNote}
+  style={{
+    border: "1px solid #111827",
+    borderRadius: 10,
+    background: "#fff",
+    color: "#111827",
+    fontWeight: 700,
+    padding: "10px 16px",
+    cursor: "pointer",
+  }}
+>
+  Save Note
+</button>
       </div>
       {message ? <p style={{ marginTop: 12 }}>{message}</p> : null}
     </section>
