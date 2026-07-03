@@ -24,8 +24,8 @@ function normalize(value: string | null | undefined) {
   return String(value || "").trim().toLowerCase();
 }
 
-function isDeliveredOrFulfilledStatus(status: string) {
-  return ["delivered", "fulfilled", "partially fulfilled", "partial"].some((keyword) => status.includes(keyword));
+function isDeliveredStatus(status: string) {
+  return status.includes("delivered");
 }
 
 export function getIssueRefundMode(paymentGatewayName: string | null | undefined) {
@@ -57,7 +57,7 @@ export function evaluateIssueEligibility(input: {
   const deliveredAt = deliveredAtRaw ? new Date(deliveredAtRaw) : null;
   const hasValidDeliveredAt = Boolean(deliveredAt && !Number.isNaN(deliveredAt.getTime()));
 
-  if (fulfillmentStatus && !isDeliveredOrFulfilledStatus(fulfillmentStatus)) {
+  if (fulfillmentStatus && !isDeliveredStatus(fulfillmentStatus)) {
     return { eligible: false, reason: "Issue can be reported only after the order is delivered." };
   }
 

@@ -19,9 +19,9 @@ function normalizeStatus(value: string | null | undefined) {
   return String(value || "").trim().toLowerCase();
 }
 
-function isDeliveredOrFulfilledStatus(status: string) {
+function isDeliveredStatus(status: string) {
   if (!status) return false;
-  return ["delivered", "fulfilled"].some((keyword) => status.includes(keyword));
+  return status.includes("delivered");
 }
 
 function isKnownUndeliveredStatus(status: string) {
@@ -100,7 +100,7 @@ export function evaluateExchangeEligibility(input: EligibilityInput) {
   const deliveredAt = input.deliveredAt ? new Date(input.deliveredAt) : null;
   const hasValidDeliveredAt = Boolean(deliveredAt && !Number.isNaN(deliveredAt.getTime()));
 
-  if (fulfillmentStatus && !isDeliveredOrFulfilledStatus(fulfillmentStatus) && isKnownUndeliveredStatus(fulfillmentStatus)) {
+  if (fulfillmentStatus && !isDeliveredStatus(fulfillmentStatus) && isKnownUndeliveredStatus(fulfillmentStatus)) {
     return {
       decision: "REJECTED" as const,
       reason: "Exchange can be requested only after the order has been delivered.",
@@ -109,7 +109,7 @@ export function evaluateExchangeEligibility(input: EligibilityInput) {
     };
   }
 
-  if (!isDeliveredOrFulfilledStatus(fulfillmentStatus)) {
+  if (!isDeliveredStatus(fulfillmentStatus)) {
     return {
       decision: "REJECTED" as const,
       reason: "Exchange can be requested only after the order has been delivered.",

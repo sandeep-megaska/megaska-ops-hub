@@ -152,6 +152,13 @@
     return String((node.dataset && node.dataset[camel]) || node.getAttribute("data-" + key) || "").trim();
   }
 
+  function parseBooleanDataValue(value) {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (["1", "true", "yes"].includes(normalized)) return true;
+    if (["0", "false", "no"].includes(normalized)) return false;
+    return null;
+  }
+
   function normalizeShopDomain(value) {
     const raw = String(value || "").trim().toLowerCase();
     if (!raw) return "";
@@ -322,6 +329,26 @@
       getDataValue(structuredSource, "payment-gateway-name"),
       getDataValue(drawer, "payment-gateway-name"),
     ]),
+    canRequestCancellation: parseBooleanDataValue(readFirstValue([
+      getDataValue(sourceButton, "can-request-cancellation"),
+      getDataValue(structuredSource, "can-request-cancellation"),
+      getDataValue(drawer, "can-request-cancellation"),
+    ])),
+    canRequestExchange: parseBooleanDataValue(readFirstValue([
+      getDataValue(sourceButton, "can-request-exchange"),
+      getDataValue(structuredSource, "can-request-exchange"),
+      getDataValue(drawer, "can-request-exchange"),
+    ])),
+    canReportIssue: parseBooleanDataValue(readFirstValue([
+      getDataValue(sourceButton, "can-report-issue"),
+      getDataValue(structuredSource, "can-report-issue"),
+      getDataValue(drawer, "can-report-issue"),
+    ])),
+    requestLockReason: readFirstValue([
+      getDataValue(sourceButton, "request-lock-reason"),
+      getDataValue(structuredSource, "request-lock-reason"),
+      getDataValue(drawer, "request-lock-reason"),
+    ]),
   };
 }
 
@@ -441,6 +468,24 @@
       layer.classList.remove("open");
       layer.remove();
     }
+  }
+
+  function renderBlockedActionModal(title, message) {
+    closeModal();
+    injectStyles();
+
+    const layer = document.createElement("div");
+    layer.id = MODAL_ID;
+    layer.className = "mk-ex-modal-layer open";
+    layer.innerHTML = `
+      <div class="mk-ex-modal-overlay" data-mk-ex-close="1"></div>
+      <div class="mk-ex-modal" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
+        <h3>${escapeHtml(title)}</h3>
+        <p class="mk-ex-muted">${escapeHtml(message)}</p>
+        <div class="mk-ex-actions"><button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button></div>
+      </div>
+    `;
+    document.body.appendChild(layer);
   }
 
   function renderModal(context) {
@@ -1116,12 +1161,25 @@
       const context = getDrawerOrderContext(button);
       if (!context) return;
 
+      const blockedReason = context.requestLockReason || "This request action is not available for the current order state.";
       if (isCancellationAction) {
         logCancellationDebug("drawer-context", context);
+        if (context.canRequestCancellation === false) {
+          renderBlockedActionModal("Cancellation unavailable", blockedReason);
+          return;
+        }
         renderCancellationModal(context);
       } else if (isIssueAction) {
+        if (context.canReportIssue === false) {
+          renderBlockedActionModal("Issue report unavailable", blockedReason);
+          return;
+        }
         renderIssueModal(context);
       } else {
+        if (context.canRequestExchange === false) {
+          renderBlockedActionModal("Exchange unavailable", blockedReason);
+          return;
+        }
         renderModal(context);
       }
 
