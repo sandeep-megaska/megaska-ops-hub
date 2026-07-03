@@ -2,11 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { withCors, handleOptions } from "../../_lib/cors";
 import { prisma } from "../../../../services/db/prisma";
 import { getAuthenticatedCustomer } from "../../../../services/exchange/auth";
-import { deriveCancellationOutcome, evaluateCancellationEligibility, isCancellationStatusBlocking } from "../../../../services/exchange/cancellation";
+import {
+  deriveCancellationOutcome,
+  evaluateCancellationEligibility,
+} from "../../../../services/exchange/cancellation";
 import { sendCancellationRequestCreatedEmail } from "../../../../services/notifications/cancellation";
-import { getShopByDomain, normalizeShopDomain, resolveShopConfig } from "../../../../services/shopify/shop";
-
-
+import {
+  getShopByDomain,
+  normalizeShopDomain,
+  resolveShopConfig,
+} from "../../../../services/shopify/shop";
+import {
+  findActiveRequest,
+  formatRequestLockReason,
+  orderNumberVariants,
+} from "../../../../services/exchange/request-interlocks";
 
 async function resolveTrustedCancellationStatus(input: {
   shopId: string;
@@ -25,8 +35,14 @@ async function resolveTrustedCancellationStatus(input: {
       shopId: input.shopId,
       customerProfileId: input.customerProfileId,
       OR: [
-        ...(input.shopifyOrderId ? [{ shopifyOrderId: input.shopifyOrderId }] : []),
-        { shopifyOrderName: input.orderNumber.startsWith("#") ? input.orderNumber : `#${input.orderNumber}` },
+        ...(input.shopifyOrderId
+          ? [{ shopifyOrderId: input.shopifyOrderId }]
+          : []),
+        {
+          shopifyOrderName: input.orderNumber.startsWith("#")
+            ? input.orderNumber
+            : `#${input.orderNumber}`,
+        },
       ],
     },
     select: {
@@ -42,7 +58,8 @@ async function resolveTrustedCancellationStatus(input: {
   if (!order) return null;
 
   return {
-    fulfillmentStatus: order.shipments[0]?.normalizedStatus || order.status || null,
+    fulfillmentStatus:
+      order.shipments[0]?.normalizedStatus || order.status || null,
     fulfilledAt: order.shipments[0]?.statusUpdatedAt || null,
     deliveredAt: null,
     financialStatus: null,
@@ -60,29 +77,53 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getAuthenticatedCustomer(req);
     if (!session) {
-      return withCors(req, NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
+      return withCors(
+        req,
+        NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      );
     }
 
-    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+    const body = (await req.json().catch(() => null)) as Record<
+      string,
+      unknown
+    > | null;
     const orderNumber = String(body?.orderNumber || "").trim();
     const shopifyOrderId = String(body?.shopifyOrderId || "").trim() || null;
     const reason = String(body?.reason || "").trim();
     const customerNote = String(body?.customerNote || "").trim() || null;
-    const fulfillmentStatus = String(body?.fulfillmentStatus || "").trim() || null;
+    const fulfillmentStatus =
+      String(body?.fulfillmentStatus || "").trim() || null;
     const financialStatus = String(body?.financialStatus || "").trim() || null;
     const fulfilledAt = String(body?.fulfilledAt || "").trim() || null;
     const deliveredAt = String(body?.deliveredAt || "").trim() || null;
-    const amountSnapshot = String(body?.orderAmountSnapshot || "").trim() || null;
+    const amountSnapshot =
+      String(body?.orderAmountSnapshot || "").trim() || null;
 
     if (!orderNumber || !reason) {
-      return withCors(req, NextResponse.json({ error: "orderNumber and reason are required" }, { status: 400 }));
+      return withCors(
+        req,
+        NextResponse.json(
+          { error: "orderNumber and reason are required" },
+          { status: 400 },
+        ),
+      );
     }
 
-    const requestedShopDomain = normalizeShopDomain(req.headers.get("x-shopify-shop-domain") || "");
-    const resolvedShop = requestedShopDomain ? await getShopByDomain(requestedShopDomain) : await resolveShopConfig();
+    const requestedShopDomain = normalizeShopDomain(
+      req.headers.get("x-shopify-shop-domain") || "",
+    );
+    const resolvedShop = requestedShopDomain
+      ? await getShopByDomain(requestedShopDomain)
+      : await resolveShopConfig();
     const effectiveShopId = session.customer.shopId || resolvedShop?.id || null;
     if (!effectiveShopId) {
-      return withCors(req, NextResponse.json({ error: "Unable to resolve shop context for cancellation request." }, { status: 400 }));
+      return withCors(
+        req,
+        NextResponse.json(
+          { error: "Unable to resolve shop context for cancellation request." },
+          { status: 400 },
+        ),
+      );
     }
 
     const trustedStatus = await resolveTrustedCancellationStatus({
@@ -95,37 +136,42 @@ export async function POST(req: NextRequest) {
     const eligibility = evaluateCancellationEligibility({
       fulfillmentStatus: trustedStatus?.fulfillmentStatus ?? fulfillmentStatus,
       financialStatus: trustedStatus?.financialStatus ?? financialStatus,
-      fulfilledAt: trustedStatus?.fulfilledAt ? trustedStatus.fulfilledAt.toISOString() : fulfilledAt,
-      deliveredAt: trustedStatus?.deliveredAt ? trustedStatus.deliveredAt.toISOString() : deliveredAt,
-      orderCancelled: trustedStatus?.orderCancelled ?? Boolean(body?.orderCancelled),
+      fulfilledAt: trustedStatus?.fulfilledAt
+        ? trustedStatus.fulfilledAt.toISOString()
+        : fulfilledAt,
+      deliveredAt: trustedStatus?.deliveredAt
+        ? trustedStatus.deliveredAt.toISOString()
+        : deliveredAt,
+      orderCancelled:
+        trustedStatus?.orderCancelled ?? Boolean(body?.orderCancelled),
     });
 
     if (!eligibility.eligible) {
-      return withCors(req, NextResponse.json({ error: eligibility.reason }, { status: 400 }));
+      return withCors(
+        req,
+        NextResponse.json({ error: eligibility.reason }, { status: 400 }),
+      );
     }
 
-    const existingBlockingRequest = await prisma.orderActionRequest.findFirst({
+    const existingRequests = await prisma.orderActionRequest.findMany({
       where: {
         customerProfileId: session.customer.id,
         shopId: effectiveShopId,
-        requestType: "CANCELLATION",
-        orderNumber,
-        status: { in: ["OPEN", "APPROVED", "CLOSED"] },
+        requestType: { in: ["CANCELLATION", "EXCHANGE", "ISSUE"] },
+        orderNumber: { in: orderNumberVariants(orderNumber) },
       },
-      select: { id: true, status: true },
+      orderBy: { requestedAt: "desc" },
+      select: { id: true, requestType: true, status: true },
     });
+    const activeRequest = findActiveRequest(existingRequests);
 
-    if (existingBlockingRequest && isCancellationStatusBlocking(existingBlockingRequest.status)) {
-      const status = String(existingBlockingRequest.status || "").trim().toUpperCase();
+    if (activeRequest) {
       const error =
-        status === "CLOSED"
-          ? "Order cancellation is already finalized for this order."
-          : "A cancellation request already exists for this order.";
+        activeRequest.requestType === "CANCELLATION"
+          ? "A cancellation request already exists for this order."
+          : `Cannot request cancellation while ${formatRequestLockReason(activeRequest)?.toLowerCase()}`;
 
-      return withCors(
-        req,
-        NextResponse.json({ error }, { status: 400 })
-      );
+      return withCors(req, NextResponse.json({ error }, { status: 400 }));
     }
 
     const created = await prisma.orderActionRequest.create({
@@ -185,20 +231,29 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return withCors(req, NextResponse.json({
-      request: {
-        ...created,
-        cancellationOutcome: deriveCancellationOutcome({
-          cancellationStatus: created.status,
-          orderAmountSnapshot: created.orderAmountSnapshot,
-          refundRequests: createdRefundRequests,
-        }),
-      },
-    }, { status: 201 }));
+    return withCors(
+      req,
+      NextResponse.json(
+        {
+          request: {
+            ...created,
+            cancellationOutcome: deriveCancellationOutcome({
+              cancellationStatus: created.status,
+              orderAmountSnapshot: created.orderAmountSnapshot,
+              refundRequests: createdRefundRequests,
+            }),
+          },
+        },
+        { status: 201 },
+      ),
+    );
   } catch (error) {
     return withCors(
       req,
-      NextResponse.json({ error: error instanceof Error ? error.message : "Failed" }, { status: 500 })
+      NextResponse.json(
+        { error: error instanceof Error ? error.message : "Failed" },
+        { status: 500 },
+      ),
     );
   }
 }
@@ -207,7 +262,10 @@ export async function GET(req: NextRequest) {
   try {
     const session = await getAuthenticatedCustomer(req);
     if (!session) {
-      return withCors(req, NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
+      return withCors(
+        req,
+        NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      );
     }
 
     const status = req.nextUrl.searchParams.get("status")?.trim() || undefined;
@@ -230,7 +288,9 @@ export async function GET(req: NextRequest) {
 
     const refundRequests = requests.length
       ? await (prisma as any).refundRequest.findMany({
-          where: { orderActionRequestId: { in: requests.map((request) => request.id) } },
+          where: {
+            orderActionRequestId: { in: requests.map((request) => request.id) },
+          },
           orderBy: { updatedAt: "desc" },
         })
       : [];
@@ -241,20 +301,26 @@ export async function GET(req: NextRequest) {
       refundsByRequestId.get(key)?.push(refund);
     }
 
-    return withCors(req, NextResponse.json({
-      requests: requests.map((request) => ({
-        ...request,
-        cancellationOutcome: deriveCancellationOutcome({
-          cancellationStatus: request.status,
-          orderAmountSnapshot: request.orderAmountSnapshot,
-          refundRequests: refundsByRequestId.get(request.id) || [],
-        }),
-      })),
-    }));
+    return withCors(
+      req,
+      NextResponse.json({
+        requests: requests.map((request) => ({
+          ...request,
+          cancellationOutcome: deriveCancellationOutcome({
+            cancellationStatus: request.status,
+            orderAmountSnapshot: request.orderAmountSnapshot,
+            refundRequests: refundsByRequestId.get(request.id) || [],
+          }),
+        })),
+      }),
+    );
   } catch (error) {
     return withCors(
       req,
-      NextResponse.json({ error: error instanceof Error ? error.message : "Failed" }, { status: 500 })
+      NextResponse.json(
+        { error: error instanceof Error ? error.message : "Failed" },
+        { status: 500 },
+      ),
     );
   }
 }

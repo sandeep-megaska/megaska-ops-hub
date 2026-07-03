@@ -2,7 +2,10 @@ import { MegaskaOrderStatus } from "../../../../generated/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { withCors, handleOptions } from "../../_lib/cors";
 import { prisma } from "../../../../services/db/prisma";
-import { hashSessionToken, getSessionTokenFromRequest } from "../../../../services/auth/session";
+import {
+  hashSessionToken,
+  getSessionTokenFromRequest,
+} from "../../../../services/auth/session";
 import {
   debugShopifyAdminAuth,
   findShopifyCustomerIdByIdentity,
@@ -13,9 +16,20 @@ import {
   ShopResolutionError,
   requireShopFromRequest,
 } from "../../../../services/shopify/shop";
-import { deriveCancellationOutcome, isCancellationStatusBlocking } from "../../../../services/exchange/cancellation";
+import {
+  deriveCancellationOutcome,
+  isCancellationStatusBlocking,
+} from "../../../../services/exchange/cancellation";
 import { ACTIVE_EXCHANGE_STATUSES } from "../../../../services/exchange/lifecycle";
-import { getOrCreateWalletAccount, listWalletTransactions } from "../../../../services/wallet";
+import {
+  findActiveRequest,
+  formatRequestLockReason,
+} from "../../../../services/exchange/request-interlocks";
+import { isIssueStatusBlocking } from "../../../../services/exchange/issue";
+import {
+  getOrCreateWalletAccount,
+  listWalletTransactions,
+} from "../../../../services/wallet";
 
 export const runtime = "nodejs";
 
@@ -53,7 +67,10 @@ function formatShipmentTimelineStatus(status: MegaskaOrderStatus) {
 function formatShopifyTrackingStatus(status: string | null | undefined) {
   const normalized = String(status || "").trim();
   if (!normalized) return "Tracking available";
-  return normalized.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+  return normalized
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function buildShopifyFulfillmentTracking(order: {
@@ -70,19 +87,27 @@ function buildShopifyFulfillmentTracking(order: {
     }> | null;
   } | null> | null;
 }): DashboardTracking | null {
-  const shipments: DashboardTracking["shipments"] = (order.fulfillments || []).flatMap((fulfillment) => {
+  const shipments: DashboardTracking["shipments"] = (
+    order.fulfillments || []
+  ).flatMap((fulfillment) => {
     const trackingEntries = (fulfillment?.trackingInfo || []).filter((entry) =>
-      Boolean(String(entry?.number || entry?.url || entry?.company || "").trim())
+      Boolean(
+        String(entry?.number || entry?.url || entry?.company || "").trim(),
+      ),
     );
 
     return trackingEntries.map((entry, index) => {
-      const statusLabel = formatShopifyTrackingStatus(fulfillment?.status || order.fulfillmentStatus);
-      const statusUpdatedAt = fulfillment?.deliveredAt || fulfillment?.createdAt || null;
+      const statusLabel = formatShopifyTrackingStatus(
+        fulfillment?.status || order.fulfillmentStatus,
+      );
+      const statusUpdatedAt =
+        fulfillment?.deliveredAt || fulfillment?.createdAt || null;
       const timeline: DashboardTracking["shipments"][number]["timeline"] = [];
       if (fulfillment?.createdAt) {
         timeline.push({
           id: `${fulfillment?.id || "shopify-fulfillment"}-${index}-created`,
-          normalizedStatus: fulfillment?.status || order.fulfillmentStatus || null,
+          normalizedStatus:
+            fulfillment?.status || order.fulfillmentStatus || null,
           statusLabel,
           occurredAt: fulfillment.createdAt,
           description: "Fulfillment created in Shopify",
@@ -107,7 +132,8 @@ function buildShopifyFulfillmentTracking(order: {
         provider: entry?.company || null,
         awb: entry?.number || null,
         trackingUrl: entry?.url || null,
-        normalizedStatus: fulfillment?.status || order.fulfillmentStatus || null,
+        normalizedStatus:
+          fulfillment?.status || order.fulfillmentStatus || null,
         statusLabel,
         statusUpdatedAt,
         isMock: false,
@@ -126,16 +152,16 @@ function buildShopifyFulfillmentTracking(order: {
       message: "Tracking details are provided by Shopify fulfillment data.",
     },
     shipments,
-    hasTracking: shipments.some((shipment) => Boolean(String(shipment.awb || shipment.trackingUrl || "").trim())),
+    hasTracking: shipments.some((shipment) =>
+      Boolean(String(shipment.awb || shipment.trackingUrl || "").trim()),
+    ),
     source: "shopify_fulfillment_tracking_info",
   };
 }
 
-
 export async function OPTIONS(req: NextRequest) {
   return handleOptions(req);
 }
-
 
 export async function GET(req: NextRequest) {
   try {
@@ -145,17 +171,17 @@ export async function GET(req: NextRequest) {
     if (!sessionToken) {
       return withCors(
         req,
-        NextResponse.json({ error: "Session token required" }, { status: 401 })
+        NextResponse.json({ error: "Session token required" }, { status: 401 }),
       );
     }
 
     const now = new Date();
     const session = await prisma.authSession.findFirst({
-  where: {
-    sessionTokenHash: hashSessionToken(sessionToken),
-    revokedAt: null,
-    expiresAt: { gt: now },
-  },
+      where: {
+        sessionTokenHash: hashSessionToken(sessionToken),
+        revokedAt: null,
+        expiresAt: { gt: now },
+      },
       include: {
         customer: true,
       },
@@ -167,7 +193,10 @@ export async function GET(req: NextRequest) {
     if (!session) {
       return withCors(
         req,
-        NextResponse.json({ error: "Invalid or expired session" }, { status: 401 })
+        NextResponse.json(
+          { error: "Invalid or expired session" },
+          { status: 401 },
+        ),
       );
     }
 
@@ -178,58 +207,60 @@ export async function GET(req: NextRequest) {
 
     const customer = session.customer;
 
-  let resolvedShopifyCustomerId = String(customer.shopifyCustomerId || "").trim();
+    let resolvedShopifyCustomerId = String(
+      customer.shopifyCustomerId || "",
+    ).trim();
 
-if (isShopifyAdminConfigured()) {
-  let emailMatchId = "";
-  let phoneMatchId = "";
+    if (isShopifyAdminConfigured()) {
+      let emailMatchId = "";
+      let phoneMatchId = "";
 
-  if (customer.email) {
-    emailMatchId =
-      (await findShopifyCustomerIdByIdentity({
-        shopDomain: shop.shopDomain,
-        email: customer.email,
-      })) || "";
-  }
+      if (customer.email) {
+        emailMatchId =
+          (await findShopifyCustomerIdByIdentity({
+            shopDomain: shop.shopDomain,
+            email: customer.email,
+          })) || "";
+      }
 
-  if (!emailMatchId && customer.phoneE164) {
-    phoneMatchId =
-      (await findShopifyCustomerIdByIdentity({
-        shopDomain: shop.shopDomain,
-        phoneE164: customer.phoneE164,
-      })) || "";
-  }
+      if (!emailMatchId && customer.phoneE164) {
+        phoneMatchId =
+          (await findShopifyCustomerIdByIdentity({
+            shopDomain: shop.shopDomain,
+            phoneE164: customer.phoneE164,
+          })) || "";
+      }
 
-  const bestMatch = emailMatchId || phoneMatchId;
+      const bestMatch = emailMatchId || phoneMatchId;
 
-  if (bestMatch && bestMatch !== resolvedShopifyCustomerId) {
-    resolvedShopifyCustomerId = bestMatch;
+      if (bestMatch && bestMatch !== resolvedShopifyCustomerId) {
+        resolvedShopifyCustomerId = bestMatch;
 
-    await prisma.customerProfile.update({
-      where: { id: customer.id },
-      data: { shopifyCustomerId: bestMatch },
-    });
-  }
-}
+        await prisma.customerProfile.update({
+          where: { id: customer.id },
+          data: { shopifyCustomerId: bestMatch },
+        });
+      }
+    }
 
-let shopifyDashboard = null;    
+    let shopifyDashboard = null;
 
-if (isShopifyAdminConfigured()) {
-  try {
-    shopifyDashboard = await getMegaskaCustomerDashboardData({
-      shopDomain: shop.shopDomain,
-      customerId: resolvedShopifyCustomerId || null,
-      email: customer.email,
-      phoneE164: customer.phoneE164,
-    });
-  } catch (error) {
-    console.error("[DASHBOARD SUMMARY] Shopify dashboard fetch failed", {
-      shopId: shop.id,
-      shopDomain: shop.shopDomain,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
+    if (isShopifyAdminConfigured()) {
+      try {
+        shopifyDashboard = await getMegaskaCustomerDashboardData({
+          shopDomain: shop.shopDomain,
+          customerId: resolvedShopifyCustomerId || null,
+          email: customer.email,
+          phoneE164: customer.phoneE164,
+        });
+      } catch (error) {
+        console.error("[DASHBOARD SUMMARY] Shopify dashboard fetch failed", {
+          shopId: shop.id,
+          shopDomain: shop.shopDomain,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
 
     const savedAddressCount = shopifyDashboard?.defaultAddress
       ? 1
@@ -239,7 +270,9 @@ if (isShopifyAdminConfigured()) {
 
     const totalOrders = Number(shopifyDashboard?.totalOrderCount || 0);
     const orderNumbers = Array.isArray(shopifyDashboard?.recentOrders)
-      ? shopifyDashboard.recentOrders.map((order) => String(order?.name || "").trim()).filter(Boolean)
+      ? shopifyDashboard.recentOrders
+          .map((order) => String(order?.name || "").trim())
+          .filter(Boolean)
       : [];
 
     const cancellationRequests = orderNumbers.length
@@ -262,18 +295,30 @@ if (isShopifyAdminConfigured()) {
 
     const cancellationRefundRequests = cancellationRequests.length
       ? await (prisma as any).refundRequest.findMany({
-          where: { orderActionRequestId: { in: cancellationRequests.map((request) => request.id) } },
+          where: {
+            orderActionRequestId: {
+              in: cancellationRequests.map((request) => request.id),
+            },
+          },
           orderBy: { updatedAt: "desc" },
         })
       : [];
     const cancellationRefundsByRequestId = new Map<string, any[]>();
     for (const refund of cancellationRefundRequests) {
       const key = String(refund.orderActionRequestId || "");
-      if (!cancellationRefundsByRequestId.has(key)) cancellationRefundsByRequestId.set(key, []);
+      if (!cancellationRefundsByRequestId.has(key))
+        cancellationRefundsByRequestId.set(key, []);
       cancellationRefundsByRequestId.get(key)?.push(refund);
     }
 
-    const latestCancellationByOrder = new Map<string, { status: string; requestedAt: Date; cancellationOutcome: ReturnType<typeof deriveCancellationOutcome> }>();
+    const latestCancellationByOrder = new Map<
+      string,
+      {
+        status: string;
+        requestedAt: Date;
+        cancellationOutcome: ReturnType<typeof deriveCancellationOutcome>;
+      }
+    >();
     for (const request of cancellationRequests) {
       if (!latestCancellationByOrder.has(request.orderNumber)) {
         latestCancellationByOrder.set(request.orderNumber, {
@@ -282,7 +327,8 @@ if (isShopifyAdminConfigured()) {
           cancellationOutcome: deriveCancellationOutcome({
             cancellationStatus: request.status,
             orderAmountSnapshot: request.orderAmountSnapshot,
-            refundRequests: cancellationRefundsByRequestId.get(request.id) || [],
+            refundRequests:
+              cancellationRefundsByRequestId.get(request.id) || [],
           }),
         });
       }
@@ -304,7 +350,10 @@ if (isShopifyAdminConfigured()) {
         })
       : [];
 
-    const latestExchangeByOrder = new Map<string, { status: string; requestedAt: Date }>();
+    const latestExchangeByOrder = new Map<
+      string,
+      { status: string; requestedAt: Date }
+    >();
     for (const request of exchangeRequests) {
       if (!latestExchangeByOrder.has(request.orderNumber)) {
         latestExchangeByOrder.set(request.orderNumber, {
@@ -330,7 +379,10 @@ if (isShopifyAdminConfigured()) {
         })
       : [];
 
-    const latestIssueByOrder = new Map<string, { status: string; requestedAt: Date }>();
+    const latestIssueByOrder = new Map<
+      string,
+      { status: string; requestedAt: Date }
+    >();
     for (const request of issueRequests) {
       if (!latestIssueByOrder.has(request.orderNumber)) {
         latestIssueByOrder.set(request.orderNumber, {
@@ -341,11 +393,18 @@ if (isShopifyAdminConfigured()) {
     }
 
     const openRequests = cancellationRequests.filter((request) =>
-      isCancellationStatusBlocking(request.status)
+      isCancellationStatusBlocking(request.status),
     ).length;
 
-    const walletAccount = await getOrCreateWalletAccount(customer.id, "INR", { shopId: shop.id });
-    const walletTransactions = await listWalletTransactions(customer.id, "INR", 15, { shopId: shop.id });
+    const walletAccount = await getOrCreateWalletAccount(customer.id, "INR", {
+      shopId: shop.id,
+    });
+    const walletTransactions = await listWalletTransactions(
+      customer.id,
+      "INR",
+      15,
+      { shopId: shop.id },
+    );
 
     const walletReservedRows = await prisma.$queryRaw<Array<{ total: number }>>`
       SELECT COALESCE(SUM("reservedAmount"), 0)::int AS total
@@ -399,9 +458,13 @@ if (isShopifyAdminConfigured()) {
             awb: shipment.awb,
             trackingUrl: shipment.trackingUrl,
             normalizedStatus: shipment.normalizedStatus,
-            statusLabel: formatShipmentTimelineStatus(shipment.normalizedStatus),
+            statusLabel: formatShipmentTimelineStatus(
+              shipment.normalizedStatus,
+            ),
             statusUpdatedAt: shipment.statusUpdatedAt,
-            isMock: Boolean((shipment.metadata as { mock?: boolean } | null)?.mock),
+            isMock: Boolean(
+              (shipment.metadata as { mock?: boolean } | null)?.mock,
+            ),
             timeline: shipment.events.map((event) => ({
               id: event.id,
               normalizedStatus: event.normalizedStatus,
@@ -409,11 +472,13 @@ if (isShopifyAdminConfigured()) {
               occurredAt: event.occurredAt,
               description: event.description,
               location: event.location,
-              isMock: Boolean((event.metadata as { mock?: boolean } | null)?.mock),
+              isMock: Boolean(
+                (event.metadata as { mock?: boolean } | null)?.mock,
+              ),
             })),
           })),
         },
-      ])
+      ]),
     );
 
     const orders = (shopifyDashboard?.recentOrders || []).map((order) => {
@@ -421,22 +486,71 @@ if (isShopifyAdminConfigured()) {
       const latestCancellation = latestCancellationByOrder.get(orderNumber);
       const latestExchange = latestExchangeByOrder.get(orderNumber);
       const latestIssue = latestIssueByOrder.get(orderNumber);
+      const activeRequest = findActiveRequest([
+        ...(latestCancellation
+          ? [{ requestType: "CANCELLATION", status: latestCancellation.status }]
+          : []),
+        ...(latestExchange
+          ? [{ requestType: "EXCHANGE", status: latestExchange.status }]
+          : []),
+        ...(latestIssue
+          ? [{ requestType: "ISSUE", status: latestIssue.status }]
+          : []),
+      ]);
+      const activeLockReason = formatRequestLockReason(activeRequest);
+      const fulfillmentStatus = String(order?.fulfillmentStatus || "")
+        .trim()
+        .toUpperCase()
+        .replace(/[\s-]+/g, "_");
+      const delivered =
+        Boolean(order?.deliveredAt) || fulfillmentStatus === "DELIVERED";
+      const shippedOrInTransit =
+        Boolean((order as { fulfilledAt?: string | null })?.fulfilledAt) ||
+        [
+          "FULFILLED",
+          "SHIPPED",
+          "IN_TRANSIT",
+          "OUT_FOR_DELIVERY",
+          "PARTIAL",
+          "PARTIALLY_FULFILLED",
+        ].includes(fulfillmentStatus);
+      const notShipped = !delivered && !shippedOrInTransit;
+      const inTransit = !delivered && shippedOrInTransit;
+      const requestLockReason =
+        activeLockReason ||
+        (inTransit
+          ? "Requests are available after delivery; cancellation is no longer available once shipped."
+          : null);
+      const canRequestCancellation = notShipped && !activeRequest;
+      const canRequestExchange = delivered && !activeRequest;
+      const canReportIssue = delivered && !activeRequest;
 
       return {
         ...order,
+        canRequestCancellation,
+        canRequestExchange,
+        canReportIssue,
+        requestLockReason,
         latestCancellationStatus: latestCancellation?.status || null,
-        latestCancellationRefundStatus: latestCancellation?.cancellationOutcome.refundRequirementLabel || null,
-        latestCancellationExplanation: latestCancellation?.cancellationOutcome.customerExplanation || null,
+        latestCancellationRefundStatus:
+          latestCancellation?.cancellationOutcome.refundRequirementLabel ||
+          null,
+        latestCancellationExplanation:
+          latestCancellation?.cancellationOutcome.customerExplanation || null,
         latestExchangeStatus: latestExchange?.status || null,
         latestIssueStatus: latestIssue?.status || null,
         tracking: (() => {
           const tracking = orderTrackingByOrderName.get(orderNumber) || null;
-          const shopifyFallbackTracking = buildShopifyFulfillmentTracking(order);
+          const shopifyFallbackTracking =
+            buildShopifyFulfillmentTracking(order);
 
           if (!tracking) return shopifyFallbackTracking;
 
-          const hasShipmentWithAwb = tracking.shipments.some((shipment) => Boolean(String(shipment.awb || "").trim()));
-          if (!hasShipmentWithAwb && shopifyFallbackTracking) return shopifyFallbackTracking;
+          const hasShipmentWithAwb = tracking.shipments.some((shipment) =>
+            Boolean(String(shipment.awb || "").trim()),
+          );
+          if (!hasShipmentWithAwb && shopifyFallbackTracking)
+            return shopifyFallbackTracking;
 
           return {
             ...tracking,
@@ -444,8 +558,14 @@ if (isShopifyAdminConfigured()) {
           };
         })(),
         hasActiveExchangeRequest: ACTIVE_EXCHANGE_STATUSES.includes(
-          String(latestExchange?.status || "").trim().toUpperCase() as (typeof ACTIVE_EXCHANGE_STATUSES)[number]
+          String(latestExchange?.status || "")
+            .trim()
+            .toUpperCase() as (typeof ACTIVE_EXCHANGE_STATUSES)[number],
         ),
+        hasActiveCancellationRequest: Boolean(
+          activeRequest?.requestType === "CANCELLATION",
+        ),
+        hasActiveIssueRequest: isIssueStatusBlocking(latestIssue?.status),
       };
     });
 
@@ -462,7 +582,10 @@ if (isShopifyAdminConfigured()) {
         currency: walletAccount?.currency || "INR",
         pendingRefund: 0,
         reserved: activeWalletReserved,
-        availableToRedeem: Math.max((walletAccount?.currentBalance || 0) - activeWalletReserved, 0),
+        availableToRedeem: Math.max(
+          (walletAccount?.currentBalance || 0) - activeWalletReserved,
+          0,
+        ),
         transactions: walletTransactions,
       },
       stats,
@@ -483,8 +606,7 @@ if (isShopifyAdminConfigured()) {
 
     return withCors(req, NextResponse.json(response));
   } catch (error) {
-    const status =
-      error instanceof ShopResolutionError ? error.status : 500;
+    const status = error instanceof ShopResolutionError ? error.status : 500;
 
     return withCors(
       req,
@@ -492,8 +614,8 @@ if (isShopifyAdminConfigured()) {
         {
           error: error instanceof Error ? error.message : "Internal error",
         },
-        { status }
-      )
+        { status },
+      ),
     );
   }
 }
