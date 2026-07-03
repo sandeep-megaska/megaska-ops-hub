@@ -552,7 +552,20 @@ function buildBufferedEta(rawEta) {
   function discountSummary(intent) { const discount = selectedDiscount(intent); if (!discount || !Number(intent?.discountAmountPaise || 0)) return ""; const raw = discount.rawShopifyPayload || {}; const code = discount.code || raw.discountCode || discount.title || "Discount"; return `<p><span>Discount<br><small>${escapeHtml(code)} applied</small></span><strong>- ${money(intent.discountAmountPaise, intent.currency)}</strong></p>`; }
   function storeCreditAppliedPaise() { return Math.round(Number(state.storeCredit?.appliedAmount || 0) * 100); }
   function remainingBasePayablePaise() { return Math.max(0, Number(state.intent?.totalAmountPaise || 0) - storeCreditAppliedPaise()); }
-  function payableAmount(method) { const total = remainingBasePayablePaise(); const codFee = method === "COD" && total > 0 ? Number(state.settings?.codFeeAmountPaise || state.intent?.codFeeAmountPaise || 0) : 0; return Math.max(0, total + codFee); }
+  function payableAmount(method) {
+  const total = remainingBasePayablePaise();
+
+  const codFee =
+    method === "COD"
+      ? Number(
+          state.settings?.codFeeAmountPaise ??
+          state.intent?.codFeeAmountPaise ??
+          0
+        )
+      : 0;
+
+  return Math.max(0, total + codFee);
+}
 
   const PAYMENT_LOGO_MARKS = [
     { key: "upi", label: "UPI", markup: `<svg viewBox="0 0 54 20" aria-hidden="true" focusable="false"><path d="M4 2h12l5 8-5 8H4l5-8-5-8Z" fill="#0f9d58"/><path d="M15 2h12l5 8-5 8H15l5-8-5-8Z" fill="#f57c00"/><text x="32" y="14" fill="#17324d" font-size="11" font-weight="900" font-family="Arial, sans-serif">UPI</text></svg>` },
