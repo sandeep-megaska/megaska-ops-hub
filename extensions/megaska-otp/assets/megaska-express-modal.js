@@ -564,7 +564,7 @@ function buildBufferedEta(rawEta) {
         )
       : 0;
 
-  return Math.max(0, total + codFee);
+  return Math.max(0, total );
 }
 
   const PAYMENT_LOGO_MARKS = [
