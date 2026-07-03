@@ -3,6 +3,7 @@ import { prisma } from "../../../../../../services/db/prisma";
 import { ISSUE_ALLOWED_STATUS_TRANSITIONS } from "../../../../../../services/exchange/issue";
 import { settleCodRefundAsStoreCredit } from "../../../../../../services/store-credit";
 import { resolveIssueRefundSnapshot } from "../../../../../../services/issue-refund-recovery";
+import { requireShopFromRequest, ShopResolutionError } from "../../../../../../services/shopify/shop";
 
 export const runtime = "nodejs";
 
@@ -26,18 +27,9 @@ function parseRefundMethod(value: unknown): RefundMethod | null {
   return normalized === "COD" || normalized === "PREPAID" ? normalized : null;
 }
 
-function isAdmin(req: NextRequest) {
-  const key = req.headers.get("x-admin-key") || "";
-  const expected = String(process.env.ADMIN_OPS_KEY || "").trim();
-  return Boolean(expected && key === expected);
-}
-
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    if (!isAdmin(req)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
+    const shop = await requireShopFromRequest(req);
     const { id } = await context.params;
     const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
     const nextStatus = String(body?.nextStatus || "").trim();
@@ -50,7 +42,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     }
 
     const existing = await prisma.orderActionRequest.findFirst({
-      where: { id, requestType: "ISSUE" },
+      where: { id, shopId: shop.id, requestType: "ISSUE" },
       include: { items: { take: 1 } },
     });
 
@@ -161,7 +153,8 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     return NextResponse.json({ request: updated, storeCreditSettlement });
   } catch (error) {
     const serverError = error instanceof Error ? error.message : "Failed";
+    const status = error instanceof ShopResolutionError ? error.status : 500;
     console.error("[admin issue status] failed", { error });
-    return NextResponse.json({ error: serverError, serverError }, { status: 500 });
+    return NextResponse.json({ error: serverError, serverError }, { status });
   }
 }
