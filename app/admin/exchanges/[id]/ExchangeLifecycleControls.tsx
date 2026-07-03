@@ -162,6 +162,7 @@ export default function ExchangeLifecycleControls({
   const [delhiveryLoading, setDelhiveryLoading] = useState(false);
   const [delhiverySyncLoading, setDelhiverySyncLoading] = useState(false);
   const [delhiveryForwardLoading, setDelhiveryForwardLoading] = useState(false);
+  const [delhiveryForwardSyncLoading, setDelhiveryForwardSyncLoading] = useState(false);
 
   const stepState = useMemo(() => getStepState(currentStatus), [currentStatus]);
   const latestPayment = payments[0] || null;
@@ -174,6 +175,7 @@ export default function ExchangeLifecycleControls({
   const delhiveryEligibleStatus = ["PAYMENT_RECEIVED", "APPROVED", "PICKUP_PENDING"].includes(currentStatus);
   const canCreateDelhiveryReversePickup = delhiveryCapability.configured && latestPayment?.status === "PAID" && !reverseShipment?.awb && delhiveryEligibleStatus;
   const canSyncDelhiveryReversePickup = Boolean(reverseShipment?.awb && reverseShipment.carrier === "DELHIVERY");
+  const canSyncDelhiveryForwardShipment = Boolean(forwardShipment?.awb && forwardShipment.carrier === "DELHIVERY");
   const canCreateDelhiveryForwardShipment = delhiveryCapability.configured
     && ["ITEM_RECEIVED", "REPLACEMENT_PROCESSING"].includes(currentStatus)
     && !forwardShipment?.awb;
@@ -438,6 +440,42 @@ export default function ExchangeLifecycleControls({
   }
 
 
+  async function syncDelhiveryForwardShipmentTracking() {
+    if (!ensureAdminContext()) return;
+    setDelhiveryForwardSyncLoading(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch(`/api/admin/exchange-requests/${requestId}/delhivery/forward-shipment/sync`, {
+        method: "POST",
+        headers: getHeaders(),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to sync Delhivery replacement tracking");
+      }
+
+      const shipment = data?.shipment;
+      if (shipment) {
+        setForwardCarrier(shipment.carrier || "DELHIVERY");
+        setForwardAwb(shipment.awb || "");
+        setForwardTrackingUrl(shipment.trackingUrl || "");
+        setForwardShipmentStatus(shipment.status || "PENDING");
+        setForwardShippedAt(toDateTimeLocal(shipment.shippedAt));
+        setForwardDeliveredAt(toDateTimeLocal(shipment.deliveredAt));
+        setForwardRemarks(shipment.remarks || "");
+      }
+
+      setSuccess(`Delhivery replacement tracking synced (${shipment?.status || "updated"}). Refresh to view latest request status.`);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to sync Delhivery replacement tracking");
+    } finally {
+      setDelhiveryForwardSyncLoading(false);
+    }
+  }
+
+
   return (
     <div className="grid gap-6">
       <section className="rounded-xl border bg-white p-6 shadow-sm">
@@ -653,9 +691,10 @@ export default function ExchangeLifecycleControls({
           <button type="button" onClick={syncDelhiveryReversePickupTracking} disabled={!canSyncDelhiveryReversePickup || delhiverySyncLoading} className="rounded-lg border px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">{delhiverySyncLoading ? "Syncing tracking..." : "Sync reverse pickup tracking"}</button>
           <button type="button" disabled className="cursor-not-allowed rounded-lg border px-3 py-2 text-xs text-slate-500">Generate manifest/slip (Coming next)</button>
           <button type="button" onClick={createDelhiveryForwardShipment} disabled={!canCreateDelhiveryForwardShipment || delhiveryForwardLoading} className="rounded-lg border px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">{delhiveryForwardLoading ? "Creating replacement shipment..." : "Create replacement shipment"}</button>
+          <button type="button" onClick={syncDelhiveryForwardShipmentTracking} disabled={!canSyncDelhiveryForwardShipment || delhiveryForwardSyncLoading} className="rounded-lg border px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">{delhiveryForwardSyncLoading ? "Syncing replacement tracking..." : "Sync replacement tracking"}</button>
         </div>
         {!canCreateDelhiveryReversePickup ? (
-          <p className="mt-2 text-xs text-slate-500">Reverse pickup create requires Delhivery config, paid reverse pickup fee, eligible status, and no existing AWB. Replacement create requires ITEM_RECEIVED/REPLACEMENT_PROCESSING and no forward AWB. Sync requires a Delhivery reverse pickup AWB.</p>
+          <p className="mt-2 text-xs text-slate-500">Reverse pickup create requires Delhivery config, paid reverse pickup fee, eligible status, and no existing AWB. Replacement create requires ITEM_RECEIVED/REPLACEMENT_PROCESSING and no forward AWB. Sync requires a Delhivery AWB for the matching reverse or replacement shipment.</p>
         ) : null}
       </section>
 
