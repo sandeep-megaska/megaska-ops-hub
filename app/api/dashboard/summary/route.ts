@@ -392,10 +392,34 @@ export async function GET(req: NextRequest) {
           },
           orderBy: { requestedAt: "desc" },
           select: {
-            orderNumber: true,
-            status: true,
-            requestedAt: true,
-          },
+  id: true,
+  orderNumber: true,
+  status: true,
+  requestedAt: true,
+  payments: {
+    where: { purpose: "REVERSE_PICKUP_FEE" },
+    orderBy: { createdAt: "desc" },
+    select: {
+      status: true,
+      paidAt: true,
+      amount: true,
+      currency: true,
+    },
+  },
+  shipments: {
+    select: {
+      direction: true,
+      carrier: true,
+      awb: true,
+      trackingUrl: true,
+      status: true,
+      pickupAt: true,
+      shippedAt: true,
+      deliveredAt: true,
+      updatedAt: true,
+    },
+  },
+}
         })
       : [];
 
