@@ -3,6 +3,7 @@ import { prisma } from "../../../../../../services/db/prisma";
 import { requireShopFromRequest, ShopResolutionError } from "../../../../../../services/shopify/shop";
 import {
   CANCELLATION_ALLOWED_STATUS_TRANSITIONS,
+  deriveCancellationOutcome,
   evaluateCancellationEligibility,
 } from "../../../../../../services/exchange/cancellation";
 import { createRefundRequest } from "../../../../../../services/refund-request";
@@ -119,10 +120,26 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         status: nextStatus as never,
         adminNote: [adminNote ?? existing.adminNote, orchestrationNote].filter(Boolean).join("\n") || null,
       },
-      include: { payments: { orderBy: { createdAt: "desc" }, take: 1 }, customerProfile: { select: { id: true } } },
+      include: {
+        payments: { orderBy: { createdAt: "desc" }, take: 1 },
+        customerProfile: { select: { id: true } },
+      },
+    });
+    const refundRequests = await (prisma as any).refundRequest.findMany({
+      where: { orderActionRequestId: updated.id },
+      orderBy: { updatedAt: "desc" },
     });
 
-    return NextResponse.json({ request: updated });
+    return NextResponse.json({
+      request: {
+        ...updated,
+        cancellationOutcome: deriveCancellationOutcome({
+          cancellationStatus: updated.status,
+          orderAmountSnapshot: updated.orderAmountSnapshot,
+          refundRequests,
+        }),
+      },
+    });
   } catch (error) {
     const status = error instanceof ShopResolutionError ? error.status : 500;
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed" }, { status });

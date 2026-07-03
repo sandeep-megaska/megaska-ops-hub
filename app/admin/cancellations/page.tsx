@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { prisma } from "../../../services/db/prisma";
 import { getShopByDomain, normalizeShopDomain, resolveShopConfig } from "../../../services/shopify/shop";
 import { getShopifyCancelledOrders } from "../../../services/shopify/admin";
+import { deriveCancellationOutcome } from "../../../services/exchange/cancellation";
 
 type RangeKey = "7d" | "30d" | "90d" | "custom";
 
@@ -17,6 +18,8 @@ type CancellationRow = {
   customerNote: string;
   adminNote: string;
   status: string;
+  refundStatus: string;
+  customerExplanation: string;
   source: "Customer Request" | "Shopify Cancellation" | "OMS";
 };
 
@@ -89,6 +92,8 @@ function mapShopifyOrdersToCancellationRows(orders: Awaited<ReturnType<typeof ge
         customerNote: "—",
         adminNote: order.note || "—",
         status: order.displayFinancialStatus || "CANCELLED",
+        refundStatus: "Unknown / needs review",
+        customerExplanation: "Cancellation process completed.",
         source: "Shopify Cancellation" as const,
       };
     })
@@ -135,12 +140,13 @@ export default async function CancellationsPage({
       select: {
         id: true, orderNumber: true, customerNameSnapshot: true, customerPhoneSnapshot: true, customerEmailSnapshot: true,
         reason: true, customerNote: true, adminNote: true, status: true, requestedAt: true,
+        orderAmountSnapshot: true,
         customerProfileId: true,
         customerProfile: { select: { shopId: true } },
         megaskaOrder: { select: { shopId: true } },
       },
-    }),
-    prisma.megaskaOrder.findMany({
+    } as any),
+    (prisma as any).megaskaOrder.findMany({
       where: {
         shopId: currentShop.id,
         status: "CANCELLED",
@@ -152,28 +158,49 @@ export default async function CancellationsPage({
     }),
   ]);
 
-  const safeCustomerRequests = customerRequests.filter((request) => {
+  const safeCustomerRequests = customerRequests.filter((request: any) => {
     if (request.customerProfile?.shopId === currentShop.id) return true;
     if (request.megaskaOrder?.shopId === currentShop.id) return true;
-    return request.orderNumber && omsOrders.some((order) => order.shopifyOrderName === request.orderNumber);
+    return request.orderNumber && omsOrders.some((order: any) => order.shopifyOrderName === request.orderNumber);
+  });
+  const refundRequests = safeCustomerRequests.length
+    ? await (prisma as any).refundRequest.findMany({
+        where: { orderActionRequestId: { in: safeCustomerRequests.map((request) => request.id) } },
+        orderBy: { updatedAt: "desc" },
+      })
+    : [];
+  const refundsByRequestId = new Map<string, any[]>();
+  for (const refund of refundRequests) {
+    const key = String(refund.orderActionRequestId || "");
+    if (!refundsByRequestId.has(key)) refundsByRequestId.set(key, []);
+    refundsByRequestId.get(key)?.push(refund);
+  }
+
+  const cancellationRows: CancellationRow[] = safeCustomerRequests.map((request) => {
+    const outcome = deriveCancellationOutcome({
+      cancellationStatus: request.status,
+      orderAmountSnapshot: request.orderAmountSnapshot,
+      refundRequests: refundsByRequestId.get(request.id) || [],
+    });
+    return {
+      id: request.id,
+      orderNumber: request.orderNumber || "—",
+      eventAt: request.requestedAt,
+      cancelledBy: "Customer",
+      customerName: request.customerNameSnapshot || "—",
+      phone: request.customerPhoneSnapshot || "—",
+      email: request.customerEmailSnapshot || "—",
+      reason: request.reason || "Reason not provided",
+      customerNote: request.customerNote || "—",
+      adminNote: request.adminNote || "—",
+      status: request.status,
+      refundStatus: outcome.refundRequirementLabel,
+      customerExplanation: outcome.customerExplanation,
+      source: "Customer Request",
+    };
   });
 
-  const cancellationRows: CancellationRow[] = safeCustomerRequests.map((request) => ({
-    id: request.id,
-    orderNumber: request.orderNumber || "—",
-    eventAt: request.requestedAt,
-    cancelledBy: "Customer",
-    customerName: request.customerNameSnapshot || "—",
-    phone: request.customerPhoneSnapshot || "—",
-    email: request.customerEmailSnapshot || "—",
-    reason: request.reason || "Reason not provided",
-    customerNote: request.customerNote || "—",
-    adminNote: request.adminNote || "—",
-    status: request.status,
-    source: "Customer Request",
-  }));
-
-  const omsRows: CancellationRow[] = omsOrders.map((order) => ({
+  const omsRows: CancellationRow[] = omsOrders.map((order: any) => ({
     id: order.id,
     orderNumber: order.shopifyOrderName || "—",
     eventAt: order.statusUpdatedAt || order.updatedAt,
@@ -185,6 +212,8 @@ export default async function CancellationsPage({
     customerNote: "—",
     adminNote: "—",
     status: order.status,
+    refundStatus: "Unknown / needs review",
+    customerExplanation: "Cancellation process completed.",
     source: "OMS",
   }));
 
@@ -287,6 +316,8 @@ export default async function CancellationsPage({
                   <p className="mk-list-subtitle">Reason: {row.reason}</p>
                   <p className="mk-list-subtitle">Customer Note: {row.customerNote}</p>
                   <p className="mk-list-subtitle">Admin Note: {row.adminNote}</p>
+                  <p className="mk-list-subtitle">Refund Status: {row.refundStatus}</p>
+                  <p className="mk-list-subtitle">Customer Explanation: {row.customerExplanation}</p>
                   <p className="mk-list-subtitle">Source: {row.source}</p>
                 </div>
                 <span className="mk-badge mk-badge-warning">{row.status}</span>

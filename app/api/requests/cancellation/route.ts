@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withCors, handleOptions } from "../../_lib/cors";
 import { prisma } from "../../../../services/db/prisma";
 import { getAuthenticatedCustomer } from "../../../../services/exchange/auth";
-import { evaluateCancellationEligibility, isCancellationStatusBlocking } from "../../../../services/exchange/cancellation";
+import { deriveCancellationOutcome, evaluateCancellationEligibility, isCancellationStatusBlocking } from "../../../../services/exchange/cancellation";
 import { sendCancellationRequestCreatedEmail } from "../../../../services/notifications/cancellation";
 import { getShopByDomain, normalizeShopDomain, resolveShopConfig } from "../../../../services/shopify/shop";
 
@@ -155,6 +155,16 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    const createdRefundRequests = await (prisma as any).refundRequest.findMany({
+      where: { orderActionRequestId: created.id },
+      orderBy: { updatedAt: "desc" },
+    });
+    const createdOutcome = deriveCancellationOutcome({
+      cancellationStatus: created.status,
+      orderAmountSnapshot: created.orderAmountSnapshot,
+      refundRequests: createdRefundRequests,
+    });
+
     try {
       await sendCancellationRequestCreatedEmail({
         requestId: created.id,
@@ -164,6 +174,9 @@ export async function POST(req: NextRequest) {
         customerPhone: created.customerPhoneSnapshot,
         customerEmail: created.customerEmailSnapshot,
         reason: created.reason,
+        refundStatusLabel: createdOutcome.refundRequirementLabel,
+        customerExplanation: createdOutcome.customerExplanation,
+        opsNextStep: createdOutcome.opsNextStep,
       });
     } catch (error) {
       console.error("[CANCELLATION NOTIFY] Route-level send failed", {
@@ -172,7 +185,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return withCors(req, NextResponse.json({ request: created }, { status: 201 }));
+    return withCors(req, NextResponse.json({
+      request: {
+        ...created,
+        cancellationOutcome: deriveCancellationOutcome({
+          cancellationStatus: created.status,
+          orderAmountSnapshot: created.orderAmountSnapshot,
+          refundRequests: createdRefundRequests,
+        }),
+      },
+    }, { status: 201 }));
   } catch (error) {
     return withCors(
       req,
@@ -206,7 +228,29 @@ export async function GET(req: NextRequest) {
       orderBy: { requestedAt: "desc" },
     });
 
-    return withCors(req, NextResponse.json({ requests }));
+    const refundRequests = requests.length
+      ? await (prisma as any).refundRequest.findMany({
+          where: { orderActionRequestId: { in: requests.map((request) => request.id) } },
+          orderBy: { updatedAt: "desc" },
+        })
+      : [];
+    const refundsByRequestId = new Map<string, any[]>();
+    for (const refund of refundRequests) {
+      const key = String(refund.orderActionRequestId || "");
+      if (!refundsByRequestId.has(key)) refundsByRequestId.set(key, []);
+      refundsByRequestId.get(key)?.push(refund);
+    }
+
+    return withCors(req, NextResponse.json({
+      requests: requests.map((request) => ({
+        ...request,
+        cancellationOutcome: deriveCancellationOutcome({
+          cancellationStatus: request.status,
+          orderAmountSnapshot: request.orderAmountSnapshot,
+          refundRequests: refundsByRequestId.get(request.id) || [],
+        }),
+      })),
+    }));
   } catch (error) {
     return withCors(
       req,

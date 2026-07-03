@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withCors, handleOptions } from "../../../_lib/cors";
 import { getAuthenticatedCustomer } from "../../../../../services/exchange/auth";
 import { prisma } from "../../../../../services/db/prisma";
+import { deriveCancellationOutcome } from "../../../../../services/exchange/cancellation";
 
 export async function OPTIONS(req: NextRequest) {
   return handleOptions(req);
@@ -31,7 +32,21 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       return withCors(req, NextResponse.json({ error: "Not found" }, { status: 404 }));
     }
 
-    return withCors(req, NextResponse.json({ request: item }));
+    const refundRequests = await (prisma as any).refundRequest.findMany({
+      where: { orderActionRequestId: item.id },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    return withCors(req, NextResponse.json({
+      request: {
+        ...item,
+        cancellationOutcome: deriveCancellationOutcome({
+          cancellationStatus: item.status,
+          orderAmountSnapshot: item.orderAmountSnapshot,
+          refundRequests,
+        }),
+      },
+    }));
   } catch (error) {
     return withCors(
       req,

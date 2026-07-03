@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../../../services/db/prisma";
+import { deriveCancellationOutcome } from "../../../../../services/exchange/cancellation";
 import { requireShopFromRequest, ShopResolutionError } from "../../../../../services/shopify/shop";
 
 
@@ -19,7 +20,21 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ request: requestItem });
+    const refundRequests = await (prisma as any).refundRequest.findMany({
+      where: { orderActionRequestId: requestItem.id },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    return NextResponse.json({
+      request: {
+        ...requestItem,
+        cancellationOutcome: deriveCancellationOutcome({
+          cancellationStatus: requestItem.status,
+          orderAmountSnapshot: requestItem.orderAmountSnapshot,
+          refundRequests,
+        }),
+      },
+    });
   } catch (error) {
     const status = error instanceof ShopResolutionError ? error.status : 500;
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed" }, { status });
