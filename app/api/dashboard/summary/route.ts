@@ -423,7 +423,7 @@ export async function GET(req: NextRequest) {
         })
       : [];
 
-    const latestExchangeByOrder = new Map<
+   /* const latestExchangeByOrder = new Map<
       string,
       { status: string; requestedAt: Date }
     >();
@@ -434,7 +434,144 @@ export async function GET(req: NextRequest) {
           requestedAt: request.requestedAt,
         });
       }
-    }
+    }*/
+    function buildExchangeProgressSnapshot(request: {
+  id: string;
+  status: string;
+  requestedAt: Date;
+  payments: Array<{
+    status: string;
+    paidAt: Date | null;
+    amount: number;
+    currency: string;
+  }>;
+  shipments: Array<{
+    direction: string;
+    carrier: string | null;
+    awb: string | null;
+    trackingUrl: string | null;
+    status: string;
+    pickupAt: Date | null;
+    shippedAt: Date | null;
+    deliveredAt: Date | null;
+    updatedAt: Date;
+  }>;
+}) {
+  const status = String(request.status || "").toUpperCase();
+  const payment = request.payments[0] || null;
+  const reverseShipment =
+    request.shipments.find((shipment) => shipment.direction === "REVERSE_PICKUP") || null;
+  const forwardShipment =
+    request.shipments.find((shipment) => shipment.direction === "FORWARD_REPLACEMENT") || null;
+
+  function stepState(step: string) {
+    const completed: Record<string, boolean> = {
+      REQUESTED: Boolean(request.requestedAt),
+      FEE_PAID:
+        payment?.status === "PAID" ||
+        [
+          "PAYMENT_RECEIVED",
+          "APPROVED",
+          "PICKUP_PENDING",
+          "PICKUP_SCHEDULED",
+          "PICKUP_COMPLETED",
+          "ITEM_RECEIVED",
+          "REPLACEMENT_PROCESSING",
+          "REPLACEMENT_SHIPPED",
+          "CLOSED",
+        ].includes(status),
+      PICKUP_SCHEDULED:
+        ["SCHEDULED", "IN_TRANSIT", "DELIVERED"].includes(String(reverseShipment?.status || "")) ||
+        [
+          "PICKUP_SCHEDULED",
+          "PICKUP_COMPLETED",
+          "ITEM_RECEIVED",
+          "REPLACEMENT_PROCESSING",
+          "REPLACEMENT_SHIPPED",
+          "CLOSED",
+        ].includes(status),
+      PICKED_UP:
+        ["IN_TRANSIT", "DELIVERED"].includes(String(reverseShipment?.status || "")) ||
+        [
+          "PICKUP_COMPLETED",
+          "ITEM_RECEIVED",
+          "REPLACEMENT_PROCESSING",
+          "REPLACEMENT_SHIPPED",
+          "CLOSED",
+        ].includes(status),
+      ITEM_RECEIVED:
+        reverseShipment?.status === "DELIVERED" ||
+        ["ITEM_RECEIVED", "REPLACEMENT_PROCESSING", "REPLACEMENT_SHIPPED", "CLOSED"].includes(status),
+      REPLACEMENT_SHIPPED:
+        Boolean(forwardShipment?.awb) ||
+        ["REPLACEMENT_SHIPPED", "CLOSED"].includes(status),
+      COMPLETED: status === "CLOSED",
+    };
+
+    return completed[step] ? "completed" : "pending";
+  }
+
+  return {
+    id: request.id,
+    status,
+    statusLabel: status.replace(/_/g, " "),
+    requestedAt: request.requestedAt,
+    payment: payment
+      ? {
+          status: payment.status,
+          paidAt: payment.paidAt,
+          amount: payment.amount,
+          currency: payment.currency,
+        }
+      : null,
+    reverseShipment: reverseShipment
+      ? {
+          status: reverseShipment.status,
+          carrier: reverseShipment.carrier,
+          awb: reverseShipment.awb,
+          trackingUrl: reverseShipment.trackingUrl,
+          pickupAt: reverseShipment.pickupAt,
+          deliveredAt: reverseShipment.deliveredAt,
+          updatedAt: reverseShipment.updatedAt,
+        }
+      : null,
+    forwardShipment: forwardShipment
+      ? {
+          status: forwardShipment.status,
+          carrier: forwardShipment.carrier,
+          awb: forwardShipment.awb,
+          trackingUrl: forwardShipment.trackingUrl,
+          shippedAt: forwardShipment.shippedAt,
+          deliveredAt: forwardShipment.deliveredAt,
+          updatedAt: forwardShipment.updatedAt,
+        }
+      : null,
+    steps: [
+      { key: "REQUESTED", label: "Requested", state: stepState("REQUESTED") },
+      { key: "FEE_PAID", label: "Fee Paid", state: stepState("FEE_PAID") },
+      { key: "PICKUP_SCHEDULED", label: "Pickup Scheduled", state: stepState("PICKUP_SCHEDULED") },
+      { key: "PICKED_UP", label: "Picked Up", state: stepState("PICKED_UP") },
+      { key: "ITEM_RECEIVED", label: "Item Received", state: stepState("ITEM_RECEIVED") },
+      { key: "REPLACEMENT_SHIPPED", label: "Replacement Shipped", state: stepState("REPLACEMENT_SHIPPED") },
+      { key: "COMPLETED", label: "Completed", state: stepState("COMPLETED") },
+    ],
+  };
+}
+
+const latestExchangeByOrder = new Map<
+  string,
+  { status: string; requestedAt: Date; progress: ReturnType<typeof buildExchangeProgressSnapshot> }
+>();
+
+for (const request of exchangeRequests) {
+  if (!latestExchangeByOrder.has(request.orderNumber)) {
+    latestExchangeByOrder.set(request.orderNumber, {
+      status: request.status,
+      requestedAt: request.requestedAt,
+      progress: buildExchangeProgressSnapshot(request),
+    });
+  }
+}
 
     const issueRequests = orderNumbers.length
       ? await prisma.orderActionRequest.findMany({
