@@ -213,7 +213,7 @@
 
   function pincodeDeliveryMessage(result) {
     if (!result?.eta) return "Delivery available";
-    return `Delivery available • Estimated delivery: ${formatEta(result.eta)}`;
+    return `Delivery available • Estimated delivery: ${formatEta(result.eta+2)}`;
   }
 
   function setPincodeState(status, message, details) {
