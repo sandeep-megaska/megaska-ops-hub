@@ -16,6 +16,13 @@ import {
   resolveOrderedExchangeLine,
 } from "../../../../services/exchange/replacement-variants";
 
+function isAdminTestOverrideRequest(req: NextRequest) {
+  const expected = String(process.env.ADMIN_OPS_KEY || "").trim();
+  const provided = req.headers.get("x-admin-key") || req.nextUrl.searchParams.get("adminKey") || "";
+  const requested = req.headers.get("x-exchange-test-override") === "1" || req.nextUrl.searchParams.get("testEligibilityPreview") === "1";
+  return Boolean(requested && expected && provided === expected);
+}
+
 function normalizeOrderNumber(value: string | null | undefined) {
   const trimmed = String(value || "").trim();
   return trimmed.startsWith("#") ? trimmed : trimmed ? `#${trimmed}` : "";
@@ -182,6 +189,19 @@ export async function POST(req: NextRequest) {
       string,
       unknown
     > | null;
+    if (body?.testOverrideActive) {
+      console.warn("[EXCHANGE TEST OVERRIDE] blocked_submit", {
+        shopId: auth.shop.id,
+        customerProfileId: auth.session.customer.id,
+      });
+      return withCors(
+        req,
+        NextResponse.json(
+          { error: "Admin-only exchange eligibility test override is preview-only and cannot submit a real exchange request." },
+          { status: 403 },
+        ),
+      );
+    }
     const orderNumber = String(body?.orderNumber || "").trim();
     const shopifyOrderId = String(body?.shopifyOrderId || "").trim() || null;
     const productTitle = String(body?.productTitle || "").trim();
@@ -470,6 +490,60 @@ export async function GET(req: NextRequest) {
 
     const { shop, session } = auth;
     const status = req.nextUrl.searchParams.get("status")?.trim() || undefined;
+
+    if (req.nextUrl.searchParams.get("testEligibilityPreview") === "1") {
+      if (!isAdminTestOverrideRequest(req)) {
+        return withCors(
+          req,
+          NextResponse.json({ error: "Admin-only exchange eligibility preview requires a valid internal key." }, { status: 403 }),
+        );
+      }
+
+      const orderNumber = String(req.nextUrl.searchParams.get("orderNumber") || "").trim();
+      const shopifyOrderId = String(req.nextUrl.searchParams.get("shopifyOrderId") || "").trim() || null;
+      const requestedSize = String(req.nextUrl.searchParams.get("requestedSize") || "").trim() || "__preview__";
+      const currentSize = String(req.nextUrl.searchParams.get("currentSize") || "").trim() || null;
+      const productTitle = String(req.nextUrl.searchParams.get("productTitle") || "").trim() || null;
+      const variantTitle = String(req.nextUrl.searchParams.get("variantTitle") || "").trim() || null;
+      const fulfillmentStatus = String(req.nextUrl.searchParams.get("fulfillmentStatus") || "").trim() || null;
+
+      const trustedFulfillment = orderNumber
+        ? await resolveTrustedFulfillment({
+            shopId: shop.id,
+            shopDomain: shop.shopDomain,
+            customerProfileId: session.customer.id,
+            customerShopifyId: session.customer.shopifyCustomerId,
+            customerEmail: session.customer.email,
+            customerPhone: session.customer.phoneE164,
+            orderNumber,
+            shopifyOrderId,
+          })
+        : null;
+
+      const eligibility = evaluateExchangeEligibility({
+        requestedSize,
+        currentSize,
+        productTitle,
+        variantTitle,
+        reason: "Admin preview",
+        deliveredAt: trustedFulfillment?.deliveredAt ?? null,
+        fulfillmentStatus: trustedFulfillment?.fulfillmentStatus ?? fulfillmentStatus,
+      });
+
+      console.info("[EXCHANGE TEST OVERRIDE] preview", {
+        shopId: shop.id,
+        customerProfileId: session.customer.id,
+        orderNumber,
+        actualDecision: eligibility.decision,
+        actualReason: eligibility.reason,
+      });
+
+      return withCors(req, NextResponse.json({
+        testOverride: { active: true, mode: "preview-only", submitBlocked: true },
+        actualEligibility: eligibility,
+        trustedFulfillment,
+      }));
+    }
 
     const requests = await prisma.orderActionRequest.findMany({
       where: {
