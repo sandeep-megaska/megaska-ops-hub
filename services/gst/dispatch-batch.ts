@@ -124,6 +124,8 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
             lineNumber: true,
             title: true,
             sku: true,
+            shopifyProductId: true,
+            shopifyVariantId: true,
             quantity: true,
             unitPrice: true,
             discount: true,
@@ -131,6 +133,7 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
             mappingStatus: true,
             mappedHsnCode: true,
             mappedTaxRate: true,
+            mappedCessRate: true,
           },
         },
       },
@@ -139,6 +142,36 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
     });
     gstPerfLog("gst.dispatchReady.dbFetch", dbFetchStartedAtMs, { rowCount: rows.length });
 
+    const orderImportIds = rows.map((row) => String(row.id || "").trim()).filter(Boolean);
+    const shopifyOrderIds = Array.from(new Set(rows.map((row) => String(row.shopifyOrderId || "").trim()).filter(Boolean)));
+    const invoiceLookupStartedAtMs = gstPerfNow();
+    const invoiceRows = orderImportIds.length || shopifyOrderIds.length
+      ? await dispatchDb.gstDocument.findMany({
+          where: {
+            documentType: "TAX_INVOICE",
+            OR: [
+              ...(orderImportIds.length ? [{ sourceOrderId: { in: orderImportIds } }] : []),
+              ...(shopifyOrderIds.length ? [{ shopifyOrderId: { in: shopifyOrderIds } }] : []),
+            ],
+          },
+          orderBy: [{ createdAt: "desc" }],
+          select: { id: true, documentNumber: true, status: true, sourceOrderId: true, shopifyOrderId: true },
+        })
+      : [];
+    const invoiceByOrderImportId = new Map<string, Record<string, unknown>>();
+    const invoiceByShopifyOrderId = new Map<string, Record<string, unknown>>();
+    for (const invoice of invoiceRows) {
+      const sourceOrderId = String(invoice.sourceOrderId || "").trim();
+      const shopifyOrderId = String(invoice.shopifyOrderId || "").trim();
+      if (sourceOrderId && !invoiceByOrderImportId.has(sourceOrderId)) invoiceByOrderImportId.set(sourceOrderId, invoice);
+      if (shopifyOrderId && !invoiceByShopifyOrderId.has(shopifyOrderId)) invoiceByShopifyOrderId.set(shopifyOrderId, invoice);
+    }
+    gstPerfLog("gst.dispatchReady.invoiceLookup", invoiceLookupStartedAtMs, { invoiceLookupMode: "bulk", orderCount: rows.length, foundCount: invoiceRows.length });
+
+    const skuTaxMapCache = new Map<string, Awaited<ReturnType<typeof resolveSkuTaxMap>>>();
+    let skuTaxMapCacheHits = 0;
+    let skuTaxMapCacheMisses = 0;
+    let lineCount = 0;
     const data: Array<Record<string, unknown>> = [];
     for (const row of rows) {
       const orderImportId = String(row.id);
@@ -156,17 +189,31 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
       const lineProcessingStartedAtMs = gstPerfNow();
       let mappingDurationMs = 0;
       const lineItems: Array<Record<string, unknown>> = [];
+      lineCount += lines.length;
       for (const line of lines) {
         const quantity = parseNum(line.quantity);
         const unitPrice = parseNum(line.unitPrice);
         const discount = parseNum(line.discount);
         const grossAmount = round2(Math.max(0, quantity * unitPrice - discount));
         const sku = String(line.sku || "").trim();
-        const mappingStartedAtMs = gstPerfNow();
-        const resolvedMap = sku
-          ? await resolveSkuTaxMap({ shopId: String(row.shopId || "") || null, sku })
-          : { ok: true, data: null };
-        mappingDurationMs += gstPerfNow() - mappingStartedAtMs;
+        const storedHsnCode = String(line.mappedHsnCode || "").trim();
+        const storedTaxRate = line.mappedTaxRate == null ? null : parseNum(line.mappedTaxRate);
+        const hasStoredMapping = storedHsnCode && storedTaxRate !== null;
+        let resolvedMap: Awaited<ReturnType<typeof resolveSkuTaxMap>> = { ok: true, data: null };
+        if (!hasStoredMapping && sku) {
+          const cacheKey = [String(row.shopId || ""), sku, String(line.shopifyProductId || ""), String(line.shopifyVariantId || "")].join("|");
+          const cachedMap = skuTaxMapCache.get(cacheKey);
+          if (cachedMap) {
+            skuTaxMapCacheHits += 1;
+            resolvedMap = cachedMap;
+          } else {
+            skuTaxMapCacheMisses += 1;
+            const mappingStartedAtMs = gstPerfNow();
+            resolvedMap = await resolveSkuTaxMap({ shopId: String(row.shopId || "") || null, sku });
+            mappingDurationMs += gstPerfNow() - mappingStartedAtMs;
+            skuTaxMapCache.set(cacheKey, resolvedMap);
+          }
+        }
         const resolvedTaxRate = resolvedMap.ok && resolvedMap.data ? parseNum(resolvedMap.data.taxRate) : null;
         lineItems.push({
           lineNumber: parseNum(line.lineNumber),
@@ -176,13 +223,8 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
           unitPrice: round2(unitPrice),
           grossAmount,
           mappingStatus: String(line.mappingStatus || "UNMAPPED"),
-          hsnCode:
-            resolvedMap.ok && resolvedMap.data?.hsnCode
-              ? String(resolvedMap.data.hsnCode)
-              : line.mappedHsnCode
-                ? String(line.mappedHsnCode)
-                : null,
-          taxRate: resolvedTaxRate ?? (line.mappedTaxRate == null ? null : parseNum(line.mappedTaxRate)),
+          hsnCode: storedHsnCode || (resolvedMap.ok && resolvedMap.data?.hsnCode ? String(resolvedMap.data.hsnCode) : null),
+          taxRate: storedTaxRate ?? resolvedTaxRate,
           taxableAmount: round2(parseNum(line.taxableAmount)),
         });
       }
@@ -190,16 +232,7 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
       console.info("[GST PERF]", { phase: "gst.dispatchReady.skuHsnTaxMapping", durationMs: mappingDurationMs, orderImportId, lineCount: lines.length });
       gstPerfLog("gst.dispatchReady.lineProcessing", lineProcessingStartedAtMs, { orderImportId, lineCount: lines.length });
 
-      const invoiceLookupStartedAtMs = gstPerfNow();
-      const invoice = await dispatchDb.gstDocument.findFirst({
-        where: {
-          documentType: "TAX_INVOICE",
-          OR: [{ sourceOrderId: orderImportId }, { shopifyOrderId: String(row.shopifyOrderId || "") }],
-        },
-        orderBy: [{ createdAt: "desc" }],
-        select: { id: true, documentNumber: true, status: true },
-      });
-      gstPerfLog("gst.dispatchReady.invoiceLookup", invoiceLookupStartedAtMs, { orderImportId, found: Boolean(invoice) });
+      const invoice = invoiceByOrderImportId.get(orderImportId) || invoiceByShopifyOrderId.get(String(row.shopifyOrderId || "").trim()) || null;
 
       const readinessErrors = Array.isArray(row.readinessErrors) ? row.readinessErrors : [];
       const readiness = readinessErrors.length === 0 ? "READY" : "NOT_READY";
@@ -234,7 +267,15 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
         if (filters.readiness && String(row.readiness) !== String(filters.readiness)) return false;
         return true;
       });
-    gstPerfLog("gst.dispatchReady.total", totalStartedAtMs, { rowCount: rows.length, returnedCount: filteredData.length });
+    gstPerfLog("gst.dispatchReady.total", totalStartedAtMs, {
+      rowCount: rows.length,
+      returnedCount: filteredData.length,
+      invoiceLookupMode: "bulk",
+      skuTaxMapCacheHits,
+      skuTaxMapCacheMisses,
+      orderCount: rows.length,
+      lineCount,
+    });
     return {
       ok: true,
       data: filteredData,

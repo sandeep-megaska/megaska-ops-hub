@@ -409,13 +409,29 @@ function fileToDataUrl(filePath: string): string | null {
   }
 }
 
-async function resolveInvoiceLogoForPdf(customUrl: unknown, fallbackPath: string): Promise<string | null> {
+type LogoResolutionResult = {
+  src: string | null;
+  configured: boolean;
+  resolvedConfiguredAsset: boolean;
+  usedFallback: boolean;
+  fallbackResolved: boolean;
+  sourceType: "data" | "blob" | "local" | "remote" | "none";
+};
+
+async function resolveInvoiceLogoForPdf(customUrl: unknown, fallbackPath: string): Promise<LogoResolutionResult> {
   const custom = typeof customUrl === "string" ? customUrl.trim() : "";
-  if (custom.startsWith("data:image/")) return custom;
-  if (custom.startsWith("blob:")) return null;
+  const configured = Boolean(custom);
+  if (custom.startsWith("data:image/")) {
+    return { src: custom, configured, resolvedConfiguredAsset: true, usedFallback: false, fallbackResolved: false, sourceType: "data" };
+  }
+  if (custom.startsWith("blob:")) {
+    return { src: null, configured, resolvedConfiguredAsset: false, usedFallback: false, fallbackResolved: false, sourceType: "blob" };
+  }
   if (custom.startsWith("/")) {
     const localData = fileToDataUrl(custom);
-    if (localData) return localData;
+    if (localData) {
+      return { src: localData, configured, resolvedConfiguredAsset: true, usedFallback: false, fallbackResolved: false, sourceType: "local" };
+    }
   }
   if (custom) {
     try {
@@ -423,12 +439,13 @@ async function resolveInvoiceLogoForPdf(customUrl: unknown, fallbackPath: string
       if (response.ok) {
         const mime = response.headers.get("content-type") || "image/png";
         const buffer = Buffer.from(await response.arrayBuffer());
-        return `data:${mime};base64,${buffer.toString("base64")}`;
+        return { src: `data:${mime};base64,${buffer.toString("base64")}`, configured, resolvedConfiguredAsset: true, usedFallback: false, fallbackResolved: false, sourceType: custom.startsWith("/") ? "local" : "remote" };
       }
     } catch {}
   }
 
-  return fileToDataUrl(fallbackPath);
+  const fallback = fileToDataUrl(fallbackPath);
+  return { src: fallback, configured, resolvedConfiguredAsset: false, usedFallback: true, fallbackResolved: Boolean(fallback), sourceType: configured ? (custom.startsWith("/") ? "local" : "remote") : "none" };
 }
 export async function buildGstInvoiceRenderModel(gstDocumentId: string): Promise<GstServiceResult<GstInvoiceRenderModel>> {
   const renderModelStartedAtMs = gstPerfNow();
@@ -497,11 +514,28 @@ export async function buildGstInvoiceRenderModel(gstDocumentId: string): Promise
 
   const totalValue = Number(doc.totalAmount || 0);
 
-  const [headerLogoSrc, footerLogoSrc] = await Promise.all([
+  const [headerLogo, footerLogo] = await Promise.all([
     resolveInvoiceLogoForPdf(themeConfig.headerLogoUrl, "/logos/header-logo.png"),
     resolveInvoiceLogoForPdf(themeConfig.footerLogoUrl, "/logos/footer-logo.png"),
   ]);
-  gstPerfLog("gst.pdf.logoTemplateResolution", logoTemplateStartedAtMs, { gstDocumentId, templateFound: Boolean(template), headerLogo: Boolean(headerLogoSrc), footerLogo: Boolean(footerLogoSrc) });
+  const headerLogoSrc = headerLogo.src;
+  const footerLogoSrc = footerLogo.src;
+  gstPerfLog("gst.pdf.logoTemplateResolution", logoTemplateStartedAtMs, {
+    gstDocumentId,
+    templateFound: Boolean(template),
+    headerLogo: Boolean(headerLogoSrc),
+    footerLogo: Boolean(footerLogoSrc),
+    headerLogoConfigExists: headerLogo.configured,
+    footerLogoConfigExists: footerLogo.configured,
+    headerLogoAssetResolved: headerLogo.resolvedConfiguredAsset,
+    footerLogoAssetResolved: footerLogo.resolvedConfiguredAsset,
+    headerLogoUsedFallback: headerLogo.usedFallback,
+    footerLogoUsedFallback: footerLogo.usedFallback,
+    headerLogoFallbackResolved: headerLogo.fallbackResolved,
+    footerLogoFallbackResolved: footerLogo.fallbackResolved,
+    headerLogoSourceType: headerLogo.sourceType,
+    footerLogoSourceType: footerLogo.sourceType,
+  });
 
   gstPerfLog("gst.pdf.renderModel", renderModelStartedAtMs, { gstDocumentId, lineCount: lines.length, templateType });
   return {
