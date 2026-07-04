@@ -3,6 +3,7 @@ import type { GstServiceResult } from "./types";
 import { importOrderByShopifyId } from "./order-import";
 import { getShopifyOrdersForGstSync, getSingleShopifyOrderForGstSync } from "./shopify-runtime-admin";
 import { resolveShopConfig } from "../shopify/shop";
+import { gstPerfLog, gstPerfNow } from "./perf";
 
 interface SyncFilters {
   from: string | Date;
@@ -153,6 +154,8 @@ export async function syncOrdersByDateRange(input: SyncFilters): Promise<GstServ
       return { ok: false, error: "from must be less than or equal to to" };
     }
 
+    const syncTotalStartedAtMs = gstPerfNow();
+    const shopifyFetchStartedAtMs = gstPerfNow();
     const shopifyOrders = await getShopifyOrdersForGstSync({
       from,
       to,
@@ -160,6 +163,7 @@ export async function syncOrdersByDateRange(input: SyncFilters): Promise<GstServ
       fulfillmentStatus: input.fulfillmentStatus,
       shopDomain: resolvedShop.shopDomain,
     });
+    gstPerfLog("gst.orderSync.shopifyFetch", shopifyFetchStartedAtMs, { count: shopifyOrders.length });
 
     const summary: GstOrderSyncSummary = {
       fetched: shopifyOrders.length,
@@ -216,7 +220,9 @@ export async function syncOrdersByDateRange(input: SyncFilters): Promise<GstServ
             };
           }
 
+          const importStartedAtMs = gstPerfNow();
           const result = await importOrderByShopifyId(shopifyOrderId, normalizeOrderPayload(order), { shopId: resolvedShopId });
+          gstPerfLog("gst.orderSync.importOrder", importStartedAtMs, { shopifyOrderId, ok: result.ok });
           if (!result.ok || !result.data) {
             return {
               imported: 0,
@@ -268,6 +274,7 @@ export async function syncOrdersByDateRange(input: SyncFilters): Promise<GstServ
       summary.warnings.push(`${summary.failed} orders failed during sync`);
     }
 
+    gstPerfLog("gst.orderSync.total", syncTotalStartedAtMs, { fetched: summary.fetched, imported: summary.imported, alreadySynced: summary.alreadySynced, notReady: summary.notReady, failed: summary.failed });
     return { ok: true, data: summary };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Failed to sync orders" };
@@ -284,10 +291,13 @@ export async function syncSingleOrder(input: { orderName?: string; orderNumber?:
     const resolvedShop = await resolveShopConfig(input.shopDomain);
     const resolvedShopId = resolvedShop.id ? String(resolvedShop.id).trim() : null;
 
+    const syncTotalStartedAtMs = gstPerfNow();
+    const shopifyFetchStartedAtMs = gstPerfNow();
     const order = await getSingleShopifyOrderForGstSync({
       orderNameOrNumber: key,
       shopDomain: resolvedShop.shopDomain,
     });
+    gstPerfLog("gst.orderSync.shopifyFetch", shopifyFetchStartedAtMs, { count: order ? 1 : 0, single: true });
     if (!order) {
       return { ok: false, error: "Order not found in Shopify" } as const;
     }
@@ -316,13 +326,16 @@ export async function syncSingleOrder(input: { orderName?: string; orderNumber?:
       } as const;
     }
 
+    const importStartedAtMs = gstPerfNow();
     const imported = await importOrderByShopifyId(shopifyOrderId, normalizeOrderPayload(order), { shopId: resolvedShopId });
+    gstPerfLog("gst.orderSync.importOrder", importStartedAtMs, { shopifyOrderId, ok: imported.ok, single: true });
     if (!imported.ok || !imported.data) {
       return { ok: false, error: imported.error || "Failed to import single order" } as const;
     }
 
     const readiness = deriveSyncReadinessMetrics(imported.data);
     const counters = computeSyncCountersForImportedOrder(imported.data);
+    gstPerfLog("gst.orderSync.total", syncTotalStartedAtMs, { fetched: 1, imported: counters.imported, alreadySynced: 0, notReady: counters.notReady, failed: 0, single: true });
     return {
       ok: true,
       data: {

@@ -5,6 +5,7 @@ import { buildInvoiceDraft } from "./invoice";
 import { markOrderInvoiced } from "./order-import";
 import { resolveSkuTaxMap } from "./sku-tax-map";
 import { getTemplateById } from "./template";
+import { gstPerfLog, gstPerfNow } from "./perf";
 
 interface DispatchFilters {
   shopId?: string | null;
@@ -99,6 +100,7 @@ function extractCustomerDefaultStateCode(snapshot: Record<string, unknown>): str
 
 export async function listDispatchReadyOrders(filters: DispatchFilters): Promise<GstServiceResult<Array<Record<string, unknown>>>> {
   try {
+    const totalStartedAtMs = gstPerfNow();
     const where: Record<string, unknown> = {};
     if (filters.shopId) {
       where.shopId = String(filters.shopId);
@@ -112,6 +114,7 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
       };
     }
 
+    const dbFetchStartedAtMs = gstPerfNow();
     const rows = await dispatchDb.gstOrderImport.findMany({
       where,
       include: {
@@ -134,6 +137,7 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
       orderBy: [{ orderCreatedAt: "desc" }],
       take: 500,
     });
+    gstPerfLog("gst.dispatchReady.dbFetch", dbFetchStartedAtMs, { rowCount: rows.length });
 
     const data: Array<Record<string, unknown>> = [];
     for (const row of rows) {
@@ -149,6 +153,8 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
             .filter(Boolean),
         ),
       );
+      const lineProcessingStartedAtMs = gstPerfNow();
+      let mappingDurationMs = 0;
       const lineItems: Array<Record<string, unknown>> = [];
       for (const line of lines) {
         const quantity = parseNum(line.quantity);
@@ -156,9 +162,11 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
         const discount = parseNum(line.discount);
         const grossAmount = round2(Math.max(0, quantity * unitPrice - discount));
         const sku = String(line.sku || "").trim();
+        const mappingStartedAtMs = gstPerfNow();
         const resolvedMap = sku
           ? await resolveSkuTaxMap({ shopId: String(row.shopId || "") || null, sku })
           : { ok: true, data: null };
+        mappingDurationMs += gstPerfNow() - mappingStartedAtMs;
         const resolvedTaxRate = resolvedMap.ok && resolvedMap.data ? parseNum(resolvedMap.data.taxRate) : null;
         lineItems.push({
           lineNumber: parseNum(line.lineNumber),
@@ -179,6 +187,10 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
         });
       }
 
+      console.info("[GST PERF]", { phase: "gst.dispatchReady.skuHsnTaxMapping", durationMs: mappingDurationMs, orderImportId, lineCount: lines.length });
+      gstPerfLog("gst.dispatchReady.lineProcessing", lineProcessingStartedAtMs, { orderImportId, lineCount: lines.length });
+
+      const invoiceLookupStartedAtMs = gstPerfNow();
       const invoice = await dispatchDb.gstDocument.findFirst({
         where: {
           documentType: "TAX_INVOICE",
@@ -187,6 +199,7 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
         orderBy: [{ createdAt: "desc" }],
         select: { id: true, documentNumber: true, status: true },
       });
+      gstPerfLog("gst.dispatchReady.invoiceLookup", invoiceLookupStartedAtMs, { orderImportId, found: Boolean(invoice) });
 
       const readinessErrors = Array.isArray(row.readinessErrors) ? row.readinessErrors : [];
       const readiness = readinessErrors.length === 0 ? "READY" : "NOT_READY";
@@ -216,13 +229,15 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
       });
     }
 
-    return {
-      ok: true,
-      data: data.filter((row) => {
+    const filteredData = data.filter((row) => {
         if (filters.invoiceStatus && String(row.invoiceStatus) !== String(filters.invoiceStatus)) return false;
         if (filters.readiness && String(row.readiness) !== String(filters.readiness)) return false;
         return true;
-      }),
+      });
+    gstPerfLog("gst.dispatchReady.total", totalStartedAtMs, { rowCount: rows.length, returnedCount: filteredData.length });
+    return {
+      ok: true,
+      data: filteredData,
     };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Failed to list dispatch-ready orders" };
@@ -230,6 +245,7 @@ export async function listDispatchReadyOrders(filters: DispatchFilters): Promise
 }
 
 export async function generateInvoiceBatch(input: BatchGenerateInput) {
+  const batchStartedAtMs = gstPerfNow();
   const ids = Array.from(new Set((input.orderImportIds || []).map((id) => String(id).trim()).filter(Boolean)));
 
   if (input.templateId) {
@@ -245,6 +261,7 @@ export async function generateInvoiceBatch(input: BatchGenerateInput) {
   const summary = { generated: 0, skippedAlreadyInvoiced: 0, warningOnly: 0, failed: 0, results: [] as Array<Record<string, unknown>> };
 
   for (const id of ids) {
+    const orderStartedAtMs = gstPerfNow();
     const order = await dispatchDb.gstOrderImport.findUnique({
       where: { id },
       include: {
@@ -256,11 +273,13 @@ export async function generateInvoiceBatch(input: BatchGenerateInput) {
     if (!order) {
       summary.failed += 1;
       summary.results.push({ id, status: "FAILED", error: "Order import not found" });
+      gstPerfLog("gst.generateInvoiceBatch.order", orderStartedAtMs, { orderImportId: id, status: "FAILED", reason: "not_found" });
       continue;
     }
     if (input.shopId && String(order.shopId || "") !== String(input.shopId)) {
       summary.failed += 1;
       summary.results.push({ id, status: "FAILED", error: "Order does not belong to current shop context" });
+      gstPerfLog("gst.generateInvoiceBatch.order", orderStartedAtMs, { orderImportId: id, status: "FAILED", reason: "shop_mismatch" });
       continue;
     }
 
@@ -280,6 +299,7 @@ export async function generateInvoiceBatch(input: BatchGenerateInput) {
     if (existing && !input.regenerate) {
       summary.skippedAlreadyInvoiced += 1;
       summary.results.push({ id, status: "SKIPPED_ALREADY_INVOICED", documentId: String(existing.id) });
+      gstPerfLog("gst.generateInvoiceBatch.order", orderStartedAtMs, { orderImportId: id, status: "SKIPPED_ALREADY_INVOICED" });
       continue;
     }
 
@@ -288,6 +308,7 @@ export async function generateInvoiceBatch(input: BatchGenerateInput) {
     const customer = snapshot.customer && typeof snapshot.customer === "object" ? (snapshot.customer as Record<string, unknown>) : null;
     const skuList = extractSkuList(order.lines);
     const customerDefaultStateCode = extractCustomerDefaultStateCode(snapshot);
+    const mappingStartedAtMs = gstPerfNow();
     const invoiceLines: GstDocumentLineInput[] = [];
     const lineErrors: Array<Record<string, unknown>> = [];
     for (const line of Array.isArray(order.lines) ? order.lines : []) {
@@ -321,6 +342,8 @@ export async function generateInvoiceBatch(input: BatchGenerateInput) {
       });
     }
 
+    gstPerfLog("gst.generateInvoiceBatch.orderSkuHsnTaxMapping", mappingStartedAtMs, { orderImportId: id, lineCount: Array.isArray(order.lines) ? order.lines.length : 0, errors: lineErrors.length });
+
     if (lineErrors.length > 0) {
       summary.failed += 1;
       summary.results.push({
@@ -339,6 +362,7 @@ export async function generateInvoiceBatch(input: BatchGenerateInput) {
         gstDocumentCreateAttempted: false,
         gstDocumentCreateFailureReason: "Invoice draft creation skipped because SKU mappings are missing",
       });
+      gstPerfLog("gst.generateInvoiceBatch.order", orderStartedAtMs, { orderImportId: id, status: "FAILED", reason: "missing_sku_mappings" });
       continue;
     }
 
@@ -373,14 +397,6 @@ export async function generateInvoiceBatch(input: BatchGenerateInput) {
       orderSnapshot: snapshot,
       orderImportId: String(order.id),
     };
-
-    console.info("[GST INVOICE INPUT BUYER DEBUG]", {
-      buyer,
-      hasOrderSnapshot: Boolean(metadata.orderSnapshot),
-      shippingAddress: metadata.orderSnapshot?.shippingAddress,
-      billingAddress: metadata.orderSnapshot?.billingAddress,
-      customerName: metadata.orderSnapshot?.customerName,
-    });
 
     const invoice = await buildInvoiceDraft({
       shopId: String(order.shopId || "") || null,
@@ -424,6 +440,7 @@ export async function generateInvoiceBatch(input: BatchGenerateInput) {
               ? `Failed before GstDocument.create during phase ${invoice.errorDetails.phase}`
               : "Unknown failure before GstDocument.create",
       });
+      gstPerfLog("gst.generateInvoiceBatch.order", orderStartedAtMs, { orderImportId: id, status: "FAILED", reason: "invoice_generation_failed" });
       continue;
     }
 
@@ -439,8 +456,10 @@ export async function generateInvoiceBatch(input: BatchGenerateInput) {
       warnings: invoice.data.warnings,
       readinessWarnings: readinessErrors,
     });
+    gstPerfLog("gst.generateInvoiceBatch.order", orderStartedAtMs, { orderImportId: id, status: "GENERATED" });
   }
 
+  gstPerfLog("gst.generateInvoiceBatch.total", batchStartedAtMs, { requestedCount: ids.length, generated: summary.generated, skippedAlreadyInvoiced: summary.skippedAlreadyInvoiced, warningOnly: summary.warningOnly, failed: summary.failed });
   return { ok: true, data: summary } as const;
 }
 

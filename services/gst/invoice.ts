@@ -8,6 +8,7 @@ import { getActiveGstSettings, getGstSettingsById } from "./settings";
 import { computeTotals } from "./tax-engine";
 import type { GstInvoiceDraftInput, GstServiceResult } from "./types";
 import { validateDocumentDraftPayload } from "./validation";
+import { gstPerfLog, gstPerfNow } from "./perf";
 
 export interface GstInvoiceDraftResult {
   id: string;
@@ -431,6 +432,8 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
   };
 
   try {
+    const totalStartedAtMs = gstPerfNow();
+    const validationStartedAtMs = gstPerfNow();
     const payloadValidation = validateDocumentDraftPayload(input);
     if (!payloadValidation.ok || !payloadValidation.data) {
       return {
@@ -439,7 +442,10 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
       };
     }
 
+    gstPerfLog("gst.buildInvoiceDraft.validation", validationStartedAtMs, { sourceOrderId: input.sourceOrderId || null, lineCount: input.lines.length });
+
     const payloadData = payloadValidation.data;
+    const settingsStartedAtMs = gstPerfNow();
     const requestedShopId = normalizeText(input.shopId) || null;
 
     const scopedSettingsResult = requestedShopId
@@ -458,6 +464,8 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
             ? byIdSettingsResult.data
             : null;
 
+    gstPerfLog("gst.buildInvoiceDraft.settingsResolution", settingsStartedAtMs, { sourceOrderId: input.sourceOrderId || null, requestedShopId, resolved: Boolean(settings) });
+
     if (!settings) {
       return {
         ok: false,
@@ -473,6 +481,7 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
     const documentDate = normalizeDate(input.documentDate);
 
     diagnosticState.phase = "CLASSIFY_SUPPLY";
+    const classificationStartedAtMs = gstPerfNow();
     const classification = classifySupply({
       sellerStateCode: settings.stateCode,
       billingStateCode: payloadData.normalizedBillingStateCode || input.billingStateCode,
@@ -485,6 +494,8 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
       explicitSupplyType: input.supplyType,
     });
 
+    gstPerfLog("gst.buildInvoiceDraft.supplyClassification", classificationStartedAtMs, { sourceOrderId: input.sourceOrderId || null, ok: classification.ok });
+
     if (!classification.ok || !classification.data) {
       return {
         ok: false,
@@ -495,10 +506,13 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
     const classificationData = classification.data;
 
     diagnosticState.phase = "COMPUTE_TOTALS";
+    const taxStartedAtMs = gstPerfNow();
     const taxResult = computeTotals(input.lines, classificationData.isInterstate, {
       priceIncludesTax: settings.priceIncludesTax !== false,
       cessRates: input.lines.map((line) => Number(line.cessRate || 0)),
     });
+
+    gstPerfLog("gst.buildInvoiceDraft.taxTotalComputation", taxStartedAtMs, { sourceOrderId: input.sourceOrderId || null, lineCount: input.lines.length, ok: taxResult.ok });
 
     if (!taxResult.ok || !taxResult.data) {
       return {
@@ -510,11 +524,14 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
     const taxData = taxResult.data;
 
     diagnosticState.phase = "RESERVE_GST_NUMBER";
+    const numberingStartedAtMs = gstPerfNow();
     const numberingResult = await reserveGstNumber({
       gstSettingsId: settings.id,
       documentType: "TAX_INVOICE",
       documentDate,
     });
+
+    gstPerfLog("gst.buildInvoiceDraft.documentNumberReservation", numberingStartedAtMs, { sourceOrderId: input.sourceOrderId || null, ok: numberingResult.ok });
 
     if (!numberingResult.ok || !numberingResult.data) {
       return {
@@ -609,6 +626,8 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
     });
 
     diagnosticState.phase = "PERSIST_GST_DOCUMENT";
+    const documentCreationStartedAtMs = gstPerfNow();
+    let lineCreationDurationMs = 0;
     const created = await gstDb.$transaction(async (tx) => {
       const txWithRaw = tx as typeof tx & {
         $queryRaw: <T = unknown>(query: TemplateStringsArray | Prisma.Sql, ...values: unknown[]) => Promise<T>;
@@ -777,7 +796,9 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
       if (!resolvedDocument) {
         throw new Error("Failed to persist GstDocument");
       }
+      gstPerfLog("gst.buildInvoiceDraft.documentCreation", documentCreationStartedAtMs, { sourceOrderId: input.sourceOrderId || null, gstDocumentId: resolvedDocument.id });
 
+      const lineCreationStartedAtMs = gstPerfNow();
       const lineColumns = await txWithRaw.$queryRaw<GstColumnInfo[]>(Prisma.sql`
         SELECT column_name, is_nullable, data_type, column_default
         FROM information_schema.columns
@@ -847,8 +868,11 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
         });
       }
 
+      lineCreationDurationMs = gstPerfNow() - lineCreationStartedAtMs;
       return resolvedDocument;
     });
+
+    console.info("[GST PERF]", { phase: "gst.buildInvoiceDraft.lineCreation", durationMs: lineCreationDurationMs, sourceOrderId: input.sourceOrderId || null, gstDocumentId: created.id, lineCount: input.lines.length });
 
     await writeGstAuditLog(
       {
@@ -859,6 +883,8 @@ export async function buildInvoiceDraft(input: GstInvoiceDraftInput): Promise<Gs
       },
       { actorType: "SYSTEM" }
     );
+
+    gstPerfLog("gst.buildInvoiceDraft.total", totalStartedAtMs, { sourceOrderId: input.sourceOrderId || null, gstDocumentId: created.id, lineCount: input.lines.length });
 
     return {
       ok: true,

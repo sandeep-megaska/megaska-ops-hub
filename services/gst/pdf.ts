@@ -6,6 +6,7 @@ import { getGstNoteById } from "./notes";
 import { getSingleShopifyOrderForGstSync } from "./shopify-runtime-admin";
 import { getGstStatePrimaryNameByCode, resolveGstStateCode } from "./state-codes";
 import type { GstServiceResult } from "./types";
+import { gstPerfLog, gstPerfNow } from "./perf";
 
 export interface GstPdfRenderPayload {
   gstDocumentId: string;
@@ -260,8 +261,10 @@ async function loadLiveShopifyOrderSnapshot(document: Record<string, unknown>): 
 }
 
 async function loadLinkedOrderSnapshot(document: Record<string, unknown>, snapshot: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const hydrateStartedAtMs = gstPerfNow();
   const sourceSnapshot = getObject(snapshot, ["source"]);
   if (Object.keys(sourceSnapshot).length > 0 && hasUsableCustomerDetails(sourceSnapshot)) {
+    gstPerfLog("gst.pdf.linkedOrderHydrate", hydrateStartedAtMs, { source: "snapshot", found: true });
     return sourceSnapshot;
   }
 
@@ -287,6 +290,7 @@ async function loadLinkedOrderSnapshot(document: Record<string, unknown>, snapsh
     if (order?.snapshot && typeof order.snapshot === "object") {
       const orderSnapshot = order.snapshot as Record<string, unknown>;
       if (hasUsableCustomerDetails(orderSnapshot)) {
+        gstPerfLog("gst.pdf.linkedOrderHydrate", hydrateStartedAtMs, { source: "gstOrderImport", found: true, field: candidate.field });
         return orderSnapshot;
       }
     }
@@ -295,11 +299,14 @@ async function loadLinkedOrderSnapshot(document: Record<string, unknown>, snapsh
   if (sourceOrderId) {
     const orderSnapshot = await loadSourceOrderSnapshot(sourceOrderId);
     if (hasUsableCustomerDetails(orderSnapshot)) {
+      gstPerfLog("gst.pdf.linkedOrderHydrate", hydrateStartedAtMs, { source: "sourceOrder", found: true });
       return orderSnapshot;
     }
   }
 
-  return loadLiveShopifyOrderSnapshot(document);
+  const liveSnapshot = await loadLiveShopifyOrderSnapshot(document);
+  gstPerfLog("gst.pdf.linkedOrderHydrate", hydrateStartedAtMs, { source: "liveShopify", found: Object.keys(liveSnapshot).length > 0 });
+  return liveSnapshot;
 }
 
 function getInvoicePartyDetails(document: Record<string, unknown>): {
@@ -424,6 +431,7 @@ async function resolveInvoiceLogoForPdf(customUrl: unknown, fallbackPath: string
   return fileToDataUrl(fallbackPath);
 }
 export async function buildGstInvoiceRenderModel(gstDocumentId: string): Promise<GstServiceResult<GstInvoiceRenderModel>> {
+  const renderModelStartedAtMs = gstPerfNow();
   const invoiceResult = await getGstInvoiceById(gstDocumentId);
   const documentResult = invoiceResult.ok ? invoiceResult : await getGstNoteById(gstDocumentId);
 
@@ -444,6 +452,7 @@ export async function buildGstInvoiceRenderModel(gstDocumentId: string): Promise
   const snapshot = (doc.jsonSnapshot || {}) as Record<string, unknown>;
   const seller = (snapshot.settings || {}) as Record<string, unknown>;
   const metadata = (doc.metadata || snapshot.metadata || {}) as Record<string, unknown>;
+  const logoTemplateStartedAtMs = gstPerfNow();
   const template = await prisma.gstInvoiceTemplate.findFirst({
     where: { gstSettingsId: String((doc as Record<string, unknown>).gstSettingsId || ""), isDefault: true },
     select: { themeConfig: true },
@@ -492,7 +501,9 @@ export async function buildGstInvoiceRenderModel(gstDocumentId: string): Promise
     resolveInvoiceLogoForPdf(themeConfig.headerLogoUrl, "/logos/header-logo.png"),
     resolveInvoiceLogoForPdf(themeConfig.footerLogoUrl, "/logos/footer-logo.png"),
   ]);
+  gstPerfLog("gst.pdf.logoTemplateResolution", logoTemplateStartedAtMs, { gstDocumentId, templateFound: Boolean(template), headerLogo: Boolean(headerLogoSrc), footerLogo: Boolean(footerLogoSrc) });
 
+  gstPerfLog("gst.pdf.renderModel", renderModelStartedAtMs, { gstDocumentId, lineCount: lines.length, templateType });
   return {
     ok: true,
     data: {
@@ -547,6 +558,7 @@ export async function buildGstInvoiceRenderModel(gstDocumentId: string): Promise
 }
 
 export async function renderGstPdf(gstDocumentId: string): Promise<GstServiceResult<GstPdfRenderPayload>> {
+  const htmlStartedAtMs = gstPerfNow();
   const modelResult = await buildGstInvoiceRenderModel(gstDocumentId);
   if (!modelResult.ok || !modelResult.data) {
     return { ok: false, error: modelResult.error || "GST document not found" };
@@ -616,6 +628,7 @@ export async function renderGstPdf(gstDocumentId: string): Promise<GstServiceRes
     ${model.signature ? `<p style="text-align:right; margin-top:18px;">For ${escapeHtml(model.supplier.name)}<br/><br/>${escapeHtml(model.signature)}</p>` : ""}
   </body></html>`;
 
+  gstPerfLog("gst.pdf.htmlRender", htmlStartedAtMs, { gstDocumentId, rowCount: model.rows.length });
   return {
     ok: true,
     data: {
