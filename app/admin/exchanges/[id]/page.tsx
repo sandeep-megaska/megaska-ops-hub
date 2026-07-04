@@ -13,8 +13,19 @@ export const dynamic = "force-dynamic";
 
 function getStockReviewNote(snapshot: unknown) {
   if (!snapshot || typeof snapshot !== "object") return null;
-  const note = (snapshot as { stockReviewMessage?: unknown }).stockReviewMessage;
+  const note = (snapshot as { stockReviewMessage?: unknown })
+    .stockReviewMessage;
   const value = typeof note === "string" ? note.trim() : "";
+  return value || null;
+}
+
+function getSnapshotText(snapshot: unknown, path: string[]) {
+  let current = snapshot;
+  for (const key of path) {
+    if (!current || typeof current !== "object") return null;
+    current = (current as Record<string, unknown>)[key];
+  }
+  const value = typeof current === "string" ? current.trim() : "";
   return value || null;
 }
 
@@ -24,9 +35,13 @@ function formatDate(value: Date | null | undefined) {
 }
 
 function statusBadgeClass(status: string) {
-  if (["REJECTED"].includes(status)) return "bg-red-100 text-red-700 border-red-200";
-  if (["CLOSED"].includes(status)) return "bg-emerald-100 text-emerald-700 border-emerald-200";
-  if (["APPROVED", "PAYMENT_RECEIVED", "REPLACEMENT_SHIPPED"].includes(status)) {
+  if (["REJECTED"].includes(status))
+    return "bg-red-100 text-red-700 border-red-200";
+  if (["CLOSED"].includes(status))
+    return "bg-emerald-100 text-emerald-700 border-emerald-200";
+  if (
+    ["APPROVED", "PAYMENT_RECEIVED", "REPLACEMENT_SHIPPED"].includes(status)
+  ) {
     return "bg-indigo-100 text-indigo-700 border-indigo-200";
   }
   return "bg-amber-100 text-amber-700 border-amber-200";
@@ -45,7 +60,7 @@ export default async function AdminExchangeDetailPage({
   const shopDomain = normalizeShopDomain(
     parsedSearch?.shop ||
       parsedSearch?.shopify_shop ||
-      requestHeaders.get("x-shopify-shop-domain")
+      requestHeaders.get("x-shopify-shop-domain"),
   );
 
   const shop = shopDomain
@@ -55,7 +70,8 @@ export default async function AdminExchangeDetailPage({
     return (
       <main className="p-8">
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
-          Unable to load exchange request details right now. Please refresh and try again.
+          Unable to load exchange request details right now. Please refresh and
+          try again.
         </div>
       </main>
     );
@@ -74,9 +90,15 @@ export default async function AdminExchangeDetailPage({
     return <main className="p-8">Exchange request not found.</main>;
   }
 
-  const reverseShipment = request.shipments.find((shipment) => shipment.direction === "REVERSE_PICKUP") || null;
+  const reverseShipment =
+    request.shipments.find(
+      (shipment) => shipment.direction === "REVERSE_PICKUP",
+    ) || null;
   const delhiveryCapability = getDelhiveryCapabilityState();
-  const forwardShipment = request.shipments.find((shipment) => shipment.direction === "FORWARD_REPLACEMENT") || null;
+  const forwardShipment =
+    request.shipments.find(
+      (shipment) => shipment.direction === "FORWARD_REPLACEMENT",
+    ) || null;
   const nextTransitions = allowedStatusTransitions[request.status] || [];
 
   return (
@@ -84,10 +106,16 @@ export default async function AdminExchangeDetailPage({
       <section className="rounded-xl border bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Exchange Request #{request.id}</h1>
-            <p className="mt-1 text-sm text-slate-500">Order {request.orderNumber || "—"}</p>
+            <h1 className="text-2xl font-semibold text-slate-900">
+              Exchange Request #{request.id}
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Order {request.orderNumber || "—"}
+            </p>
           </div>
-          <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass(request.status)}`}>
+          <span
+            className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass(request.status)}`}
+          >
             {request.status}
           </span>
         </div>
@@ -95,23 +123,33 @@ export default async function AdminExchangeDetailPage({
         <div className="mt-5 grid gap-4 text-sm md:grid-cols-2 xl:grid-cols-3">
           <div>
             <p className="text-slate-500">Customer</p>
-            <p className="font-medium text-slate-900">{request.customerNameSnapshot || "—"}</p>
+            <p className="font-medium text-slate-900">
+              {request.customerNameSnapshot || "—"}
+            </p>
           </div>
           <div>
             <p className="text-slate-500">Phone</p>
-            <p className="font-medium text-slate-900">{request.customerPhoneSnapshot || "—"}</p>
+            <p className="font-medium text-slate-900">
+              {request.customerPhoneSnapshot || "—"}
+            </p>
           </div>
           <div>
             <p className="text-slate-500">Email</p>
-            <p className="font-medium text-slate-900">{request.customerEmailSnapshot || "—"}</p>
+            <p className="font-medium text-slate-900">
+              {request.customerEmailSnapshot || "—"}
+            </p>
           </div>
           <div>
             <p className="text-slate-500">Requested Date</p>
-            <p className="font-medium text-slate-900">{formatDate(request.requestedAt)}</p>
+            <p className="font-medium text-slate-900">
+              {formatDate(request.requestedAt)}
+            </p>
           </div>
           <div>
             <p className="text-slate-500">Last Updated</p>
-            <p className="font-medium text-slate-900">{formatDate(request.updatedAt)}</p>
+            <p className="font-medium text-slate-900">
+              {formatDate(request.updatedAt)}
+            </p>
           </div>
         </div>
       </section>
@@ -131,6 +169,27 @@ export default async function AdminExchangeDetailPage({
           currentSize: item.currentSize,
           requestedSize: item.requestedSize,
           quantity: item.quantity,
+          originalSku: item.sku,
+          originalProductId: getSnapshotText(item.eligibilitySnapshot, [
+            "original",
+            "shopifyProductId",
+          ]),
+          originalVariantId: getSnapshotText(item.eligibilitySnapshot, [
+            "original",
+            "shopifyVariantId",
+          ]),
+          requestedSku: getSnapshotText(item.eligibilitySnapshot, [
+            "requestedReplacement",
+            "sku",
+          ]),
+          requestedProductId: getSnapshotText(item.eligibilitySnapshot, [
+            "requestedReplacement",
+            "shopifyProductId",
+          ]),
+          requestedVariantId: getSnapshotText(item.eligibilitySnapshot, [
+            "requestedReplacement",
+            "shopifyVariantId",
+          ]),
           stockReviewNote: getStockReviewNote(item.eligibilitySnapshot),
         }))}
         payments={request.payments.map((payment) => ({
@@ -144,14 +203,19 @@ export default async function AdminExchangeDetailPage({
           paymentId: payment.paymentId,
           createdAtIso: payment.createdAt.toISOString(),
           paidAtIso: payment.paidAt?.toISOString() || null,
-          invoice: payment.invoice ? {
-            id: payment.invoice.id,
-            invoiceNumber: payment.invoice.invoiceNumber,
-            invoiceStatus: payment.invoice.invoiceStatus,
-            invoiceDateIso: payment.invoice.invoiceDate.toISOString(),
-            totalPaise: payment.invoice.totalPaise,
-            gstPaise: payment.invoice.cgstPaise + payment.invoice.sgstPaise + payment.invoice.igstPaise,
-          } : null,
+          invoice: payment.invoice
+            ? {
+                id: payment.invoice.id,
+                invoiceNumber: payment.invoice.invoiceNumber,
+                invoiceStatus: payment.invoice.invoiceStatus,
+                invoiceDateIso: payment.invoice.invoiceDate.toISOString(),
+                totalPaise: payment.invoice.totalPaise,
+                gstPaise:
+                  payment.invoice.cgstPaise +
+                  payment.invoice.sgstPaise +
+                  payment.invoice.igstPaise,
+              }
+            : null,
         }))}
         reverseShipment={
           reverseShipment
@@ -161,7 +225,8 @@ export default async function AdminExchangeDetailPage({
                 awb: reverseShipment.awb,
                 trackingUrl: reverseShipment.trackingUrl,
                 pickupAtIso: reverseShipment.pickupAt?.toISOString() || null,
-                deliveredAtIso: reverseShipment.deliveredAt?.toISOString() || null,
+                deliveredAtIso:
+                  reverseShipment.deliveredAt?.toISOString() || null,
                 remarks: reverseShipment.remarks,
               }
             : null
@@ -175,7 +240,8 @@ export default async function AdminExchangeDetailPage({
                 awb: forwardShipment.awb,
                 trackingUrl: forwardShipment.trackingUrl,
                 shippedAtIso: forwardShipment.shippedAt?.toISOString() || null,
-                deliveredAtIso: forwardShipment.deliveredAt?.toISOString() || null,
+                deliveredAtIso:
+                  forwardShipment.deliveredAt?.toISOString() || null,
                 remarks: forwardShipment.remarks,
               }
             : null

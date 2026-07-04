@@ -1,9 +1,10 @@
 (function () {
-  const API_BASE_URL = String(window.MEGASKA_API_BASE || "/apps/megaska/api").replace(/\/$/, "");
+  const API_BASE_URL = String(
+    window.MEGASKA_API_BASE || "/apps/megaska/api",
+  ).replace(/\/$/, "");
   const SESSION_STORAGE_KEY = "megaska_session_token";
   const MODAL_ID = "mk-exchange-modal-layer";
   const DEBUG_CANCEL_FLAG = "megaska_debug_cancel";
-
 
   const ACTIVE_STATUSES = [
     "OPEN",
@@ -33,8 +34,6 @@
     REJECTED: "Request rejected",
   };
 
-
-
   const CANCELLATION_BLOCKING_STATUSES = ["OPEN", "APPROVED", "CLOSED"];
 
   const CANCELLATION_STATUS_DESCRIPTIONS = {
@@ -44,7 +43,13 @@
     CLOSED: "Cancellation request closed",
   };
 
-  const ISSUE_BLOCKING_STATUSES = ["OPEN", "AWAITING_PAYMENT", "PICKUP_PENDING", "PAYMENT_RECEIVED", "APPROVED"];
+  const ISSUE_BLOCKING_STATUSES = [
+    "OPEN",
+    "AWAITING_PAYMENT",
+    "PICKUP_PENDING",
+    "PAYMENT_RECEIVED",
+    "APPROVED",
+  ];
   const ISSUE_STATUS_DESCRIPTIONS = {
     OPEN: "Issue request received",
     AWAITING_PAYMENT: "Under review",
@@ -123,7 +128,8 @@
     if (status === "delivered") return "DELIVERED";
     if (status === "in_transit") return "IN_TRANSIT";
     if (status === "out_for_delivery") return "OUT_FOR_DELIVERY";
-    if (status === "partial" || status === "partially_fulfilled") return "PARTIAL";
+    if (status === "partial" || status === "partially_fulfilled")
+      return "PARTIAL";
     return null;
   }
 
@@ -149,21 +155,32 @@
     const camel = key.replace(/-([a-z])/g, function (_, char) {
       return char.toUpperCase();
     });
-    return String((node.dataset && node.dataset[camel]) || node.getAttribute("data-" + key) || "").trim();
+    return String(
+      (node.dataset && node.dataset[camel]) ||
+        node.getAttribute("data-" + key) ||
+        "",
+    ).trim();
   }
 
   function parseBooleanDataValue(value) {
-    const normalized = String(value || "").trim().toLowerCase();
+    const normalized = String(value || "")
+      .trim()
+      .toLowerCase();
     if (["1", "true", "yes"].includes(normalized)) return true;
     if (["0", "false", "no"].includes(normalized)) return false;
     return null;
   }
 
   function normalizeShopDomain(value) {
-    const raw = String(value || "").trim().toLowerCase();
+    const raw = String(value || "")
+      .trim()
+      .toLowerCase();
     if (!raw) return "";
 
-    const sanitized = raw.replace(/^https?:\/\//, "").split("/")[0].split("?")[0];
+    const sanitized = raw
+      .replace(/^https?:\/\//, "")
+      .split("/")[0]
+      .split("?")[0];
     return sanitized.endsWith(".myshopify.com") ? sanitized : "";
   }
 
@@ -171,12 +188,14 @@
     const fromWindowShopify = normalizeShopDomain(window?.Shopify?.shop);
     if (fromWindowShopify) return fromWindowShopify;
 
-    const fromGlobalShopify = typeof Shopify !== "undefined" ? normalizeShopDomain(Shopify?.shop) : "";
+    const fromGlobalShopify =
+      typeof Shopify !== "undefined" ? normalizeShopDomain(Shopify?.shop) : "";
     if (fromGlobalShopify) return fromGlobalShopify;
 
     const fromDocument =
-      normalizeShopDomain(getDataValue(document.documentElement, "shop-domain")) ||
-      normalizeShopDomain(getDataValue(document.body, "shop-domain"));
+      normalizeShopDomain(
+        getDataValue(document.documentElement, "shop-domain"),
+      ) || normalizeShopDomain(getDataValue(document.body, "shop-domain"));
     if (fromDocument) return fromDocument;
 
     return normalizeShopDomain(window?.location?.hostname);
@@ -184,174 +203,193 @@
 
   function findStructuredOrderSource(drawer, sourceButton) {
     if (sourceButton && sourceButton.closest) {
-      const candidate = sourceButton.closest("[data-shopify-order-id], [data-order-number]");
+      const candidate = sourceButton.closest(
+        "[data-shopify-order-id], [data-order-number]",
+      );
       if (candidate) return candidate;
     }
 
     const fromDrawer = drawer.querySelector(
-      "[data-shopify-order-id], [data-order-number], [data-order-id], .megaska-dashboard-list-item"
+      "[data-shopify-order-id], [data-order-number], [data-order-id], .megaska-dashboard-list-item",
     );
     return fromDrawer || drawer;
   }
 
- function getDrawerOrderContext(sourceButton) {
-  const drawer = document.getElementById("mk-order-drawer");
-  if (!drawer) return null;
+  function getDrawerOrderContext(sourceButton) {
+    const drawer = document.getElementById("mk-order-drawer");
+    if (!drawer) return null;
 
-  const structuredSource = findStructuredOrderSource(drawer, sourceButton);
+    const structuredSource = findStructuredOrderSource(drawer, sourceButton);
 
-  const productTitle =
-    drawer.querySelector(".mk-order-hero-name")?.textContent?.trim() || "";
+    const productTitle =
+      drawer.querySelector(".mk-order-hero-name")?.textContent?.trim() || "";
 
-  const metaText =
-    drawer.querySelector(".mk-order-hero-meta")?.textContent?.trim() || "";
+    const metaText =
+      drawer.querySelector(".mk-order-hero-meta")?.textContent?.trim() || "";
 
-  const orderNumber =
-    readFirstValue([
-      getDataValue(sourceButton, "order-number"),
-      getDataValue(structuredSource, "order-number"),
-      getDataValue(drawer, "order-number"),
-    ]) ||
-    metaText.split("•")[0]?.trim() ||
-    "";
-
-  const statusText = readFirstValue([
-    getDataValue(sourceButton, "order-fulfillment-status"),
-    getDataValue(sourceButton, "fulfillment-status"),
-    getDataValue(structuredSource, "order-fulfillment-status"),
-    getDataValue(structuredSource, "fulfillment-status"),
-    getDataValue(drawer, "order-fulfillment-status"),
-    getDataValue(drawer, "fulfillment-status"),
-    getDataValue(
-      drawer.querySelector("[data-order-fulfillment-status]"),
-      "order-fulfillment-status"
-    ),
-  ]);
-
-  const deliveryText = Array.from(
-    drawer.querySelectorAll(".mk-order-info-row")
-  ).find((row) =>
-    row.textContent.toLowerCase().includes("delivery")
-  )?.querySelector("strong")?.textContent?.trim() || "";
-
-  const deliveredAtRaw = readFirstValue([
-    getDataValue(sourceButton, "order-delivered-at"),
-    getDataValue(sourceButton, "delivered-at"),
-    getDataValue(structuredSource, "order-delivered-at"),
-    getDataValue(structuredSource, "delivered-at"),
-    getDataValue(drawer, "order-delivered-at"),
-    getDataValue(drawer, "delivered-at"),
-    getDataValue(
-      drawer.querySelector("[data-order-delivered-at]"),
-      "order-delivered-at"
-    ),
-  ]);
-
-  const fulfilledAtRaw = readFirstValue([
-    getDataValue(sourceButton, "order-fulfilled-at"),
-    getDataValue(structuredSource, "order-fulfilled-at"),
-    getDataValue(drawer, "order-fulfilled-at"),
-  ]);
-
-  const normalizedStatusText = normalizeFulfillmentStatus(statusText);
-  const normalizedDeliveryText = normalizeFulfillmentStatus(deliveryText);
-  let inferredStatus = "";
-
-  if (normalizedStatusText === "UNFULFILLED") {
-    inferredStatus = "unfulfilled";
-  } else if (normalizedDeliveryText === "UNFULFILLED") {
-    inferredStatus = "unfulfilled";
-  } else if (statusText) {
-    inferredStatus = statusText;
-  } else if (deliveryText) {
-    inferredStatus = deliveryText;
-  } else {
-    const metaLower = metaText.toLowerCase();
-
-    if (metaLower.includes("unfulfilled")) {
-      inferredStatus = "unfulfilled";
-    } else if (metaLower.includes("delivered")) {
-      inferredStatus = "delivered";
-    } else if (metaLower.includes("fulfilled")) {
-      inferredStatus = "fulfilled";
-    }
-  }
-
-  const normalizedStatus = normalizeFulfillmentStatus(inferredStatus);
-
-  return {
-    orderNumber,
-    productTitle:
+    const orderNumber =
       readFirstValue([
-        getDataValue(sourceButton, "item-title"),
-        getDataValue(structuredSource, "item-title"),
-        productTitle,
-      ]) || "",
-    currentSize: readFirstValue([
-      getDataValue(sourceButton, "current-size"),
-      getDataValue(structuredSource, "current-size"),
-      getDataValue(sourceButton, "size"),
-      getDataValue(structuredSource, "size"),
-      getDataValue(sourceButton, "variant-title"),
-      getDataValue(structuredSource, "variant-title"),
-    ]),
-    variantTitle: readFirstValue([
-      getDataValue(sourceButton, "variant-title"),
-      getDataValue(structuredSource, "variant-title"),
-    ]),
-    sku: readFirstValue([
-      getDataValue(sourceButton, "sku"),
-      getDataValue(structuredSource, "sku"),
-    ]),
-    shopifyOrderId: readFirstValue([
-      getDataValue(sourceButton, "shopify-order-id"),
-      getDataValue(structuredSource, "shopify-order-id"),
-      getDataValue(sourceButton, "order-id"),
-      getDataValue(structuredSource, "order-id"),
-    ]),
-    shopifyLineItemId: readFirstValue([
-      getDataValue(sourceButton, "shopify-line-item-id"),
-      getDataValue(structuredSource, "shopify-line-item-id"),
-      getDataValue(sourceButton, "line-item-id"),
-      getDataValue(structuredSource, "line-item-id"),
-    ]),
-    displayMeta: metaText,
-    deliveredAt: normalizeDeliveredAt(deliveredAtRaw),
-    fulfilledAt: normalizeDeliveredAt(fulfilledAtRaw),
-    fulfillmentStatus: normalizedStatus,
-    financialStatus: readFirstValue([
-      getDataValue(sourceButton, "order-financial-status"),
-      getDataValue(structuredSource, "order-financial-status"),
-      getDataValue(drawer, "order-financial-status"),
-    ]),
-    paymentGatewayName: readFirstValue([
-      getDataValue(sourceButton, "payment-gateway-name"),
-      getDataValue(structuredSource, "payment-gateway-name"),
-      getDataValue(drawer, "payment-gateway-name"),
-    ]),
-    canRequestCancellation: parseBooleanDataValue(readFirstValue([
-      getDataValue(sourceButton, "can-request-cancellation"),
-      getDataValue(structuredSource, "can-request-cancellation"),
-      getDataValue(drawer, "can-request-cancellation"),
-    ])),
-    canRequestExchange: parseBooleanDataValue(readFirstValue([
-      getDataValue(sourceButton, "can-request-exchange"),
-      getDataValue(structuredSource, "can-request-exchange"),
-      getDataValue(drawer, "can-request-exchange"),
-    ])),
-    canReportIssue: parseBooleanDataValue(readFirstValue([
-      getDataValue(sourceButton, "can-report-issue"),
-      getDataValue(structuredSource, "can-report-issue"),
-      getDataValue(drawer, "can-report-issue"),
-    ])),
-    requestLockReason: readFirstValue([
-      getDataValue(sourceButton, "request-lock-reason"),
-      getDataValue(structuredSource, "request-lock-reason"),
-      getDataValue(drawer, "request-lock-reason"),
-    ]),
-  };
-}
+        getDataValue(sourceButton, "order-number"),
+        getDataValue(structuredSource, "order-number"),
+        getDataValue(drawer, "order-number"),
+      ]) ||
+      metaText.split("•")[0]?.trim() ||
+      "";
 
+    const statusText = readFirstValue([
+      getDataValue(sourceButton, "order-fulfillment-status"),
+      getDataValue(sourceButton, "fulfillment-status"),
+      getDataValue(structuredSource, "order-fulfillment-status"),
+      getDataValue(structuredSource, "fulfillment-status"),
+      getDataValue(drawer, "order-fulfillment-status"),
+      getDataValue(drawer, "fulfillment-status"),
+      getDataValue(
+        drawer.querySelector("[data-order-fulfillment-status]"),
+        "order-fulfillment-status",
+      ),
+    ]);
+
+    const deliveryText =
+      Array.from(drawer.querySelectorAll(".mk-order-info-row"))
+        .find((row) => row.textContent.toLowerCase().includes("delivery"))
+        ?.querySelector("strong")
+        ?.textContent?.trim() || "";
+
+    const deliveredAtRaw = readFirstValue([
+      getDataValue(sourceButton, "order-delivered-at"),
+      getDataValue(sourceButton, "delivered-at"),
+      getDataValue(structuredSource, "order-delivered-at"),
+      getDataValue(structuredSource, "delivered-at"),
+      getDataValue(drawer, "order-delivered-at"),
+      getDataValue(drawer, "delivered-at"),
+      getDataValue(
+        drawer.querySelector("[data-order-delivered-at]"),
+        "order-delivered-at",
+      ),
+    ]);
+
+    const fulfilledAtRaw = readFirstValue([
+      getDataValue(sourceButton, "order-fulfilled-at"),
+      getDataValue(structuredSource, "order-fulfilled-at"),
+      getDataValue(drawer, "order-fulfilled-at"),
+    ]);
+
+    const normalizedStatusText = normalizeFulfillmentStatus(statusText);
+    const normalizedDeliveryText = normalizeFulfillmentStatus(deliveryText);
+    let inferredStatus = "";
+
+    if (normalizedStatusText === "UNFULFILLED") {
+      inferredStatus = "unfulfilled";
+    } else if (normalizedDeliveryText === "UNFULFILLED") {
+      inferredStatus = "unfulfilled";
+    } else if (statusText) {
+      inferredStatus = statusText;
+    } else if (deliveryText) {
+      inferredStatus = deliveryText;
+    } else {
+      const metaLower = metaText.toLowerCase();
+
+      if (metaLower.includes("unfulfilled")) {
+        inferredStatus = "unfulfilled";
+      } else if (metaLower.includes("delivered")) {
+        inferredStatus = "delivered";
+      } else if (metaLower.includes("fulfilled")) {
+        inferredStatus = "fulfilled";
+      }
+    }
+
+    const normalizedStatus = normalizeFulfillmentStatus(inferredStatus);
+
+    return {
+      orderNumber,
+      productTitle:
+        readFirstValue([
+          getDataValue(sourceButton, "item-title"),
+          getDataValue(structuredSource, "item-title"),
+          productTitle,
+        ]) || "",
+      currentSize: readFirstValue([
+        getDataValue(sourceButton, "current-size"),
+        getDataValue(structuredSource, "current-size"),
+        getDataValue(sourceButton, "size"),
+        getDataValue(structuredSource, "size"),
+        getDataValue(sourceButton, "variant-title"),
+        getDataValue(structuredSource, "variant-title"),
+      ]),
+      variantTitle: readFirstValue([
+        getDataValue(sourceButton, "variant-title"),
+        getDataValue(structuredSource, "variant-title"),
+      ]),
+      sku: readFirstValue([
+        getDataValue(sourceButton, "sku"),
+        getDataValue(structuredSource, "sku"),
+      ]),
+      shopifyOrderId: readFirstValue([
+        getDataValue(sourceButton, "shopify-order-id"),
+        getDataValue(structuredSource, "shopify-order-id"),
+        getDataValue(sourceButton, "order-id"),
+        getDataValue(structuredSource, "order-id"),
+      ]),
+      shopifyLineItemId: readFirstValue([
+        getDataValue(sourceButton, "shopify-line-item-id"),
+        getDataValue(structuredSource, "shopify-line-item-id"),
+        getDataValue(sourceButton, "line-item-id"),
+        getDataValue(structuredSource, "line-item-id"),
+      ]),
+      shopifyProductId: readFirstValue([
+        getDataValue(sourceButton, "shopify-product-id"),
+        getDataValue(structuredSource, "shopify-product-id"),
+        getDataValue(sourceButton, "product-id"),
+        getDataValue(structuredSource, "product-id"),
+      ]),
+      shopifyVariantId: readFirstValue([
+        getDataValue(sourceButton, "shopify-variant-id"),
+        getDataValue(structuredSource, "shopify-variant-id"),
+        getDataValue(sourceButton, "variant-id"),
+        getDataValue(structuredSource, "variant-id"),
+      ]),
+      displayMeta: metaText,
+      deliveredAt: normalizeDeliveredAt(deliveredAtRaw),
+      fulfilledAt: normalizeDeliveredAt(fulfilledAtRaw),
+      fulfillmentStatus: normalizedStatus,
+      financialStatus: readFirstValue([
+        getDataValue(sourceButton, "order-financial-status"),
+        getDataValue(structuredSource, "order-financial-status"),
+        getDataValue(drawer, "order-financial-status"),
+      ]),
+      paymentGatewayName: readFirstValue([
+        getDataValue(sourceButton, "payment-gateway-name"),
+        getDataValue(structuredSource, "payment-gateway-name"),
+        getDataValue(drawer, "payment-gateway-name"),
+      ]),
+      canRequestCancellation: parseBooleanDataValue(
+        readFirstValue([
+          getDataValue(sourceButton, "can-request-cancellation"),
+          getDataValue(structuredSource, "can-request-cancellation"),
+          getDataValue(drawer, "can-request-cancellation"),
+        ]),
+      ),
+      canRequestExchange: parseBooleanDataValue(
+        readFirstValue([
+          getDataValue(sourceButton, "can-request-exchange"),
+          getDataValue(structuredSource, "can-request-exchange"),
+          getDataValue(drawer, "can-request-exchange"),
+        ]),
+      ),
+      canReportIssue: parseBooleanDataValue(
+        readFirstValue([
+          getDataValue(sourceButton, "can-report-issue"),
+          getDataValue(structuredSource, "can-report-issue"),
+          getDataValue(drawer, "can-report-issue"),
+        ]),
+      ),
+      requestLockReason: readFirstValue([
+        getDataValue(sourceButton, "request-lock-reason"),
+        getDataValue(structuredSource, "request-lock-reason"),
+        getDataValue(drawer, "request-lock-reason"),
+      ]),
+    };
+  }
 
   function isCancellationDebugEnabled() {
     try {
@@ -369,35 +407,90 @@
   }
 
   function normalizeStatusValue(value) {
-    return String(value || "").trim().toLowerCase();
+    return String(value || "")
+      .trim()
+      .toLowerCase();
   }
 
   function isCancellationEligible(context) {
-  const fulfillmentStatus = String(context?.fulfillmentStatus || "")
-    .trim()
-    .toUpperCase();
+    const fulfillmentStatus = String(context?.fulfillmentStatus || "")
+      .trim()
+      .toUpperCase();
 
-  const financialStatus = normalizeStatusValue(context?.financialStatus);
-  const fulfilledAt = normalizeDeliveredAt(context?.fulfilledAt);
-  const deliveredAt = normalizeDeliveredAt(context?.deliveredAt);
+    const financialStatus = normalizeStatusValue(context?.financialStatus);
+    const fulfilledAt = normalizeDeliveredAt(context?.fulfilledAt);
+    const deliveredAt = normalizeDeliveredAt(context?.deliveredAt);
 
-  if (
-    ["void", "cancel", "cancelled", "refunded"].some(function (keyword) {
-      return financialStatus.includes(keyword);
-    })
-  ) {
-    const decision = { eligible: false, reason: "Order is already cancelled." };
-    logCancellationDebug("eligibility", {
-      fulfillmentStatus,
-      financialStatus,
-      fulfilledAt,
-      deliveredAt,
-      decision,
-    });
-    return decision;
-  }
+    if (
+      ["void", "cancel", "cancelled", "refunded"].some(function (keyword) {
+        return financialStatus.includes(keyword);
+      })
+    ) {
+      const decision = {
+        eligible: false,
+        reason: "Order is already cancelled.",
+      };
+      logCancellationDebug("eligibility", {
+        fulfillmentStatus,
+        financialStatus,
+        fulfilledAt,
+        deliveredAt,
+        decision,
+      });
+      return decision;
+    }
 
-  if (fulfillmentStatus === "UNFULFILLED") {
+    if (fulfillmentStatus === "UNFULFILLED") {
+      const decision = { eligible: true, reason: "Eligible" };
+      logCancellationDebug("eligibility", {
+        fulfillmentStatus,
+        financialStatus,
+        fulfilledAt,
+        deliveredAt,
+        decision,
+      });
+      return decision;
+    }
+
+    if (fulfilledAt || deliveredAt) {
+      const decision = {
+        eligible: false,
+        reason: "Cancellation not possible — order already shipped.",
+      };
+      logCancellationDebug("eligibility", {
+        fulfillmentStatus,
+        financialStatus,
+        fulfilledAt,
+        deliveredAt,
+        decision,
+      });
+      return decision;
+    }
+
+    if (
+      [
+        "FULFILLED",
+        "DELIVERED",
+        "IN_TRANSIT",
+        "OUT_FOR_DELIVERY",
+        "PARTIAL",
+        "SHIPPED",
+      ].includes(fulfillmentStatus)
+    ) {
+      const decision = {
+        eligible: false,
+        reason: "Cancellation not possible — order already shipped.",
+      };
+      logCancellationDebug("eligibility", {
+        fulfillmentStatus,
+        financialStatus,
+        fulfilledAt,
+        deliveredAt,
+        decision,
+      });
+      return decision;
+    }
+
     const decision = { eligible: true, reason: "Eligible" };
     logCancellationDebug("eligibility", {
       fulfillmentStatus,
@@ -408,58 +501,10 @@
     });
     return decision;
   }
-
-  if (fulfilledAt || deliveredAt) {
-    const decision = {
-      eligible: false,
-      reason: "Cancellation not possible — order already shipped.",
-    };
-    logCancellationDebug("eligibility", {
-      fulfillmentStatus,
-      financialStatus,
-      fulfilledAt,
-      deliveredAt,
-      decision,
-    });
-    return decision;
-  }
-
-  if (
-    [
-      "FULFILLED",
-      "DELIVERED",
-      "IN_TRANSIT",
-      "OUT_FOR_DELIVERY",
-      "PARTIAL",
-      "SHIPPED",
-    ].includes(fulfillmentStatus)
-  ) {
-    const decision = {
-      eligible: false,
-      reason: "Cancellation not possible — order already shipped.",
-    };
-    logCancellationDebug("eligibility", {
-      fulfillmentStatus,
-      financialStatus,
-      fulfilledAt,
-      deliveredAt,
-      decision,
-    });
-    return decision;
-  }
-
-  const decision = { eligible: true, reason: "Eligible" };
-  logCancellationDebug("eligibility", {
-    fulfillmentStatus,
-    financialStatus,
-    fulfilledAt,
-    deliveredAt,
-    decision,
-  });
-  return decision;
-}
   function getBlockingCancellationMessage(requestStatus) {
-    const status = String(requestStatus || "").trim().toUpperCase();
+    const status = String(requestStatus || "")
+      .trim()
+      .toUpperCase();
     return status === "CLOSED" ? "Cancelled" : "Cancellation Requested";
   }
   function closeModal() {
@@ -512,8 +557,11 @@
         </div>
 
         <div class="mk-ex-row">
-          <label class="mk-ex-label">Requested size</label>
-          <input class="mk-ex-input" id="mk-ex-requested-size" placeholder="e.g. L" />
+          <label class="mk-ex-label">Requested replacement size</label>
+          <select class="mk-ex-input" id="mk-ex-requested-size" disabled>
+            <option value="">Loading available sizes…</option>
+          </select>
+          <div class="mk-ex-muted" id="mk-ex-replacement-note">Only available sizes from the same Shopify product can be selected.</div>
         </div>
 
         <div class="mk-ex-row">
@@ -544,13 +592,20 @@
 
     layer.addEventListener("click", function (event) {
       const target = event.target;
-      if (target && target.getAttribute && target.getAttribute("data-mk-ex-close") === "1") {
+      if (
+        target &&
+        target.getAttribute &&
+        target.getAttribute("data-mk-ex-close") === "1"
+      ) {
         closeModal();
       }
     });
 
+    loadReplacementOptions(context);
+
     const submitBtn = document.getElementById("mk-ex-submit");
     if (submitBtn) {
+      submitBtn.disabled = true;
       submitBtn.addEventListener("click", function () {
         submitExchange(context);
       });
@@ -560,7 +615,9 @@
     const methodNote = document.getElementById("mk-ex-return-method-note");
     if (methodSelect && methodNote) {
       methodSelect.addEventListener("change", function () {
-        const method = String(methodSelect.value || "REVERSE_PICKUP").trim().toUpperCase();
+        const method = String(methodSelect.value || "REVERSE_PICKUP")
+          .trim()
+          .toUpperCase();
         methodNote.textContent =
           method === "SELF_SHIP"
             ? "You will ship the item to Megaska after approval. No reverse pickup charge applies."
@@ -569,15 +626,128 @@
     }
   }
 
+  async function loadReplacementOptions(context) {
+    const select = document.getElementById("mk-ex-requested-size");
+    const note = document.getElementById("mk-ex-replacement-note");
+    const submitBtn = document.getElementById("mk-ex-submit");
+    if (!select) return;
+
+    const token = await getSessionToken();
+    if (!token) {
+      select.innerHTML =
+        '<option value="">Login required to load sizes</option>';
+      if (note)
+        note.textContent = "Please login again before requesting an exchange.";
+      return;
+    }
+
+    const params = new URLSearchParams();
+    [
+      ["orderNumber", context.orderNumber],
+      ["shopifyOrderId", context.shopifyOrderId],
+      ["shopifyLineItemId", context.shopifyLineItemId],
+      ["productId", context.shopifyProductId],
+      ["variantId", context.shopifyVariantId],
+      ["sku", context.sku],
+      ["productTitle", context.productTitle],
+      ["variantTitle", context.variantTitle],
+      ["currentSize", context.currentSize],
+    ].forEach(function (entry) {
+      if (entry[1]) params.set(entry[0], entry[1]);
+    });
+
+    try {
+      const response = await fetch(
+        API_BASE_URL +
+          "/account/exchange-requests/replacement-options?" +
+          params.toString(),
+        {
+          credentials: "include",
+          headers: {
+            Authorization: "Bearer " + token,
+            "x-shopify-shop-domain": detectShopDomain(),
+          },
+        },
+      );
+      const data = await response.json().catch(function () {
+        return {};
+      });
+      if (!response.ok)
+        throw new Error(data?.error || "Unable to load replacement sizes.");
+
+      context.resolvedOrderedLine = data?.orderedLine || null;
+      context.replacementOptions = Array.isArray(data?.replacementOptions)
+        ? data.replacementOptions
+        : [];
+      if (context.resolvedOrderedLine) {
+        context.shopifyProductId =
+          context.resolvedOrderedLine.productId || context.shopifyProductId;
+        context.shopifyVariantId =
+          context.resolvedOrderedLine.variantId || context.shopifyVariantId;
+        context.sku = context.resolvedOrderedLine.sku || context.sku;
+        context.currentSize =
+          context.resolvedOrderedLine.currentSize || context.currentSize;
+        const currentSizeInput = document.getElementById("mk-ex-current-size");
+        if (currentSizeInput && context.currentSize)
+          currentSizeInput.value = context.currentSize;
+      }
+
+      if (!context.replacementOptions.length) {
+        select.innerHTML =
+          '<option value="">No replacement sizes available</option>';
+        if (note)
+          note.textContent =
+            "No in-stock size variants are currently available for this product.";
+        return;
+      }
+
+      select.innerHTML =
+        '<option value="">Select replacement size</option>' +
+        context.replacementOptions
+          .map(function (option) {
+            return (
+              '<option value="' +
+              escapeHtml(option.size) +
+              '" data-variant-id="' +
+              escapeHtml(option.variantId) +
+              '" data-sku="' +
+              escapeHtml(option.sku || "") +
+              '">' +
+              escapeHtml(option.size + (option.sku ? " — " + option.sku : "")) +
+              "</option>"
+            );
+          })
+          .join("");
+      select.disabled = false;
+      if (submitBtn) submitBtn.disabled = false;
+      if (note)
+        note.textContent =
+          "Replacement choices are limited to available size variants from the same Shopify product.";
+    } catch (error) {
+      select.innerHTML =
+        '<option value="">Unable to load replacement sizes</option>';
+      if (note)
+        note.textContent =
+          error instanceof Error
+            ? error.message
+            : "Unable to load replacement sizes.";
+    }
+  }
+
   function setSubmittingState(isSubmitting) {
-    const submitBtn = document.getElementById("mk-ex-submit") || document.getElementById("mk-cancel-submit") || document.getElementById("mk-issue-submit");
+    const submitBtn =
+      document.getElementById("mk-ex-submit") ||
+      document.getElementById("mk-cancel-submit") ||
+      document.getElementById("mk-issue-submit");
     if (!submitBtn) return;
     submitBtn.disabled = isSubmitting;
     submitBtn.textContent = isSubmitting
       ? "Submitting..."
-      : (submitBtn.id === "mk-cancel-submit"
+      : submitBtn.id === "mk-cancel-submit"
         ? "Submit Cancellation Request"
-        : (submitBtn.id === "mk-issue-submit" ? "Submit Issue Request" : "Submit Exchange Request"));
+        : submitBtn.id === "mk-issue-submit"
+          ? "Submit Issue Request"
+          : "Submit Exchange Request";
   }
 
   function showError(message) {
@@ -612,10 +782,9 @@
       <div class="mk-ex-muted">If the requested size is unavailable, our team will contact you with the next steps.</div>
     `;
 
-    actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
+    actions.innerHTML =
+      '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
   }
-
-
 
   function renderCancellationSuccess(request) {
     const success = document.getElementById("mk-ex-success");
@@ -631,7 +800,8 @@
       <div class="mk-ex-muted">Our operations team will review this request and update you shortly.</div>
     `;
 
-    actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
+    actions.innerHTML =
+      '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
   }
 
   function renderIssueSuccess(request) {
@@ -649,7 +819,8 @@
       <div class="mk-ex-muted">No return is auto-approved. We may ask for more evidence.</div>
     `;
 
-    actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
+    actions.innerHTML =
+      '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
   }
   function toCustomerSafeError(message) {
     const text = String(message || "").trim();
@@ -658,9 +829,15 @@
     if (
       text.includes("Product category is excluded from exchange") ||
       text.includes("Clearance items are not exchangeable") ||
-      text.includes("We couldn’t confirm the delivery date for this order. Please contact support for help.") ||
-      text.includes("We couldn't confirm the delivery date for this order. Please contact support for help.") ||
-      text.includes("Exchange can be requested only after the order has been delivered") ||
+      text.includes(
+        "We couldn’t confirm the delivery date for this order. Please contact support for help.",
+      ) ||
+      text.includes(
+        "We couldn't confirm the delivery date for this order. Please contact support for help.",
+      ) ||
+      text.includes(
+        "Exchange can be requested only after the order has been delivered",
+      ) ||
       text.includes("Exchange requests cannot be processed more than") ||
       text.includes("Requested size is required") ||
       text.includes("Current size and requested size are identical") ||
@@ -678,16 +855,30 @@
     return (
       requests.find(function (req) {
         if (!ACTIVE_STATUSES.includes(String(req?.status || ""))) return false;
-        if (String(req?.orderNumber || "").trim() !== String(context.orderNumber || "").trim()) return false;
+        if (
+          String(req?.orderNumber || "").trim() !==
+          String(context.orderNumber || "").trim()
+        )
+          return false;
         const items = Array.isArray(req?.items) ? req.items : [];
         if (!items.length) return true;
         if (context.shopifyLineItemId) {
           return items.some(function (item) {
-            return String(item?.shopifyLineItemId || "").trim() === String(context.shopifyLineItemId || "").trim();
+            return (
+              String(item?.shopifyLineItemId || "").trim() ===
+              String(context.shopifyLineItemId || "").trim()
+            );
           });
         }
         return items.some(function (item) {
-          return String(item?.productTitle || "").trim().toLowerCase() === String(context.productTitle || "").trim().toLowerCase();
+          return (
+            String(item?.productTitle || "")
+              .trim()
+              .toLowerCase() ===
+            String(context.productTitle || "")
+              .trim()
+              .toLowerCase()
+          );
         });
       }) || null
     );
@@ -702,7 +893,9 @@
     success.className = "mk-ex-success";
 
     const status = String(request?.status || "OPEN");
-    const stockReview = String(request?.items?.[0]?.eligibilitySnapshot?.stockReviewMessage || "").trim();
+    const stockReview = String(
+      request?.items?.[0]?.eligibilitySnapshot?.stockReviewMessage || "",
+    ).trim();
 
     success.innerHTML = `
       <strong>Exchange request already exists</strong>
@@ -713,23 +906,42 @@
       ${stockReview ? `<div class="mk-ex-muted">${escapeHtml(stockReview)}</div>` : ""}
     `;
 
-    actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
+    actions.innerHTML =
+      '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
   }
 
   async function submitExchange(context) {
     clearError();
-    const requestedSize = document.getElementById("mk-ex-requested-size")?.value?.trim() || "";
+    const requestedSizeSelect = document.getElementById("mk-ex-requested-size");
+    const selectedReplacementOption =
+      requestedSizeSelect?.selectedOptions?.[0] || null;
+    const requestedSize = requestedSizeSelect?.value?.trim() || "";
+    const requestedVariantId =
+      selectedReplacementOption?.getAttribute("data-variant-id") || "";
+    const requestedSku =
+      selectedReplacementOption?.getAttribute("data-sku") || "";
     const reason = document.getElementById("mk-ex-reason")?.value?.trim() || "";
-    const currentSize = document.getElementById("mk-ex-current-size")?.value?.trim() || "";
-    const preferredReturnMethod = String(document.getElementById("mk-ex-return-method")?.value || "REVERSE_PICKUP").trim().toUpperCase() === "SELF_SHIP" ? "SELF_SHIP" : "REVERSE_PICKUP";
+    const currentSize =
+      document.getElementById("mk-ex-current-size")?.value?.trim() || "";
+    const preferredReturnMethod =
+      String(
+        document.getElementById("mk-ex-return-method")?.value ||
+          "REVERSE_PICKUP",
+      )
+        .trim()
+        .toUpperCase() === "SELF_SHIP"
+        ? "SELF_SHIP"
+        : "REVERSE_PICKUP";
 
     if (!context.orderNumber || !context.productTitle) {
-      showError("Order details are missing. Please close and reopen this order.");
+      showError(
+        "Order details are missing. Please close and reopen this order.",
+      );
       return;
     }
 
-    if (!requestedSize) {
-      showError("Requested size is required.");
+    if (!requestedSize || !requestedVariantId) {
+      showError("Select an available replacement size.");
       return;
     }
 
@@ -742,32 +954,39 @@
     try {
       setSubmittingState(true);
 
-      const createResponse = await fetch(API_BASE_URL + "/account/exchange-requests", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + token,
-          "x-shopify-shop-domain": detectShopDomain(),
+      const createResponse = await fetch(
+        API_BASE_URL + "/account/exchange-requests",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + token,
+            "x-shopify-shop-domain": detectShopDomain(),
+          },
+          body: JSON.stringify({
+            orderNumber: context.orderNumber,
+            productTitle: context.productTitle,
+            currentSize: currentSize || null,
+            requestedSize,
+            reason: reason || "Size exchange requested",
+            customerNote: reason || null,
+            shopifyOrderId: context.shopifyOrderId || null,
+            shopifyLineItemId: context.shopifyLineItemId || null,
+            shopifyProductId: context.shopifyProductId || null,
+            shopifyVariantId: context.shopifyVariantId || null,
+            requestedVariantId,
+            requestedSku: requestedSku || null,
+            variantTitle: context.variantTitle || null,
+            sku: context.sku || null,
+            deliveredAt: context.deliveredAt || null,
+            fulfilledAt: context.fulfilledAt || null,
+            fulfillmentStatus: context.fulfillmentStatus || null,
+            quantity: 1,
+            preferredReturnMethod,
+          }),
         },
-        body: JSON.stringify({
-          orderNumber: context.orderNumber,
-          productTitle: context.productTitle,
-          currentSize: currentSize || null,
-          requestedSize,
-          reason: reason || "Size exchange requested",
-          customerNote: reason || null,
-          shopifyOrderId: context.shopifyOrderId || null,
-          shopifyLineItemId: context.shopifyLineItemId || null,
-          variantTitle: context.variantTitle || null,
-          sku: context.sku || null,
-          deliveredAt: context.deliveredAt || null,
-          fulfilledAt: context.fulfilledAt || null,
-          fulfillmentStatus: context.fulfillmentStatus || null,
-          quantity: 1,
-          preferredReturnMethod,
-        }),
-      });
+      );
 
       const createData = await createResponse.json().catch(function () {
         return {};
@@ -779,13 +998,13 @@
 
       renderSuccess(createData.request, createData.stockReviewMessage);
     } catch (error) {
-      showError(toCustomerSafeError(error instanceof Error ? error.message : ""));
+      showError(
+        toCustomerSafeError(error instanceof Error ? error.message : ""),
+      );
     } finally {
       setSubmittingState(false);
     }
   }
-
-
 
   function renderCancellationModal(context) {
     closeModal();
@@ -829,7 +1048,11 @@
 
     layer.addEventListener("click", function (event) {
       const target = event.target;
-      if (target && target.getAttribute && target.getAttribute("data-mk-ex-close") === "1") {
+      if (
+        target &&
+        target.getAttribute &&
+        target.getAttribute("data-mk-ex-close") === "1"
+      ) {
         closeModal();
       }
     });
@@ -846,8 +1069,12 @@
     if (!Array.isArray(requests)) return null;
     return (
       requests.find(function (req) {
-        if (!CANCELLATION_BLOCKING_STATUSES.includes(String(req?.status || ""))) return false;
-        return String(req?.orderNumber || "").trim() === String(context.orderNumber || "").trim();
+        if (!CANCELLATION_BLOCKING_STATUSES.includes(String(req?.status || "")))
+          return false;
+        return (
+          String(req?.orderNumber || "").trim() ===
+          String(context.orderNumber || "").trim()
+        );
       }) || null
     );
   }
@@ -867,15 +1094,20 @@
       <div>${escapeHtml(CANCELLATION_STATUS_DESCRIPTIONS[status] || "Status updated")}</div>
     `;
 
-    actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
+    actions.innerHTML =
+      '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
   }
 
   function findExistingActiveIssue(requests, context) {
     if (!Array.isArray(requests)) return null;
     return (
       requests.find(function (req) {
-        if (!ISSUE_BLOCKING_STATUSES.includes(String(req?.status || ""))) return false;
-        return String(req?.orderNumber || "").trim() === String(context.orderNumber || "").trim();
+        if (!ISSUE_BLOCKING_STATUSES.includes(String(req?.status || "")))
+          return false;
+        return (
+          String(req?.orderNumber || "").trim() ===
+          String(context.orderNumber || "").trim()
+        );
       }) || null
     );
   }
@@ -895,7 +1127,8 @@
       <div>${escapeHtml(ISSUE_STATUS_DESCRIPTIONS[status] || "Status updated")}</div>
     `;
 
-    actions.innerHTML = '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
+    actions.innerHTML =
+      '<button class="mk-ex-btn" type="button" data-mk-ex-close="1">Close</button>';
   }
 
   function renderIssueModal(context) {
@@ -968,7 +1201,11 @@
 
     layer.addEventListener("click", function (event) {
       const target = event.target;
-      if (target && target.getAttribute && target.getAttribute("data-mk-ex-close") === "1") {
+      if (
+        target &&
+        target.getAttribute &&
+        target.getAttribute("data-mk-ex-close") === "1"
+      ) {
         closeModal();
       }
     });
@@ -984,31 +1221,54 @@
   function splitUrls(raw) {
     return String(raw || "")
       .split(",")
-      .map(function (value) { return value.trim(); })
+      .map(function (value) {
+        return value.trim();
+      })
       .filter(Boolean)
       .slice(0, 8);
   }
 
   async function submitIssue(context) {
     clearError();
-    const reason = document.getElementById("mk-issue-reason")?.value?.trim() || "";
-    const customerNote = document.getElementById("mk-issue-note")?.value?.trim() || "";
-    const declaredUnused = Boolean(document.getElementById("mk-issue-unused")?.checked);
-    const declaredUnwashed = Boolean(document.getElementById("mk-issue-unwashed")?.checked);
-    const declaredTagsIntact = Boolean(document.getElementById("mk-issue-tags")?.checked);
-    const declaredWithinWindow = Boolean(document.getElementById("mk-issue-window")?.checked);
-    const imageEvidenceUrls = splitUrls(document.getElementById("mk-issue-image-urls")?.value);
-    const videoEvidenceUrls = splitUrls(document.getElementById("mk-issue-video-urls")?.value);
+    const reason =
+      document.getElementById("mk-issue-reason")?.value?.trim() || "";
+    const customerNote =
+      document.getElementById("mk-issue-note")?.value?.trim() || "";
+    const declaredUnused = Boolean(
+      document.getElementById("mk-issue-unused")?.checked,
+    );
+    const declaredUnwashed = Boolean(
+      document.getElementById("mk-issue-unwashed")?.checked,
+    );
+    const declaredTagsIntact = Boolean(
+      document.getElementById("mk-issue-tags")?.checked,
+    );
+    const declaredWithinWindow = Boolean(
+      document.getElementById("mk-issue-window")?.checked,
+    );
+    const imageEvidenceUrls = splitUrls(
+      document.getElementById("mk-issue-image-urls")?.value,
+    );
+    const videoEvidenceUrls = splitUrls(
+      document.getElementById("mk-issue-video-urls")?.value,
+    );
 
     if (!context.orderNumber || !context.productTitle) {
-      showError("Order details are missing. Please close and reopen this order.");
+      showError(
+        "Order details are missing. Please close and reopen this order.",
+      );
       return;
     }
     if (!reason) {
       showError("Issue reason is required.");
       return;
     }
-    if (!declaredUnused || !declaredUnwashed || !declaredTagsIntact || !declaredWithinWindow) {
+    if (
+      !declaredUnused ||
+      !declaredUnwashed ||
+      !declaredTagsIntact ||
+      !declaredWithinWindow
+    ) {
       showError("All policy declarations are required for issue requests.");
       return;
     }
@@ -1048,14 +1308,24 @@
         }),
       });
 
-      const data = await createResponse.json().catch(function () { return {}; });
+      const data = await createResponse.json().catch(function () {
+        return {};
+      });
       if (!createResponse.ok || !data?.request?.id) {
-        throw new Error(String(data?.error || "Issue request creation failed. Please try again."));
+        throw new Error(
+          String(
+            data?.error || "Issue request creation failed. Please try again.",
+          ),
+        );
       }
 
       renderIssueSuccess(data.request);
     } catch (error) {
-      showError(error instanceof Error ? error.message : "Issue request creation failed. Please try again.");
+      showError(
+        error instanceof Error
+          ? error.message
+          : "Issue request creation failed. Please try again.",
+      );
     } finally {
       setSubmittingState(false);
     }
@@ -1064,11 +1334,15 @@
   async function submitCancellation(context) {
     clearError();
 
-    const reason = document.getElementById("mk-cancel-reason")?.value?.trim() || "";
-    const customerNote = document.getElementById("mk-cancel-note")?.value?.trim() || "";
+    const reason =
+      document.getElementById("mk-cancel-reason")?.value?.trim() || "";
+    const customerNote =
+      document.getElementById("mk-cancel-note")?.value?.trim() || "";
 
     if (!context.orderNumber) {
-      showError("Order details are missing. Please close and reopen this order.");
+      showError(
+        "Order details are missing. Please close and reopen this order.",
+      );
       return;
     }
 
@@ -1092,36 +1366,48 @@
     try {
       setSubmittingState(true);
 
-      const createResponse = await fetch(API_BASE_URL + "/requests/cancellation", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + token,
+      const createResponse = await fetch(
+        API_BASE_URL + "/requests/cancellation",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + token,
+          },
+          body: JSON.stringify({
+            orderNumber: context.orderNumber,
+            shopifyOrderId: context.shopifyOrderId || null,
+            fulfillmentStatus: context.fulfillmentStatus || null,
+            financialStatus: context.financialStatus || null,
+            fulfilledAt: context.fulfilledAt || null,
+            deliveredAt: context.deliveredAt || null,
+            reason,
+            customerNote: customerNote || null,
+          }),
         },
-        body: JSON.stringify({
-          orderNumber: context.orderNumber,
-          shopifyOrderId: context.shopifyOrderId || null,
-          fulfillmentStatus: context.fulfillmentStatus || null,
-          financialStatus: context.financialStatus || null,
-          fulfilledAt: context.fulfilledAt || null,
-          deliveredAt: context.deliveredAt || null,
-          reason,
-          customerNote: customerNote || null,
-        }),
-      });
+      );
 
       const data = await createResponse.json().catch(function () {
         return {};
       });
 
       if (!createResponse.ok || !data?.request?.id) {
-        throw new Error(String(data?.error || "Cancellation request creation failed. Please try again."));
+        throw new Error(
+          String(
+            data?.error ||
+              "Cancellation request creation failed. Please try again.",
+          ),
+        );
       }
 
       renderCancellationSuccess(data.request);
     } catch (error) {
-      showError(error instanceof Error ? error.message : "Cancellation request creation failed. Please try again.");
+      showError(
+        error instanceof Error
+          ? error.message
+          : "Cancellation request creation failed. Please try again.",
+      );
     } finally {
       setSubmittingState(false);
     }
@@ -1129,17 +1415,27 @@
 
   function looksLikeCancellationButton(button) {
     if (!button || !button.querySelector) return false;
-    const title = button.querySelector("strong")?.textContent?.trim()?.toLowerCase() || "";
-    return title === "cancel order" || title === "cancel" || button.getAttribute("data-order-action") === "cancellation";
+    const title =
+      button.querySelector("strong")?.textContent?.trim()?.toLowerCase() || "";
+    return (
+      title === "cancel order" ||
+      title === "cancel" ||
+      button.getAttribute("data-order-action") === "cancellation"
+    );
   }
   function looksLikeExchangeButton(button) {
     if (!button || !button.querySelector) return false;
-    const title = button.querySelector("strong")?.textContent?.trim()?.toLowerCase() || "";
-    return title === "exchange" || button.getAttribute("data-order-action") === "exchange";
+    const title =
+      button.querySelector("strong")?.textContent?.trim()?.toLowerCase() || "";
+    return (
+      title === "exchange" ||
+      button.getAttribute("data-order-action") === "exchange"
+    );
   }
   function looksLikeIssueButton(button) {
     if (!button || !button.querySelector) return false;
-    const title = button.querySelector("strong")?.textContent?.trim()?.toLowerCase() || "";
+    const title =
+      button.querySelector("strong")?.textContent?.trim()?.toLowerCase() || "";
     return (
       title === "report issue" ||
       title === "report issue / return request" ||
@@ -1150,7 +1446,10 @@
 
   function bindExchangeHook() {
     document.addEventListener("click", function (event) {
-      const button = event.target && event.target.closest ? event.target.closest(".mk-order-action-item") : null;
+      const button =
+        event.target && event.target.closest
+          ? event.target.closest(".mk-order-action-item")
+          : null;
       if (!button) return;
       const isExchangeAction = looksLikeExchangeButton(button);
       const isCancellationAction = looksLikeCancellationButton(button);
@@ -1161,7 +1460,9 @@
       const context = getDrawerOrderContext(button);
       if (!context) return;
 
-      const blockedReason = context.requestLockReason || "This request action is not available for the current order state.";
+      const blockedReason =
+        context.requestLockReason ||
+        "This request action is not available for the current order state.";
       if (isCancellationAction) {
         logCancellationDebug("drawer-context", context);
         if (context.canRequestCancellation === false) {
@@ -1190,7 +1491,9 @@
 
           const endpoint = isCancellationAction
             ? "/requests/cancellation"
-            : (isIssueAction ? "/requests/issue" : "/account/exchange-requests");
+            : isIssueAction
+              ? "/requests/issue"
+              : "/account/exchange-requests";
           const headers = {
             Authorization: "Bearer " + token,
           };
@@ -1207,7 +1510,10 @@
           if (!response.ok) return;
 
           if (isCancellationAction) {
-            const existingCancellation = findExistingActiveCancellation(data?.requests, context);
+            const existingCancellation = findExistingActiveCancellation(
+              data?.requests,
+              context,
+            );
             if (existingCancellation) {
               renderExistingCancellationStatus(existingCancellation);
             }
@@ -1215,7 +1521,10 @@
           }
 
           if (isIssueAction) {
-            const existingIssue = findExistingActiveIssue(data?.requests, context);
+            const existingIssue = findExistingActiveIssue(
+              data?.requests,
+              context,
+            );
             if (existingIssue) {
               renderExistingIssueStatus(existingIssue);
             }

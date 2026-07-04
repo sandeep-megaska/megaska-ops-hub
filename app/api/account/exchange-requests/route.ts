@@ -11,6 +11,10 @@ import {
   formatRequestLockReason,
   orderNumberVariants,
 } from "../../../../services/exchange/request-interlocks";
+import {
+  listSameProductReplacementVariants,
+  resolveOrderedExchangeLine,
+} from "../../../../services/exchange/replacement-variants";
 
 function normalizeOrderNumber(value: string | null | undefined) {
   const trimmed = String(value || "").trim();
@@ -193,6 +197,13 @@ export async function POST(req: NextRequest) {
       String(body?.orderAmountSnapshot || "").trim() || null;
     const shopifyLineItemId =
       String(body?.shopifyLineItemId || "").trim() || null;
+    const shopifyProductId =
+      String(body?.shopifyProductId || body?.productId || "").trim() || null;
+    const shopifyVariantId =
+      String(body?.shopifyVariantId || body?.variantId || "").trim() || null;
+    const requestedVariantId =
+      String(body?.requestedVariantId || "").trim() || null;
+    const requestedSku = String(body?.requestedSku || "").trim() || null;
     const sku = String(body?.sku || "").trim() || null;
     const preferredReturnMethodRaw = String(body?.preferredReturnMethod || "")
       .trim()
@@ -205,6 +216,74 @@ export async function POST(req: NextRequest) {
         req,
         NextResponse.json(
           { error: "Missing required fields" },
+          { status: 400 },
+        ),
+      );
+    }
+
+    const orderedLine = await resolveOrderedExchangeLine({
+      shopDomain: shop.shopDomain,
+      customerShopifyId: customer.shopifyCustomerId,
+      customerEmail: customer.email,
+      customerPhone: customer.phoneE164,
+      orderNumber,
+      shopifyOrderId,
+      shopifyLineItemId,
+      productId: shopifyProductId,
+      variantId: shopifyVariantId,
+      sku,
+      productTitle,
+      variantTitle,
+      currentSize,
+    });
+
+    if (!orderedLine.productId || !orderedLine.variantId) {
+      return withCors(
+        req,
+        NextResponse.json(
+          {
+            error:
+              "Unable to identify the ordered Shopify product and variant.",
+          },
+          { status: 400 },
+        ),
+      );
+    }
+
+    const replacementOptions = await listSameProductReplacementVariants({
+      shopId: shop.id,
+      shopDomain: shop.shopDomain,
+      productId: orderedLine.productId,
+      currentVariantId: orderedLine.variantId,
+    });
+    const selectedReplacement = replacementOptions.find(
+      (option) => option.variantId === requestedVariantId,
+    );
+
+    if (!selectedReplacement) {
+      return withCors(
+        req,
+        NextResponse.json(
+          {
+            error:
+              "Please select an available replacement size from the same product.",
+          },
+          { status: 400 },
+        ),
+      );
+    }
+
+    if (
+      selectedReplacement.size.trim().toLowerCase() !==
+      requestedSize.trim().toLowerCase()
+    ) {
+      return withCors(
+        req,
+        NextResponse.json(
+          {
+            error:
+              "Requested size does not match the selected replacement variant.",
+          },
           { status: 400 },
         ),
       );
@@ -227,9 +306,9 @@ export async function POST(req: NextRequest) {
 
     const eligibility = evaluateExchangeEligibility({
       requestedSize,
-      currentSize,
-      productTitle,
-      variantTitle,
+      currentSize: orderedLine.currentSize || currentSize,
+      productTitle: orderedLine.productTitle || productTitle,
+      variantTitle: orderedLine.variantTitle || variantTitle,
       reason,
       deliveredAt: resolvedDeliveredAt,
       fulfillmentStatus: resolvedFulfillmentStatus,
@@ -295,18 +374,36 @@ export async function POST(req: NextRequest) {
         eligibilityReason: eligibility.reason,
         items: {
           create: {
-            shopifyLineItemId,
-            productTitle,
-            variantTitle,
-            sku,
-            currentSize,
+            shopifyLineItemId:
+              orderedLine.shopifyLineItemId || shopifyLineItemId,
+            productTitle: orderedLine.productTitle || productTitle,
+            variantTitle: orderedLine.variantTitle || variantTitle,
+            sku: orderedLine.sku || sku,
+            currentSize: orderedLine.currentSize || currentSize,
             requestedSize,
             quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
             isClearance: eligibility.reason.toLowerCase().includes("clearance"),
             isExcludedCategory: eligibility.reason
               .toLowerCase()
               .includes("category"),
-            eligibilitySnapshot: eligibility,
+            eligibilitySnapshot: {
+              ...eligibility,
+              original: {
+                shopifyLineItemId:
+                  orderedLine.shopifyLineItemId || shopifyLineItemId,
+                shopifyProductId: orderedLine.productId,
+                shopifyVariantId: orderedLine.variantId,
+                sku: orderedLine.sku || sku,
+                size: orderedLine.currentSize || currentSize,
+              },
+              requestedReplacement: {
+                shopifyProductId: selectedReplacement.productId,
+                shopifyVariantId: selectedReplacement.variantId,
+                sku: selectedReplacement.sku || requestedSku,
+                size: selectedReplacement.size,
+                title: selectedReplacement.title,
+              },
+            },
           },
         },
       },

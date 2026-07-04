@@ -9,6 +9,12 @@ type RequestItem = {
   currentSize: string | null;
   requestedSize: string | null;
   quantity: number;
+  originalSku: string | null;
+  originalProductId: string | null;
+  originalVariantId: string | null;
+  requestedSku: string | null;
+  requestedProductId: string | null;
+  requestedVariantId: string | null;
   stockReviewNote: string | null;
 };
 
@@ -23,7 +29,14 @@ type RequestPayment = {
   paymentId: string | null;
   createdAtIso: string;
   paidAtIso: string | null;
-  invoice: { id: string; invoiceNumber: string; invoiceStatus: string; invoiceDateIso: string; totalPaise: number; gstPaise: number } | null;
+  invoice: {
+    id: string;
+    invoiceNumber: string;
+    invoiceStatus: string;
+    invoiceDateIso: string;
+    totalPaise: number;
+    gstPaise: number;
+  } | null;
 };
 
 type ReverseShipmentSnapshot = {
@@ -61,8 +74,14 @@ type Props = {
   delhiveryCapability: { configured: boolean; reason: string };
 };
 
-const SHIPMENT_STATUSES = ["NOT_STARTED", "PENDING", "SCHEDULED", "IN_TRANSIT", "DELIVERED", "FAILED"];
-
+const SHIPMENT_STATUSES = [
+  "NOT_STARTED",
+  "PENDING",
+  "SCHEDULED",
+  "IN_TRANSIT",
+  "DELIVERED",
+  "FAILED",
+];
 
 function toDateTimeLocal(iso: string | null | undefined) {
   if (!iso) return "";
@@ -84,20 +103,74 @@ function formatDate(value: string | null | undefined) {
 }
 
 function getStepState(currentStatus: string) {
-  const paymentPaid = ["PAYMENT_RECEIVED", "APPROVED", "PICKUP_PENDING", "PICKUP_SCHEDULED", "PICKUP_COMPLETED", "ITEM_RECEIVED", "REPLACEMENT_PROCESSING", "REPLACEMENT_SHIPPED", "CLOSED"].includes(currentStatus);
-  const approved = ["APPROVED", "PICKUP_PENDING", "PICKUP_SCHEDULED", "PICKUP_COMPLETED", "ITEM_RECEIVED", "REPLACEMENT_PROCESSING", "REPLACEMENT_SHIPPED", "CLOSED"].includes(currentStatus);
+  const paymentPaid = [
+    "PAYMENT_RECEIVED",
+    "APPROVED",
+    "PICKUP_PENDING",
+    "PICKUP_SCHEDULED",
+    "PICKUP_COMPLETED",
+    "ITEM_RECEIVED",
+    "REPLACEMENT_PROCESSING",
+    "REPLACEMENT_SHIPPED",
+    "CLOSED",
+  ].includes(currentStatus);
+  const approved = [
+    "APPROVED",
+    "PICKUP_PENDING",
+    "PICKUP_SCHEDULED",
+    "PICKUP_COMPLETED",
+    "ITEM_RECEIVED",
+    "REPLACEMENT_PROCESSING",
+    "REPLACEMENT_SHIPPED",
+    "CLOSED",
+  ].includes(currentStatus);
   const rejected = currentStatus === "REJECTED";
-  const reversePickup = ["PICKUP_PENDING", "PICKUP_SCHEDULED", "PICKUP_COMPLETED", "ITEM_RECEIVED", "REPLACEMENT_PROCESSING", "REPLACEMENT_SHIPPED", "CLOSED"].includes(currentStatus);
+  const reversePickup = [
+    "PICKUP_PENDING",
+    "PICKUP_SCHEDULED",
+    "PICKUP_COMPLETED",
+    "ITEM_RECEIVED",
+    "REPLACEMENT_PROCESSING",
+    "REPLACEMENT_SHIPPED",
+    "CLOSED",
+  ].includes(currentStatus);
   const selfShip = !reversePickup && !rejected && currentStatus !== "OPEN";
-  const itemReceived = ["ITEM_RECEIVED", "REPLACEMENT_PROCESSING", "REPLACEMENT_SHIPPED", "CLOSED"].includes(currentStatus);
-  const replacementShipped = ["REPLACEMENT_SHIPPED", "CLOSED"].includes(currentStatus);
+  const itemReceived = [
+    "ITEM_RECEIVED",
+    "REPLACEMENT_PROCESSING",
+    "REPLACEMENT_SHIPPED",
+    "CLOSED",
+  ].includes(currentStatus);
+  const replacementShipped = ["REPLACEMENT_SHIPPED", "CLOSED"].includes(
+    currentStatus,
+  );
   const completed = currentStatus === "CLOSED";
 
   return [
     { label: "Requested", done: true, muted: false },
-    { label: approved ? "Approved" : rejected ? "Rejected" : "Approved / Rejected", done: approved || rejected, muted: false },
-    { label: paymentPaid ? "Paid" : "Payment Pending", done: paymentPaid, muted: rejected },
-    { label: reversePickup ? "Reverse Pickup" : selfShip ? "Self Ship" : "Reverse Pickup / Self Ship", done: reversePickup || selfShip, muted: rejected },
+    {
+      label: approved
+        ? "Approved"
+        : rejected
+          ? "Rejected"
+          : "Approved / Rejected",
+      done: approved || rejected,
+      muted: false,
+    },
+    {
+      label: paymentPaid ? "Paid" : "Payment Pending",
+      done: paymentPaid,
+      muted: rejected,
+    },
+    {
+      label: reversePickup
+        ? "Reverse Pickup"
+        : selfShip
+          ? "Self Ship"
+          : "Reverse Pickup / Self Ship",
+      done: reversePickup || selfShip,
+      muted: rejected,
+    },
     { label: "Item Received", done: itemReceived, muted: rejected },
     { label: "Replacement Shipped", done: replacementShipped, muted: rejected },
     { label: "Completed", done: completed, muted: rejected },
@@ -109,13 +182,15 @@ function cardTitleClass() {
 }
 
 function paymentStatusBadgeClass(status: string) {
-  if (status === "PAID") return "bg-emerald-100 text-emerald-700 border-emerald-200";
-  if (status === "PENDING") return "bg-amber-100 text-amber-700 border-amber-200";
+  if (status === "PAID")
+    return "bg-emerald-100 text-emerald-700 border-emerald-200";
+  if (status === "PENDING")
+    return "bg-amber-100 text-amber-700 border-amber-200";
   if (status === "FAILED") return "bg-red-100 text-red-700 border-red-200";
-  if (status === "CANCELLED") return "bg-slate-200 text-slate-700 border-slate-300";
+  if (status === "CANCELLED")
+    return "bg-slate-200 text-slate-700 border-slate-300";
   return "bg-slate-100 text-slate-700 border-slate-200";
 }
-
 
 export default function ExchangeLifecycleControls({
   requestId,
@@ -131,28 +206,59 @@ export default function ExchangeLifecycleControls({
   forwardShipment,
   delhiveryCapability,
 }: Props) {
-  const [nextStatus, setNextStatus] = useState(allowedTransitions[0] || currentStatus);
+  const [nextStatus, setNextStatus] = useState(
+    allowedTransitions[0] || currentStatus,
+  );
   const [adminNote, setAdminNote] = useState(currentAdminNote);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const [reversePickupCharge, setReversePickupCharge] = useState("120");
-  const [returnMethod, setReturnMethod] = useState<"REVERSE_PICKUP" | "SELF_SHIP">("REVERSE_PICKUP");
+  const [returnMethod, setReturnMethod] = useState<
+    "REVERSE_PICKUP" | "SELF_SHIP"
+  >("REVERSE_PICKUP");
 
-  const [reverseShipmentStatus, setReverseShipmentStatus] = useState(reverseShipment?.status || "PENDING");
-  const [reverseCarrier, setReverseCarrier] = useState(reverseShipment?.carrier || "");
+  const [reverseShipmentStatus, setReverseShipmentStatus] = useState(
+    reverseShipment?.status || "PENDING",
+  );
+  const [reverseCarrier, setReverseCarrier] = useState(
+    reverseShipment?.carrier || "",
+  );
   const [reverseAwb, setReverseAwb] = useState(reverseShipment?.awb || "");
-  const [reverseTrackingUrl, setReverseTrackingUrl] = useState(reverseShipment?.trackingUrl || "");
-  const [reversePickupAt, setReversePickupAt] = useState(toDateTimeLocal(reverseShipment?.pickupAtIso));
-  const [reverseDeliveredAt, setReverseDeliveredAt] = useState(toDateTimeLocal(reverseShipment?.deliveredAtIso));
-  const [reverseRemarks, setReverseRemarks] = useState(reverseShipment?.remarks || "");
+  const [reverseTrackingUrl, setReverseTrackingUrl] = useState(
+    reverseShipment?.trackingUrl || "",
+  );
+  const [reversePickupAt, setReversePickupAt] = useState(
+    toDateTimeLocal(reverseShipment?.pickupAtIso),
+  );
+  const [reverseDeliveredAt, setReverseDeliveredAt] = useState(
+    toDateTimeLocal(reverseShipment?.deliveredAtIso),
+  );
+  const [reverseRemarks, setReverseRemarks] = useState(
+    reverseShipment?.remarks || "",
+  );
 
-  const [forwardShipmentStatus, setForwardShipmentStatus] = useState(forwardShipment?.status || "PENDING");
-  const [forwardCarrier, setForwardCarrier] = useState(forwardShipment?.carrier || "");
+  const [forwardShipmentStatus, setForwardShipmentStatus] = useState(
+    forwardShipment?.status || "PENDING",
+  );
+  const [forwardCarrier, setForwardCarrier] = useState(
+    forwardShipment?.carrier || "",
+  );
   const [forwardAwb, setForwardAwb] = useState(forwardShipment?.awb || "");
-  const [forwardTrackingUrl, setForwardTrackingUrl] = useState(forwardShipment?.trackingUrl || "");
-  const [forwardShippedAt, setForwardShippedAt] = useState(toDateTimeLocal(forwardShipment?.shippedAtIso));
-  const [forwardDeliveredAt, setForwardDeliveredAt] = useState(toDateTimeLocal(forwardShipment?.deliveredAtIso));
-  const [forwardRemarks, setForwardRemarks] = useState(forwardShipment?.remarks || "");
+  const [forwardTrackingUrl, setForwardTrackingUrl] = useState(
+    forwardShipment?.trackingUrl || "",
+  );
+  const [forwardShippedAt, setForwardShippedAt] = useState(
+    toDateTimeLocal(forwardShipment?.shippedAtIso),
+  );
+  const [forwardDeliveredAt, setForwardDeliveredAt] = useState(
+    toDateTimeLocal(forwardShipment?.deliveredAtIso),
+  );
+  const [forwardRemarks, setForwardRemarks] = useState(
+    forwardShipment?.remarks || "",
+  );
 
   const [statusLoading, setStatusLoading] = useState(false);
   const [noteLoading, setNoteLoading] = useState(false);
@@ -162,24 +268,49 @@ export default function ExchangeLifecycleControls({
   const [delhiveryLoading, setDelhiveryLoading] = useState(false);
   const [delhiverySyncLoading, setDelhiverySyncLoading] = useState(false);
   const [delhiveryForwardLoading, setDelhiveryForwardLoading] = useState(false);
-  const [delhiveryForwardSyncLoading, setDelhiveryForwardSyncLoading] = useState(false);
+  const [delhiveryForwardSyncLoading, setDelhiveryForwardSyncLoading] =
+    useState(false);
 
   const stepState = useMemo(() => getStepState(currentStatus), [currentStatus]);
   const latestPayment = payments[0] || null;
   const awaitingPayment = currentStatus === "AWAITING_PAYMENT";
-  const paymentCompleted = latestPayment?.status === "PAID" || currentStatus === "PAYMENT_RECEIVED";
-  const reversePickupRequired = awaitingPayment || currentStatus === "PAYMENT_RECEIVED" || currentStatus === "PICKUP_PENDING" || currentStatus === "PICKUP_SCHEDULED" || currentStatus === "PICKUP_COMPLETED";
+  const paymentCompleted =
+    latestPayment?.status === "PAID" || currentStatus === "PAYMENT_RECEIVED";
+  const reversePickupRequired =
+    awaitingPayment ||
+    currentStatus === "PAYMENT_RECEIVED" ||
+    currentStatus === "PICKUP_PENDING" ||
+    currentStatus === "PICKUP_SCHEDULED" ||
+    currentStatus === "PICKUP_COMPLETED";
   const canCreateReverseShipment = !reversePickupRequired || paymentCompleted;
-  const canCreateForwardShipment = ["ITEM_RECEIVED", "REPLACEMENT_PROCESSING", "REPLACEMENT_SHIPPED", "CLOSED"].includes(currentStatus);
-  const canApprove = currentStatus === "OPEN" || currentStatus === "AWAITING_PAYMENT";
-  const delhiveryEligibleStatus = ["PAYMENT_RECEIVED", "APPROVED", "PICKUP_PENDING"].includes(currentStatus);
-  const canCreateDelhiveryReversePickup = delhiveryCapability.configured && latestPayment?.status === "PAID" && !reverseShipment?.awb && delhiveryEligibleStatus;
-  const canSyncDelhiveryReversePickup = Boolean(reverseShipment?.awb && reverseShipment.carrier === "DELHIVERY");
-  const canSyncDelhiveryForwardShipment = Boolean(forwardShipment?.awb && forwardShipment.carrier === "DELHIVERY");
-  const canCreateDelhiveryForwardShipment = delhiveryCapability.configured
-    && ["ITEM_RECEIVED", "REPLACEMENT_PROCESSING"].includes(currentStatus)
-    && !forwardShipment?.awb;
-
+  const canCreateForwardShipment = [
+    "ITEM_RECEIVED",
+    "REPLACEMENT_PROCESSING",
+    "REPLACEMENT_SHIPPED",
+    "CLOSED",
+  ].includes(currentStatus);
+  const canApprove =
+    currentStatus === "OPEN" || currentStatus === "AWAITING_PAYMENT";
+  const delhiveryEligibleStatus = [
+    "PAYMENT_RECEIVED",
+    "APPROVED",
+    "PICKUP_PENDING",
+  ].includes(currentStatus);
+  const canCreateDelhiveryReversePickup =
+    delhiveryCapability.configured &&
+    latestPayment?.status === "PAID" &&
+    !reverseShipment?.awb &&
+    delhiveryEligibleStatus;
+  const canSyncDelhiveryReversePickup = Boolean(
+    reverseShipment?.awb && reverseShipment.carrier === "DELHIVERY",
+  );
+  const canSyncDelhiveryForwardShipment = Boolean(
+    forwardShipment?.awb && forwardShipment.carrier === "DELHIVERY",
+  );
+  const canCreateDelhiveryForwardShipment =
+    delhiveryCapability.configured &&
+    ["ITEM_RECEIVED", "REPLACEMENT_PROCESSING"].includes(currentStatus) &&
+    !forwardShipment?.awb;
 
   function setError(text: string) {
     setMessage({ type: "error", text });
@@ -216,26 +347,36 @@ export default function ExchangeLifecycleControls({
     setMessage(null);
 
     try {
-      const response = await fetch(`/api/admin/exchange-requests/${requestId}/status`, {
-        method: "PATCH",
-        headers: getHeaders(),
-        body: JSON.stringify({
-          nextStatus,
-          adminNote,
-          approvalMode: nextStatus === "APPROVED" || nextStatus === "AWAITING_PAYMENT" ? "APPROVE" : undefined,
-          returnMethod,
-          pickupChargeInr: Number(reversePickupCharge || "120"),
-        }),
-      });
+      const response = await fetch(
+        `/api/admin/exchange-requests/${requestId}/status`,
+        {
+          method: "PATCH",
+          headers: getHeaders(),
+          body: JSON.stringify({
+            nextStatus,
+            adminNote,
+            approvalMode:
+              nextStatus === "APPROVED" || nextStatus === "AWAITING_PAYMENT"
+                ? "APPROVE"
+                : undefined,
+            returnMethod,
+            pickupChargeInr: Number(reversePickupCharge || "120"),
+          }),
+        },
+      );
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data?.error || "Failed to update status");
       }
 
-      setSuccess(`Status updated to ${data?.request?.status || nextStatus}. Refresh to view latest values.`);
+      setSuccess(
+        `Status updated to ${data?.request?.status || nextStatus}. Refresh to view latest values.`,
+      );
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to update status");
+      setError(
+        error instanceof Error ? error.message : "Failed to update status",
+      );
     } finally {
       setStatusLoading(false);
     }
@@ -247,20 +388,27 @@ export default function ExchangeLifecycleControls({
     setMessage(null);
 
     try {
-      const response = await fetch(`/api/admin/exchange-requests/${requestId}`, {
-        method: "PATCH",
-        headers: getHeaders(),
-        body: JSON.stringify({ adminNote }),
-      });
+      const response = await fetch(
+        `/api/admin/exchange-requests/${requestId}`,
+        {
+          method: "PATCH",
+          headers: getHeaders(),
+          body: JSON.stringify({ adminNote }),
+        },
+      );
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data?.error || "Failed to save admin note");
       }
 
-      setSuccess(data?.message || "Admin note saved. Refresh to view latest values.");
+      setSuccess(
+        data?.message || "Admin note saved. Refresh to view latest values.",
+      );
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to save admin note");
+      setError(
+        error instanceof Error ? error.message : "Failed to save admin note",
+      );
     } finally {
       setNoteLoading(false);
     }
@@ -272,29 +420,38 @@ export default function ExchangeLifecycleControls({
     setMessage(null);
 
     try {
-      const response = await fetch(`/api/admin/exchange-requests/${requestId}/shipment`, {
-        method: "PATCH",
-        headers: getHeaders(),
-        body: JSON.stringify({
-          direction: "REVERSE_PICKUP",
-          status: reverseShipmentStatus,
-          carrier: reverseCarrier,
-          awb: reverseAwb,
-          trackingUrl: reverseTrackingUrl,
-          pickupAt: reversePickupAt || null,
-          deliveredAt: reverseDeliveredAt || null,
-          remarks: reverseRemarks,
-        }),
-      });
+      const response = await fetch(
+        `/api/admin/exchange-requests/${requestId}/shipment`,
+        {
+          method: "PATCH",
+          headers: getHeaders(),
+          body: JSON.stringify({
+            direction: "REVERSE_PICKUP",
+            status: reverseShipmentStatus,
+            carrier: reverseCarrier,
+            awb: reverseAwb,
+            trackingUrl: reverseTrackingUrl,
+            pickupAt: reversePickupAt || null,
+            deliveredAt: reverseDeliveredAt || null,
+            remarks: reverseRemarks,
+          }),
+        },
+      );
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data?.error || "Failed to update reverse shipment");
       }
 
-      setSuccess(`Reverse pickup shipment updated (${data?.shipment?.status || reverseShipmentStatus}).`);
+      setSuccess(
+        `Reverse pickup shipment updated (${data?.shipment?.status || reverseShipmentStatus}).`,
+      );
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to update reverse shipment");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to update reverse shipment",
+      );
     } finally {
       setReverseShipmentLoading(false);
     }
@@ -306,29 +463,38 @@ export default function ExchangeLifecycleControls({
     setMessage(null);
 
     try {
-      const response = await fetch(`/api/admin/exchange-requests/${requestId}/shipment`, {
-        method: "PATCH",
-        headers: getHeaders(),
-        body: JSON.stringify({
-          direction: "FORWARD_REPLACEMENT",
-          status: forwardShipmentStatus,
-          carrier: forwardCarrier,
-          awb: forwardAwb,
-          trackingUrl: forwardTrackingUrl,
-          shippedAt: forwardShippedAt || null,
-          deliveredAt: forwardDeliveredAt || null,
-          remarks: forwardRemarks,
-        }),
-      });
+      const response = await fetch(
+        `/api/admin/exchange-requests/${requestId}/shipment`,
+        {
+          method: "PATCH",
+          headers: getHeaders(),
+          body: JSON.stringify({
+            direction: "FORWARD_REPLACEMENT",
+            status: forwardShipmentStatus,
+            carrier: forwardCarrier,
+            awb: forwardAwb,
+            trackingUrl: forwardTrackingUrl,
+            shippedAt: forwardShippedAt || null,
+            deliveredAt: forwardDeliveredAt || null,
+            remarks: forwardRemarks,
+          }),
+        },
+      );
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data?.error || "Failed to update replacement shipment");
       }
 
-      setSuccess(`Replacement shipment updated (${data?.shipment?.status || forwardShipmentStatus}).`);
+      setSuccess(
+        `Replacement shipment updated (${data?.shipment?.status || forwardShipmentStatus}).`,
+      );
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to update replacement shipment");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to update replacement shipment",
+      );
     } finally {
       setForwardShipmentLoading(false);
     }
@@ -339,14 +505,19 @@ export default function ExchangeLifecycleControls({
     setMessage(null);
 
     try {
-      const response = await fetch(`/api/admin/exchange-requests/${requestId}/delhivery/reverse-pickup`, {
-        method: "POST",
-        headers: getHeaders(),
-      });
+      const response = await fetch(
+        `/api/admin/exchange-requests/${requestId}/delhivery/reverse-pickup`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+        },
+      );
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data?.error || "Failed to create Delhivery reverse pickup");
+        throw new Error(
+          data?.error || "Failed to create Delhivery reverse pickup",
+        );
       }
 
       const shipment = data?.shipment;
@@ -357,16 +528,21 @@ export default function ExchangeLifecycleControls({
         setReverseShipmentStatus(shipment.status || "SCHEDULED");
       }
 
-      setSuccess(data?.idempotent
-        ? "Existing Delhivery reverse pickup found. Refresh to view latest shipment."
-        : "Delhivery reverse pickup created. Refresh to view latest shipment and status.");
+      setSuccess(
+        data?.idempotent
+          ? "Existing Delhivery reverse pickup found. Refresh to view latest shipment."
+          : "Delhivery reverse pickup created. Refresh to view latest shipment and status.",
+      );
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to create Delhivery reverse pickup");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to create Delhivery reverse pickup",
+      );
     } finally {
       setDelhiveryLoading(false);
     }
   }
-
 
   async function syncDelhiveryReversePickupTracking() {
     if (!ensureAdminContext()) return;
@@ -374,14 +550,19 @@ export default function ExchangeLifecycleControls({
     setMessage(null);
 
     try {
-      const response = await fetch(`/api/admin/exchange-requests/${requestId}/delhivery/reverse-pickup/sync`, {
-        method: "POST",
-        headers: getHeaders(),
-      });
+      const response = await fetch(
+        `/api/admin/exchange-requests/${requestId}/delhivery/reverse-pickup/sync`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+        },
+      );
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data?.error || "Failed to sync Delhivery reverse pickup tracking");
+        throw new Error(
+          data?.error || "Failed to sync Delhivery reverse pickup tracking",
+        );
       }
 
       const shipment = data?.shipment;
@@ -394,14 +575,19 @@ export default function ExchangeLifecycleControls({
         setReverseRemarks(shipment.remarks || "");
       }
 
-      setSuccess(`Delhivery tracking synced (${shipment?.status || "updated"}). Refresh to view latest request status.`);
+      setSuccess(
+        `Delhivery tracking synced (${shipment?.status || "updated"}). Refresh to view latest request status.`,
+      );
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to sync Delhivery reverse pickup tracking");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to sync Delhivery reverse pickup tracking",
+      );
     } finally {
       setDelhiverySyncLoading(false);
     }
   }
-
 
   async function createDelhiveryForwardShipment() {
     if (!ensureAdminContext()) return;
@@ -409,14 +595,19 @@ export default function ExchangeLifecycleControls({
     setMessage(null);
 
     try {
-      const response = await fetch(`/api/admin/exchange-requests/${requestId}/delhivery/forward-shipment`, {
-        method: "POST",
-        headers: getHeaders(),
-      });
+      const response = await fetch(
+        `/api/admin/exchange-requests/${requestId}/delhivery/forward-shipment`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+        },
+      );
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data?.error || "Failed to create Delhivery replacement shipment");
+        throw new Error(
+          data?.error || "Failed to create Delhivery replacement shipment",
+        );
       }
 
       const shipment = data?.shipment;
@@ -429,16 +620,21 @@ export default function ExchangeLifecycleControls({
         setForwardRemarks(shipment.remarks || "");
       }
 
-      setSuccess(data?.idempotent
-        ? "Existing Delhivery replacement shipment found. Refresh to view latest shipment."
-        : "Delhivery replacement shipment created. Refresh to view latest shipment and status.");
+      setSuccess(
+        data?.idempotent
+          ? "Existing Delhivery replacement shipment found. Refresh to view latest shipment."
+          : "Delhivery replacement shipment created. Refresh to view latest shipment and status.",
+      );
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to create Delhivery replacement shipment");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to create Delhivery replacement shipment",
+      );
     } finally {
       setDelhiveryForwardLoading(false);
     }
   }
-
 
   async function syncDelhiveryForwardShipmentTracking() {
     if (!ensureAdminContext()) return;
@@ -446,14 +642,19 @@ export default function ExchangeLifecycleControls({
     setMessage(null);
 
     try {
-      const response = await fetch(`/api/admin/exchange-requests/${requestId}/delhivery/forward-shipment/sync`, {
-        method: "POST",
-        headers: getHeaders(),
-      });
+      const response = await fetch(
+        `/api/admin/exchange-requests/${requestId}/delhivery/forward-shipment/sync`,
+        {
+          method: "POST",
+          headers: getHeaders(),
+        },
+      );
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data?.error || "Failed to sync Delhivery replacement tracking");
+        throw new Error(
+          data?.error || "Failed to sync Delhivery replacement tracking",
+        );
       }
 
       const shipment = data?.shipment;
@@ -467,14 +668,19 @@ export default function ExchangeLifecycleControls({
         setForwardRemarks(shipment.remarks || "");
       }
 
-      setSuccess(`Delhivery replacement tracking synced (${shipment?.status || "updated"}). Refresh to view latest request status.`);
+      setSuccess(
+        `Delhivery replacement tracking synced (${shipment?.status || "updated"}). Refresh to view latest request status.`,
+      );
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to sync Delhivery replacement tracking");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to sync Delhivery replacement tracking",
+      );
     } finally {
       setDelhiveryForwardSyncLoading(false);
     }
   }
-
 
   return (
     <div className="grid gap-6">
@@ -496,16 +702,71 @@ export default function ExchangeLifecycleControls({
         <h2 className={cardTitleClass()}>Request details</h2>
         <div className="mt-4 grid gap-4">
           {items.map((item) => (
-            <article key={item.id} className="rounded-lg border border-slate-200 p-4 text-sm">
+            <article
+              key={item.id}
+              className="rounded-lg border border-slate-200 p-4 text-sm"
+            >
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <div><p className="text-slate-500">Product</p><p className="font-medium">{item.productTitle || "—"}</p></div>
-                <div><p className="text-slate-500">Variant</p><p className="font-medium">{item.variantTitle || "—"}</p></div>
-                <div><p className="text-slate-500">Current size</p><p className="font-medium">{item.currentSize || "—"}</p></div>
-                <div><p className="text-slate-500">Requested size</p><p className="font-medium">{item.requestedSize || "—"}</p></div>
-                <div><p className="text-slate-500">Quantity</p><p className="font-medium">{item.quantity}</p></div>
-                <div className="md:col-span-2"><p className="text-slate-500">Customer reason</p><p className="font-medium">{reason || "—"}</p></div>
-                <div className="md:col-span-2"><p className="text-slate-500">Customer note</p><p className="font-medium">{customerNote || "—"}</p></div>
-                <div className="md:col-span-2"><p className="text-slate-500">Stock review note</p><p className="font-medium">{item.stockReviewNote || "—"}</p></div>
+                <div>
+                  <p className="text-slate-500">Product</p>
+                  <p className="font-medium">{item.productTitle || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Variant</p>
+                  <p className="font-medium">{item.variantTitle || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Current size</p>
+                  <p className="font-medium">{item.currentSize || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Requested size</p>
+                  <p className="font-medium">{item.requestedSize || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Original SKU</p>
+                  <p className="font-medium">{item.originalSku || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Original variant</p>
+                  <p className="font-medium break-all">
+                    {item.originalVariantId || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Requested replacement SKU</p>
+                  <p className="font-medium">{item.requestedSku || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">
+                    Requested replacement variant
+                  </p>
+                  <p className="font-medium break-all">
+                    {item.requestedVariantId || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Same product</p>
+                  <p className="font-medium break-all">
+                    {item.requestedProductId || item.originalProductId || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Quantity</p>
+                  <p className="font-medium">{item.quantity}</p>
+                </div>
+                <div className="md:col-span-2">
+                  <p className="text-slate-500">Customer reason</p>
+                  <p className="font-medium">{reason || "—"}</p>
+                </div>
+                <div className="md:col-span-2">
+                  <p className="text-slate-500">Customer note</p>
+                  <p className="font-medium">{customerNote || "—"}</p>
+                </div>
+                <div className="md:col-span-2">
+                  <p className="text-slate-500">Stock review note</p>
+                  <p className="font-medium">{item.stockReviewNote || "—"}</p>
+                </div>
               </div>
             </article>
           ))}
@@ -517,26 +778,62 @@ export default function ExchangeLifecycleControls({
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <label className="text-sm">
             <span className="mb-1 block text-slate-600">Admin note</span>
-            <textarea value={adminNote} onChange={(event) => setAdminNote(event.target.value)} className="min-h-24 w-full rounded-lg border px-3 py-2" placeholder="Ops review notes" />
+            <textarea
+              value={adminNote}
+              onChange={(event) => setAdminNote(event.target.value)}
+              className="min-h-24 w-full rounded-lg border px-3 py-2"
+              placeholder="Ops review notes"
+            />
           </label>
           <div className="grid gap-4">
             <label className="text-sm">
               <span className="mb-1 block text-slate-600">Current status</span>
-              <input value={currentStatus} disabled className="w-full rounded-lg border bg-slate-50 px-3 py-2 text-slate-500" />
+              <input
+                value={currentStatus}
+                disabled
+                className="w-full rounded-lg border bg-slate-50 px-3 py-2 text-slate-500"
+              />
             </label>
             <label className="text-sm">
-              <span className="mb-1 block text-slate-600">Available next status</span>
-              <select value={nextStatus} onChange={(event) => setNextStatus(event.target.value)} className="w-full rounded-lg border px-3 py-2">
-                {(allowedTransitions.length ? allowedTransitions : [currentStatus]).map((status) => (
-                  <option key={status} value={status}>{status}</option>
+              <span className="mb-1 block text-slate-600">
+                Available next status
+              </span>
+              <select
+                value={nextStatus}
+                onChange={(event) => setNextStatus(event.target.value)}
+                className="w-full rounded-lg border px-3 py-2"
+              >
+                {(allowedTransitions.length
+                  ? allowedTransitions
+                  : [currentStatus]
+                ).map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
                 ))}
               </select>
             </label>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={saveNote} disabled={noteLoading} className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60">
+              <button
+                type="button"
+                onClick={saveNote}
+                disabled={noteLoading}
+                className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60"
+              >
                 {noteLoading ? "Saving note..." : "Save admin note"}
               </button>
-              <button type="button" onClick={updateStatus} disabled={!allowedTransitions.length || statusLoading || (!canApprove && (nextStatus === "APPROVED" || nextStatus === "AWAITING_PAYMENT"))} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
+              <button
+                type="button"
+                onClick={updateStatus}
+                disabled={
+                  !allowedTransitions.length ||
+                  statusLoading ||
+                  (!canApprove &&
+                    (nextStatus === "APPROVED" ||
+                      nextStatus === "AWAITING_PAYMENT"))
+                }
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              >
                 {statusLoading ? "Applying..." : "Apply status"}
               </button>
             </div>
@@ -549,39 +846,131 @@ export default function ExchangeLifecycleControls({
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <label className="text-sm">
             <span className="mb-1 block text-slate-600">Return mode</span>
-            <select value={returnMethod} onChange={(event) => setReturnMethod(event.target.value as "REVERSE_PICKUP" | "SELF_SHIP")} className="w-full rounded-lg border px-3 py-2">
+            <select
+              value={returnMethod}
+              onChange={(event) =>
+                setReturnMethod(
+                  event.target.value as "REVERSE_PICKUP" | "SELF_SHIP",
+                )
+              }
+              className="w-full rounded-lg border px-3 py-2"
+            >
               <option value="REVERSE_PICKUP">Reverse pickup</option>
               <option value="SELF_SHIP">Self ship</option>
             </select>
           </label>
           <label className="text-sm">
-            <span className="mb-1 block text-slate-600">Reverse pickup charge (₹)</span>
-            <input type="number" min="0" step="1" value={reversePickupCharge} onChange={(event) => setReversePickupCharge(event.target.value)} className="w-full rounded-lg border px-3 py-2" />
+            <span className="mb-1 block text-slate-600">
+              Reverse pickup charge (₹)
+            </span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={reversePickupCharge}
+              onChange={(event) => setReversePickupCharge(event.target.value)}
+              className="w-full rounded-lg border px-3 py-2"
+            />
           </label>
         </div>
-        <p className="mt-2 text-xs text-slate-500">Configured charge is used for payment-link generation if backend supports dynamic amount. Current saved amount: ₹{reversePickupCharge || "120"}.</p>
+        <p className="mt-2 text-xs text-slate-500">
+          Configured charge is used for payment-link generation if backend
+          supports dynamic amount. Current saved amount: ₹
+          {reversePickupCharge || "120"}.
+        </p>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <label className="text-sm"><span className="mb-1 block text-slate-600">Shipment status</span><select value={reverseShipmentStatus} onChange={(event) => setReverseShipmentStatus(event.target.value)} className="w-full rounded-lg border px-3 py-2">{SHIPMENT_STATUSES.map((status) => (<option key={status} value={status}>{status}</option>))}</select></label>
-          <label className="text-sm"><span className="mb-1 block text-slate-600">Carrier</span><input value={reverseCarrier} onChange={(event) => setReverseCarrier(event.target.value)} className="w-full rounded-lg border px-3 py-2" /></label>
-          <label className="text-sm"><span className="mb-1 block text-slate-600">AWB</span><input value={reverseAwb} onChange={(event) => setReverseAwb(event.target.value)} className="w-full rounded-lg border px-3 py-2" /></label>
-          <label className="text-sm"><span className="mb-1 block text-slate-600">Tracking URL</span><input value={reverseTrackingUrl} onChange={(event) => setReverseTrackingUrl(event.target.value)} className="w-full rounded-lg border px-3 py-2" /></label>
-          <label className="text-sm"><span className="mb-1 block text-slate-600">Pickup date</span><input type="datetime-local" value={reversePickupAt} onChange={(event) => setReversePickupAt(event.target.value)} className="w-full rounded-lg border px-3 py-2" /></label>
-          <label className="text-sm"><span className="mb-1 block text-slate-600">Delivered/received date</span><input type="datetime-local" value={reverseDeliveredAt} onChange={(event) => setReverseDeliveredAt(event.target.value)} className="w-full rounded-lg border px-3 py-2" /></label>
-          <label className="text-sm md:col-span-2 xl:col-span-3"><span className="mb-1 block text-slate-600">Remarks</span><textarea value={reverseRemarks} onChange={(event) => setReverseRemarks(event.target.value)} className="min-h-20 w-full rounded-lg border px-3 py-2" /></label>
+          <label className="text-sm">
+            <span className="mb-1 block text-slate-600">Shipment status</span>
+            <select
+              value={reverseShipmentStatus}
+              onChange={(event) => setReverseShipmentStatus(event.target.value)}
+              className="w-full rounded-lg border px-3 py-2"
+            >
+              {SHIPMENT_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-slate-600">Carrier</span>
+            <input
+              value={reverseCarrier}
+              onChange={(event) => setReverseCarrier(event.target.value)}
+              className="w-full rounded-lg border px-3 py-2"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-slate-600">AWB</span>
+            <input
+              value={reverseAwb}
+              onChange={(event) => setReverseAwb(event.target.value)}
+              className="w-full rounded-lg border px-3 py-2"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-slate-600">Tracking URL</span>
+            <input
+              value={reverseTrackingUrl}
+              onChange={(event) => setReverseTrackingUrl(event.target.value)}
+              className="w-full rounded-lg border px-3 py-2"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-slate-600">Pickup date</span>
+            <input
+              type="datetime-local"
+              value={reversePickupAt}
+              onChange={(event) => setReversePickupAt(event.target.value)}
+              className="w-full rounded-lg border px-3 py-2"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-slate-600">
+              Delivered/received date
+            </span>
+            <input
+              type="datetime-local"
+              value={reverseDeliveredAt}
+              onChange={(event) => setReverseDeliveredAt(event.target.value)}
+              className="w-full rounded-lg border px-3 py-2"
+            />
+          </label>
+          <label className="text-sm md:col-span-2 xl:col-span-3">
+            <span className="mb-1 block text-slate-600">Remarks</span>
+            <textarea
+              value={reverseRemarks}
+              onChange={(event) => setReverseRemarks(event.target.value)}
+              className="min-h-20 w-full rounded-lg border px-3 py-2"
+            />
+          </label>
         </div>
-        <button type="button" onClick={saveReverseShipment} disabled={reverseShipmentLoading || !canCreateReverseShipment} className="mt-4 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60">
-          {reverseShipmentLoading ? "Saving reverse shipment..." : "Save reverse shipment"}
+        <button
+          type="button"
+          onClick={saveReverseShipment}
+          disabled={reverseShipmentLoading || !canCreateReverseShipment}
+          className="mt-4 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60"
+        >
+          {reverseShipmentLoading
+            ? "Saving reverse shipment..."
+            : "Save reverse shipment"}
         </button>
         {!canCreateReverseShipment ? (
-          <p className="mt-2 text-xs text-amber-700">Reverse pickup actions are locked until reverse pickup payment is completed.</p>
+          <p className="mt-2 text-xs text-amber-700">
+            Reverse pickup actions are locked until reverse pickup payment is
+            completed.
+          </p>
         ) : null}
       </section>
 
       <section className="rounded-xl border bg-white p-6 shadow-sm">
         <h2 className={cardTitleClass()}>Payment + GST</h2>
         <div className="mt-4 rounded-lg border border-slate-200">
-          <div className="border-b bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700">Payment records</div>
+          <div className="border-b bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700">
+            Payment records
+          </div>
           <div className="overflow-x-auto p-4 text-sm">
             {payments.length === 0 ? (
               <p className="text-slate-500">No payment records found yet.</p>
@@ -603,27 +992,44 @@ export default function ExchangeLifecycleControls({
                 <tbody>
                   {payments.map((payment) => (
                     <tr key={payment.id} className="border-b align-top">
-                      <td className="px-2 py-2 font-medium text-slate-900">₹{payment.amount}</td>
+                      <td className="px-2 py-2 font-medium text-slate-900">
+                        ₹{payment.amount}
+                      </td>
                       <td className="px-2 py-2">{payment.purpose}</td>
                       <td className="px-2 py-2">
-                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${paymentStatusBadgeClass(payment.status)}`}>
+                        <span
+                          className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${paymentStatusBadgeClass(payment.status)}`}
+                        >
                           {payment.status}
                         </span>
                       </td>
                       <td className="px-2 py-2">{payment.provider}</td>
                       <td className="max-w-64 break-all px-2 py-2">
                         {payment.paymentLinkUrl ? (
-                          <a href={payment.paymentLinkUrl} target="_blank" rel="noreferrer" className="text-indigo-600 underline">
+                          <a
+                            href={payment.paymentLinkUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-indigo-600 underline"
+                          >
                             Open payment link
                           </a>
                         ) : (
-                          <span className="text-slate-500">Payment link will be generated after approval</span>
+                          <span className="text-slate-500">
+                            Payment link will be generated after approval
+                          </span>
                         )}
                       </td>
                       <td className="px-2 py-2">{payment.paymentId || "—"}</td>
-                      <td className="px-2 py-2">{formatDate(payment.createdAtIso)}</td>
-                      <td className="px-2 py-2">{formatDate(payment.paidAtIso)}</td>
-                      <td className="px-2 py-2">{payment.invoice ? payment.invoice.invoiceNumber : "—"}</td>
+                      <td className="px-2 py-2">
+                        {formatDate(payment.createdAtIso)}
+                      </td>
+                      <td className="px-2 py-2">
+                        {formatDate(payment.paidAtIso)}
+                      </td>
+                      <td className="px-2 py-2">
+                        {payment.invoice ? payment.invoice.invoiceNumber : "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -647,15 +1053,84 @@ export default function ExchangeLifecycleControls({
               <>
                 <p>Invoice status: {latestPayment.invoice.invoiceStatus}</p>
                 <p>Invoice number: {latestPayment.invoice.invoiceNumber}</p>
-                <p>GST amount: ₹{(latestPayment.invoice.gstPaise / 100).toFixed(2)}</p>
+                <p>
+                  GST amount: ₹
+                  {(latestPayment.invoice.gstPaise / 100).toFixed(2)}
+                </p>
               </>
             ) : (
-              <p>{latestPayment?.status === "PAID" ? "Ready to generate invoice." : "Invoice will be available after payment is completed."}</p>
+              <p>
+                {latestPayment?.status === "PAID"
+                  ? "Ready to generate invoice."
+                  : "Invoice will be available after payment is completed."}
+              </p>
             )}
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={async()=>{ if(!ensureAdminContext()) return; setInvoiceLoadingId("generate"); const r=await fetch(`/api/admin/exchange-requests/${requestId}/invoice`,{method:"POST",headers:getHeaders(),body:JSON.stringify({action:"generate"})}); setInvoiceLoadingId(null); if(r.ok){setSuccess("Invoice generated. Refresh to view latest values.")} else {const d=await r.json().catch(()=>({})); setError(d?.error||"Failed");}}} disabled={latestPayment?.status!=="PAID" || Boolean(latestPayment?.invoice) || invoiceLoadingId!==null} className="rounded-lg border px-3 py-2 text-xs">{invoiceLoadingId==="generate"?"Generating...":"Generate GST Invoice"}</button>
-            <button type="button" onClick={async()=>{ if(!ensureAdminContext()) return; setInvoiceLoadingId("send"); const r=await fetch(`/api/admin/exchange-requests/${requestId}/invoice`,{method:"POST",headers:getHeaders(),body:JSON.stringify({action:"send"})}); setInvoiceLoadingId(null); if(r.ok){setSuccess("Invoice email sent.")} else {const d=await r.json().catch(()=>({})); setError(d?.error||"Failed");}}} disabled={latestPayment?.status!=="PAID" || invoiceLoadingId!==null} className="rounded-lg border px-3 py-2 text-xs">{invoiceLoadingId==="send"?"Sending...":"Send Invoice Email"}</button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!ensureAdminContext()) return;
+                setInvoiceLoadingId("generate");
+                const r = await fetch(
+                  `/api/admin/exchange-requests/${requestId}/invoice`,
+                  {
+                    method: "POST",
+                    headers: getHeaders(),
+                    body: JSON.stringify({ action: "generate" }),
+                  },
+                );
+                setInvoiceLoadingId(null);
+                if (r.ok) {
+                  setSuccess(
+                    "Invoice generated. Refresh to view latest values.",
+                  );
+                } else {
+                  const d = await r.json().catch(() => ({}));
+                  setError(d?.error || "Failed");
+                }
+              }}
+              disabled={
+                latestPayment?.status !== "PAID" ||
+                Boolean(latestPayment?.invoice) ||
+                invoiceLoadingId !== null
+              }
+              className="rounded-lg border px-3 py-2 text-xs"
+            >
+              {invoiceLoadingId === "generate"
+                ? "Generating..."
+                : "Generate GST Invoice"}
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!ensureAdminContext()) return;
+                setInvoiceLoadingId("send");
+                const r = await fetch(
+                  `/api/admin/exchange-requests/${requestId}/invoice`,
+                  {
+                    method: "POST",
+                    headers: getHeaders(),
+                    body: JSON.stringify({ action: "send" }),
+                  },
+                );
+                setInvoiceLoadingId(null);
+                if (r.ok) {
+                  setSuccess("Invoice email sent.");
+                } else {
+                  const d = await r.json().catch(() => ({}));
+                  setError(d?.error || "Failed");
+                }
+              }}
+              disabled={
+                latestPayment?.status !== "PAID" || invoiceLoadingId !== null
+              }
+              className="rounded-lg border px-3 py-2 text-xs"
+            >
+              {invoiceLoadingId === "send"
+                ? "Sending..."
+                : "Send Invoice Email"}
+            </button>
           </div>
         </div>
       </section>
@@ -663,19 +1138,86 @@ export default function ExchangeLifecycleControls({
       <section className="rounded-xl border bg-white p-6 shadow-sm">
         <h2 className={cardTitleClass()}>Replacement shipment</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <label className="text-sm"><span className="mb-1 block text-slate-600">Shipment status</span><select value={forwardShipmentStatus} onChange={(event) => setForwardShipmentStatus(event.target.value)} className="w-full rounded-lg border px-3 py-2">{SHIPMENT_STATUSES.map((status) => (<option key={status} value={status}>{status}</option>))}</select></label>
-          <label className="text-sm"><span className="mb-1 block text-slate-600">Carrier</span><input value={forwardCarrier} onChange={(event) => setForwardCarrier(event.target.value)} className="w-full rounded-lg border px-3 py-2" /></label>
-          <label className="text-sm"><span className="mb-1 block text-slate-600">AWB</span><input value={forwardAwb} onChange={(event) => setForwardAwb(event.target.value)} className="w-full rounded-lg border px-3 py-2" /></label>
-          <label className="text-sm"><span className="mb-1 block text-slate-600">Tracking URL</span><input value={forwardTrackingUrl} onChange={(event) => setForwardTrackingUrl(event.target.value)} className="w-full rounded-lg border px-3 py-2" /></label>
-          <label className="text-sm"><span className="mb-1 block text-slate-600">Shipped date</span><input type="datetime-local" value={forwardShippedAt} onChange={(event) => setForwardShippedAt(event.target.value)} className="w-full rounded-lg border px-3 py-2" /></label>
-          <label className="text-sm"><span className="mb-1 block text-slate-600">Delivered date</span><input type="datetime-local" value={forwardDeliveredAt} onChange={(event) => setForwardDeliveredAt(event.target.value)} className="w-full rounded-lg border px-3 py-2" /></label>
-          <label className="text-sm md:col-span-2 xl:col-span-3"><span className="mb-1 block text-slate-600">Remarks</span><textarea value={forwardRemarks} onChange={(event) => setForwardRemarks(event.target.value)} className="min-h-20 w-full rounded-lg border px-3 py-2" /></label>
+          <label className="text-sm">
+            <span className="mb-1 block text-slate-600">Shipment status</span>
+            <select
+              value={forwardShipmentStatus}
+              onChange={(event) => setForwardShipmentStatus(event.target.value)}
+              className="w-full rounded-lg border px-3 py-2"
+            >
+              {SHIPMENT_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-slate-600">Carrier</span>
+            <input
+              value={forwardCarrier}
+              onChange={(event) => setForwardCarrier(event.target.value)}
+              className="w-full rounded-lg border px-3 py-2"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-slate-600">AWB</span>
+            <input
+              value={forwardAwb}
+              onChange={(event) => setForwardAwb(event.target.value)}
+              className="w-full rounded-lg border px-3 py-2"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-slate-600">Tracking URL</span>
+            <input
+              value={forwardTrackingUrl}
+              onChange={(event) => setForwardTrackingUrl(event.target.value)}
+              className="w-full rounded-lg border px-3 py-2"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-slate-600">Shipped date</span>
+            <input
+              type="datetime-local"
+              value={forwardShippedAt}
+              onChange={(event) => setForwardShippedAt(event.target.value)}
+              className="w-full rounded-lg border px-3 py-2"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-slate-600">Delivered date</span>
+            <input
+              type="datetime-local"
+              value={forwardDeliveredAt}
+              onChange={(event) => setForwardDeliveredAt(event.target.value)}
+              className="w-full rounded-lg border px-3 py-2"
+            />
+          </label>
+          <label className="text-sm md:col-span-2 xl:col-span-3">
+            <span className="mb-1 block text-slate-600">Remarks</span>
+            <textarea
+              value={forwardRemarks}
+              onChange={(event) => setForwardRemarks(event.target.value)}
+              className="min-h-20 w-full rounded-lg border px-3 py-2"
+            />
+          </label>
         </div>
-        <button type="button" onClick={saveForwardShipment} disabled={forwardShipmentLoading || !canCreateForwardShipment} className="mt-4 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60">
-          {forwardShipmentLoading ? "Saving replacement shipment..." : "Save replacement shipment"}
+        <button
+          type="button"
+          onClick={saveForwardShipment}
+          disabled={forwardShipmentLoading || !canCreateForwardShipment}
+          className="mt-4 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60"
+        >
+          {forwardShipmentLoading
+            ? "Saving replacement shipment..."
+            : "Save replacement shipment"}
         </button>
         {!canCreateForwardShipment ? (
-          <p className="mt-2 text-xs text-amber-700">Replacement shipment actions unlock only after returned item is received.</p>
+          <p className="mt-2 text-xs text-amber-700">
+            Replacement shipment actions unlock only after returned item is
+            received.
+          </p>
         ) : null}
       </section>
 
@@ -687,30 +1229,88 @@ export default function ExchangeLifecycleControls({
             : delhiveryCapability.reason}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" onClick={createDelhiveryReversePickup} disabled={!canCreateDelhiveryReversePickup || delhiveryLoading} className="rounded-lg border px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">{delhiveryLoading ? "Creating reverse pickup..." : "Create reverse pickup"}</button>
-          <button type="button" onClick={syncDelhiveryReversePickupTracking} disabled={!canSyncDelhiveryReversePickup || delhiverySyncLoading} className="rounded-lg border px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">{delhiverySyncLoading ? "Syncing tracking..." : "Sync reverse pickup tracking"}</button>
-          <button type="button" disabled className="cursor-not-allowed rounded-lg border px-3 py-2 text-xs text-slate-500">Generate manifest/slip (Coming next)</button>
-          <button type="button" onClick={createDelhiveryForwardShipment} disabled={!canCreateDelhiveryForwardShipment || delhiveryForwardLoading} className="rounded-lg border px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">{delhiveryForwardLoading ? "Creating replacement shipment..." : "Create replacement shipment"}</button>
-          <button type="button" onClick={syncDelhiveryForwardShipmentTracking} disabled={!canSyncDelhiveryForwardShipment || delhiveryForwardSyncLoading} className="rounded-lg border px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">{delhiveryForwardSyncLoading ? "Syncing replacement tracking..." : "Sync replacement tracking"}</button>
+          <button
+            type="button"
+            onClick={createDelhiveryReversePickup}
+            disabled={!canCreateDelhiveryReversePickup || delhiveryLoading}
+            className="rounded-lg border px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {delhiveryLoading
+              ? "Creating reverse pickup..."
+              : "Create reverse pickup"}
+          </button>
+          <button
+            type="button"
+            onClick={syncDelhiveryReversePickupTracking}
+            disabled={!canSyncDelhiveryReversePickup || delhiverySyncLoading}
+            className="rounded-lg border px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {delhiverySyncLoading
+              ? "Syncing tracking..."
+              : "Sync reverse pickup tracking"}
+          </button>
+          <button
+            type="button"
+            disabled
+            className="cursor-not-allowed rounded-lg border px-3 py-2 text-xs text-slate-500"
+          >
+            Generate manifest/slip (Coming next)
+          </button>
+          <button
+            type="button"
+            onClick={createDelhiveryForwardShipment}
+            disabled={
+              !canCreateDelhiveryForwardShipment || delhiveryForwardLoading
+            }
+            className="rounded-lg border px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {delhiveryForwardLoading
+              ? "Creating replacement shipment..."
+              : "Create replacement shipment"}
+          </button>
+          <button
+            type="button"
+            onClick={syncDelhiveryForwardShipmentTracking}
+            disabled={
+              !canSyncDelhiveryForwardShipment || delhiveryForwardSyncLoading
+            }
+            className="rounded-lg border px-3 py-2 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {delhiveryForwardSyncLoading
+              ? "Syncing replacement tracking..."
+              : "Sync replacement tracking"}
+          </button>
         </div>
         {!canCreateDelhiveryReversePickup ? (
-          <p className="mt-2 text-xs text-slate-500">Reverse pickup create requires Delhivery config, paid reverse pickup fee, eligible status, and no existing AWB. Replacement create requires ITEM_RECEIVED/REPLACEMENT_PROCESSING and no forward AWB. Sync requires a Delhivery AWB for the matching reverse or replacement shipment.</p>
+          <p className="mt-2 text-xs text-slate-500">
+            Reverse pickup create requires Delhivery config, paid reverse pickup
+            fee, eligible status, and no existing AWB. Replacement create
+            requires ITEM_RECEIVED/REPLACEMENT_PROCESSING and no forward AWB.
+            Sync requires a Delhivery AWB for the matching reverse or
+            replacement shipment.
+          </p>
         ) : null}
       </section>
-
 
       <section className="rounded-xl border bg-white p-6 shadow-sm">
         <h2 className={cardTitleClass()}>Completion</h2>
         <p className="mt-2 text-sm text-slate-600">
-          Completion actions are controlled strictly by backend lifecycle transitions.
+          Completion actions are controlled strictly by backend lifecycle
+          transitions.
         </p>
         <div className="mt-3 rounded-lg border bg-slate-50 p-3 text-sm text-slate-700">
-          Allowed transitions from <span className="font-semibold">{currentStatus}</span>: {allowedTransitions.length ? allowedTransitions.join(", ") : "None (terminal)"}
+          Allowed transitions from{" "}
+          <span className="font-semibold">{currentStatus}</span>:{" "}
+          {allowedTransitions.length
+            ? allowedTransitions.join(", ")
+            : "None (terminal)"}
         </div>
       </section>
 
       {message ? (
-        <div className={`rounded-xl border p-4 text-sm ${message.type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"}`}>
+        <div
+          className={`rounded-xl border p-4 text-sm ${message.type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"}`}
+        >
           {message.text}
         </div>
       ) : null}
