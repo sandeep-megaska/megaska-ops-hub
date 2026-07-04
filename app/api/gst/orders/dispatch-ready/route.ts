@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listDispatchReadyOrders } from "../../../../../services/gst/dispatch-batch";
 import { getShopDomainFromRequest, resolveShopConfig } from "../../../../../services/shopify/shop";
+import { gstPerfLog, gstPerfNow } from "../../../../../services/gst/perf";
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
+  const totalStartedAtMs = gstPerfNow();
   const shopDomain = getShopDomainFromRequest(req);
   const shop = await resolveShopConfig(shopDomain);
   const query = req.nextUrl.searchParams;
@@ -16,6 +18,8 @@ export async function GET(req: NextRequest) {
     readiness: query.get("readiness") || undefined,
     syncRunId: query.get("syncRunId") || undefined,
   });
+
+  gstPerfLog("api.gst.orders.dispatchReady.total", totalStartedAtMs, { ok: result.ok, count: result.ok ? (result.data || []).length : 0 });
 
   if (!result.ok) {
     return NextResponse.json({ ok: false, data: null, error: result.error || "Failed to load dispatch-ready orders" }, { status: 400 });

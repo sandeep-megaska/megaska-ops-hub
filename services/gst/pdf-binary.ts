@@ -1,6 +1,7 @@
 import { buildGstInvoiceRenderModel } from "./pdf";
 import type { GstInvoiceRenderModel } from "./pdf";
 import type { GstServiceResult } from "./types";
+import { gstPerfLog, gstPerfNow } from "./perf";
 
 function escapePdfText(value: string): string {
   return value.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
@@ -215,11 +216,14 @@ function buildStyledPdf(model: GstInvoiceRenderModel): Buffer {
 }
 
 export async function renderGstInvoicePdfBuffer(gstDocumentId: string): Promise<GstServiceResult<{ documentNumber: string; buffer: Buffer }>> {
+  const bufferStartedAtMs = gstPerfNow();
   const modelResult = await buildGstInvoiceRenderModel(gstDocumentId);
   if (!modelResult.ok || !modelResult.data) {
     return { ok: false, error: modelResult.error || "GST invoice not found" };
   }
 
   const model = modelResult.data;
-  return { ok: true, data: { documentNumber: model.documentNumber, buffer: buildStyledPdf(model) } };
+  const buffer = buildStyledPdf(model);
+  gstPerfLog("gst.pdf.binaryBuffer", bufferStartedAtMs, { gstDocumentId, rowCount: model.rows.length, bytes: buffer.byteLength });
+  return { ok: true, data: { documentNumber: model.documentNumber, buffer } };
 }

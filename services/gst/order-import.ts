@@ -4,6 +4,7 @@ import { getActiveGstSettings } from "./settings";
 import { resolveGstStateCode } from "./state-codes";
 import type { GstServiceResult } from "./types";
 import { resolveShopConfig } from "../shopify/shop";
+import { gstPerfLog, gstPerfNow } from "./perf";
 
 export interface GstOrderImportRecord {
   id: string;
@@ -291,6 +292,8 @@ export async function importOrderByShopifyId(
   }
 
   try {
+    const importStartedAtMs = gstPerfNow();
+    let lineMappingDurationMs = 0;
     const resolvedShopId =
       normalizeString(context?.shopId) ||
       normalizeString((await resolveShopConfig(context?.shopDomain)).id) ||
@@ -304,8 +307,11 @@ export async function importOrderByShopifyId(
     const rawLines = Array.isArray(payload.lines) ? (payload.lines as Record<string, unknown>[]) : [];
     const mappedLines: ParsedOrderLine[] = [];
     for (const [index, line] of rawLines.entries()) {
+      const lineMappingStartedAtMs = gstPerfNow();
       mappedLines.push(await mapLine(line, index, resolvedShopId));
+      lineMappingDurationMs += gstPerfNow() - lineMappingStartedAtMs;
     }
+    console.info("[GST PERF]", { phase: "gst.orderImport.lineMapping", durationMs: lineMappingDurationMs, shopifyOrderId, lineCount: rawLines.length });
 
     const normalizedOrder = {
       shopifyOrderName: normalizeString(payload.shopifyOrderName || payload.orderName || payload.name || shopifyOrderId),
@@ -332,6 +338,7 @@ export async function importOrderByShopifyId(
     });
 
     if (existing) {
+      const dbWriteStartedAtMs = gstPerfNow();
       const updated = await orderDb.$transaction(async (tx) => {
         const orderImport = await tx.gstOrderImport.update({
           where: { id: String(existing.id) },
@@ -381,6 +388,8 @@ export async function importOrderByShopifyId(
         return orderImport;
       });
 
+      gstPerfLog("gst.orderImport.dbWrite", dbWriteStartedAtMs, { shopifyOrderId, orderImportId: String(updated.id), mode: "update", lineCount: mappedLines.length });
+      gstPerfLog("gst.orderImport.total", importStartedAtMs, { shopifyOrderId, orderImportId: String(updated.id), mode: "update", lineCount: mappedLines.length });
       return {
         ok: true,
         data: toOrderImportRecord(updated, {
@@ -392,6 +401,7 @@ export async function importOrderByShopifyId(
       };
     }
 
+    const dbWriteStartedAtMs = gstPerfNow();
     const created = await orderDb.$transaction(async (tx) => {
       const orderImport = await tx.gstOrderImport.create({
         data: {
@@ -439,6 +449,8 @@ export async function importOrderByShopifyId(
       return orderImport;
     });
 
+    gstPerfLog("gst.orderImport.dbWrite", dbWriteStartedAtMs, { shopifyOrderId, orderImportId: String(created.id), mode: "create", lineCount: mappedLines.length });
+    gstPerfLog("gst.orderImport.total", importStartedAtMs, { shopifyOrderId, orderImportId: String(created.id), mode: "create", lineCount: mappedLines.length });
     return {
       ok: true,
       data: toOrderImportRecord(created, {
