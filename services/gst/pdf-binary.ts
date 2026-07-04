@@ -207,7 +207,7 @@ function buildStyledPdf(model: GstInvoiceRenderModel): Buffer {
   const right = pageWidth - margin;
 
   drawBox(commands, margin, margin, contentWidth, pageHeight - margin * 2);
-  if (!drawImage(commands, headerLogo, pageWidth / 2 - 110, pageHeight - 38, 220, 28)) {
+  if (model.templateConfig.showHeaderLogo && !drawImage(commands, headerLogo, pageWidth / 2 - 110, pageHeight - 38, 220, 28)) {
     drawText(commands, pageWidth / 2 - 34, pageHeight - 26, "bigonbuy", 10);
   }
   drawText(commands, margin + 8, pageHeight - 40, `${model.title} | Original for Recipient`, 9);
@@ -263,13 +263,34 @@ function buildStyledPdf(model: GstInvoiceRenderModel): Buffer {
 
   const tableTop = boxY - 10;
   const totalTableWidth = contentWidth - 8;
-  const colWidths = [0.04, 0.14, 0.28, 0.09, 0.05, 0.1, 0.06, 0.07, 0.07, 0.07, 0.09].map((width, index, arr) => {
-    const pixels = Math.floor(width * totalTableWidth);
-    if (index !== arr.length - 1) return pixels;
-    const consumed = arr.slice(0, -1).reduce((sum, part) => sum + Math.floor(part * totalTableWidth), 0);
+  type RenderRowKey = keyof GstInvoiceRenderModel["rows"][number];
+  const column = (key: RenderRowKey, title: string, width: number) => ({ key, title, width });
+  const columns: Array<{ key: RenderRowKey; title: string; width: number }> = [
+    column("lineNumber", "#", 0.04),
+    ...(model.templateConfig.showSku ? [column("sku", "SKU", 0.13)] : []),
+    ...(model.templateConfig.showProductTitle ? [column("description", "Item", 0.27)] : []),
+    ...(model.templateConfig.showVariant ? [column("variant", "Variant", 0.1)] : []),
+    ...(model.templateConfig.showHsn ? [column("hsn", "HSN", 0.09)] : []),
+    column("quantity", "Qty", 0.05),
+    column("taxable", "Taxable", 0.1),
+    ...(model.templateConfig.showTaxBreakup
+      ? [
+          column("gstRate", "GST%", 0.06),
+          column("cgst", "CGST", 0.07),
+          column("sgst", "SGST", 0.07),
+          column("igst", "IGST", 0.07),
+        ]
+      : []),
+    column("total", "Total", 0.09),
+  ];
+  const widthTotal = columns.reduce((sum, column) => sum + column.width, 0);
+  const colWidths = columns.map((column, index) => {
+    const pixels = Math.floor((column.width / widthTotal) * totalTableWidth);
+    if (index !== columns.length - 1) return pixels;
+    const consumed = columns.slice(0, -1).reduce((sum, part) => sum + Math.floor((part.width / widthTotal) * totalTableWidth), 0);
     return totalTableWidth - consumed;
   });
-  const colTitles = ["#", "SKU", "Item", "HSN", "Qty", "Taxable", "GST%", "CGST", "SGST", "IGST", "Total"];
+  const colTitles = columns.map((column) => column.title);
   let colX = tableStartX;
   for (let i = 0; i < colWidths.length; i += 1) {
     drawBox(commands, colX, tableTop - 14, colWidths[i], 14);
@@ -290,24 +311,33 @@ function buildStyledPdf(model: GstInvoiceRenderModel): Buffer {
       drawBox(commands, colX, currentY, colWidths[i], rowHeight);
       colX += colWidths[i];
     }
-    const cells = [row.lineNumber, skuLines[0] || row.sku, rowLines[0] || row.description, row.hsn, row.quantity, row.taxable, row.gstRate, row.cgst, row.sgst, row.igst, row.total];
+    const cells = columns.map((column) => String(row[column.key] || ""));
     colX = tableStartX;
     for (let i = 0; i < cells.length; i += 1) {
       drawText(commands, colX + 1.5, currentY + rowHeight - 8, cells[i], 7);
       colX += colWidths[i];
     }
     if (rowLines.length > 1 || skuLines.length > 1) {
-      let rowLineY = currentY + rowHeight - 16;
-      const skuX = tableStartX + colWidths[0] + 1.5;
-      const itemX = tableStartX + colWidths[0] + colWidths[1] + 1.5;
-      for (const text of skuLines.slice(1, 4)) {
-        drawText(commands, skuX, rowLineY, text, 7);
-        rowLineY -= 8;
+      const xForColumn = (key: RenderRowKey) => {
+        const index = columns.findIndex((column) => column.key === key);
+        if (index < 0) return null;
+        return tableStartX + colWidths.slice(0, index).reduce((sum, width) => sum + width, 0) + 1.5;
+      };
+      const skuX = xForColumn("sku");
+      const itemX = xForColumn("description");
+      if (skuX !== null) {
+        let rowLineY = currentY + rowHeight - 16;
+        for (const text of skuLines.slice(1, 4)) {
+          drawText(commands, skuX, rowLineY, text, 7);
+          rowLineY -= 8;
+        }
       }
-      rowLineY = currentY + rowHeight - 16;
-      for (const text of rowLines.slice(1, 4)) {
-        drawText(commands, itemX, rowLineY, text, 7);
-        rowLineY -= 10;
+      if (itemX !== null) {
+        let rowLineY = currentY + rowHeight - 16;
+        for (const text of rowLines.slice(1, 4)) {
+          drawText(commands, itemX, rowLineY, text, 7);
+          rowLineY -= 10;
+        }
       }
     }
   }
@@ -317,10 +347,9 @@ function buildStyledPdf(model: GstInvoiceRenderModel): Buffer {
   drawBox(commands, totalsX, totalsY, 190, 66);
   const totalLines = [
     `Taxable: ${model.totals.taxable}`,
-    `CGST: ${model.totals.cgst}`,
-    `SGST: ${model.totals.sgst}`,
-    `IGST: ${model.totals.igst}`,
-    `CESS: ${model.totals.cess}`,
+    ...(model.templateConfig.showTaxBreakup
+      ? [`CGST: ${model.totals.cgst}`, `SGST: ${model.totals.sgst}`, `IGST: ${model.totals.igst}`, `CESS: ${model.totals.cess}`]
+      : []),
     `Grand Total: ${model.totals.total}`,
   ];
   let totalY = totalsY + 54;
@@ -329,12 +358,16 @@ function buildStyledPdf(model: GstInvoiceRenderModel): Buffer {
     totalY -= 9;
   });
 
-  drawText(commands, margin + 8, totalsY - 14, `Amount in Words: ${model.amountInWords}`, 7);
-  if (model.declaration) {
+  if (model.templateConfig.showAmountInWords) {
+    drawText(commands, margin + 8, totalsY - 14, `Amount in Words: ${model.amountInWords}`, 7);
+  }
+  if (model.templateConfig.showDeclaration && model.declaration) {
     drawText(commands, margin + 8, totalsY - 25, `Declaration: ${model.declaration}`, 7);
   }
-  drawText(commands, margin + 8, 30, model.footer || "This is a system generated GST document.", 7);
-  if (!drawImage(commands, footerLogo, right - 140, 24, 120, 24)) {
+  if (model.templateConfig.showFooterNote) {
+    drawText(commands, margin + 8, 30, model.footer || "This is a system generated GST document.", 7);
+  }
+  if (model.templateConfig.showFooterLogo && !drawImage(commands, footerLogo, right - 140, 24, 120, 24)) {
     drawText(commands, right - 74, 30, "MEGASKA", 8);
   }
   if (model.signature) {

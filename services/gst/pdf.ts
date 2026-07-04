@@ -7,6 +7,7 @@ import { getSingleShopifyOrderForGstSync } from "./shopify-runtime-admin";
 import { getGstStatePrimaryNameByCode, resolveGstStateCode } from "./state-codes";
 import type { GstServiceResult } from "./types";
 import { gstPerfLog, gstPerfNow } from "./perf";
+import { resolveGstInvoiceTemplateConfig, type GstInvoiceTemplateConfig } from "./template";
 
 export interface GstPdfRenderPayload {
   gstDocumentId: string;
@@ -53,6 +54,7 @@ export interface GstInvoiceRenderModel {
     lineNumber: string;
     sku: string;
     description: string;
+    variant: string;
     hsn: string;
     quantity: string;
     gross: string;
@@ -79,6 +81,7 @@ export interface GstInvoiceRenderModel {
     headerLogoSrc: string | null;
     footerLogoSrc: string | null;
   };
+  templateConfig: GstInvoiceTemplateConfig;
 }
 
 function escapeHtml(value: string): string {
@@ -475,6 +478,7 @@ export async function buildGstInvoiceRenderModel(gstDocumentId: string): Promise
     select: { themeConfig: true },
   });
   const themeConfig = ((template?.themeConfig || {}) as Record<string, unknown>);
+  const templateConfig = resolveGstInvoiceTemplateConfig(themeConfig);
   const classification = (snapshot.classification || {}) as Record<string, unknown>;
 
   const sourceSnapshot = await loadLinkedOrderSnapshot(doc as Record<string, unknown>, snapshot);
@@ -500,6 +504,7 @@ export async function buildGstInvoiceRenderModel(gstDocumentId: string): Promise
       lineNumber: String(line.lineNumber || ""),
       sku: maybeTitle ? maybeSku : "",
       description: maybeTitle || description,
+      variant: "",
       hsn: String(line.hsnOrSac || ""),
       quantity: String(line.quantity || ""),
       gross: asAmount(Number(line.quantity || 0) * Number(line.unitPrice || 0) - Number(line.discount || 0)),
@@ -518,8 +523,8 @@ export async function buildGstInvoiceRenderModel(gstDocumentId: string): Promise
     resolveInvoiceLogoForPdf(themeConfig.headerLogoUrl, "/logos/header-logo.png"),
     resolveInvoiceLogoForPdf(themeConfig.footerLogoUrl, "/logos/footer-logo.png"),
   ]);
-  const headerLogoSrc = headerLogo.src;
-  const footerLogoSrc = footerLogo.src;
+  const headerLogoSrc = templateConfig.showHeaderLogo ? headerLogo.src : null;
+  const footerLogoSrc = templateConfig.showFooterLogo ? footerLogo.src : null;
   gstPerfLog("gst.pdf.logoTemplateResolution", logoTemplateStartedAtMs, {
     gstDocumentId,
     templateFound: Boolean(template),
@@ -585,7 +590,12 @@ export async function buildGstInvoiceRenderModel(gstDocumentId: string): Promise
       signature: asText(metadata.signatureName || seller.authorizedSignatory),
       branding: {
         headerLogoSrc,
-        footerLogoSrc,
+        footerLogoSrc: templateConfig.showFooterLogo ? footerLogoSrc : null,
+      },
+      templateConfig: {
+        ...templateConfig,
+        showHeaderLogo: templateConfig.showHeaderLogo,
+        showFooterLogo: templateConfig.showFooterLogo,
       },
     },
   };
@@ -599,12 +609,32 @@ export async function renderGstPdf(gstDocumentId: string): Promise<GstServiceRes
   }
 
   const model = modelResult.data;
+  type RenderRowKey = keyof GstInvoiceRenderModel["rows"][number];
+  const column = (key: RenderRowKey, label: string, width: number) => ({ key, label, width });
+  const visibleColumns: Array<{ key: RenderRowKey; label: string; width: number }> = [
+    column("lineNumber", "#", 4),
+    ...(model.templateConfig.showSku ? [column("sku", "SKU", 13)] : []),
+    ...(model.templateConfig.showProductTitle ? [column("description", "Item", 27)] : []),
+    ...(model.templateConfig.showVariant ? [column("variant", "Variant", 10)] : []),
+    ...(model.templateConfig.showHsn ? [column("hsn", "HSN", 9)] : []),
+    column("quantity", "Qty", 5),
+    column("taxable", "Taxable", 10),
+    ...(model.templateConfig.showTaxBreakup
+      ? [
+          column("gstRate", "GST%", 6),
+          column("cgst", "CGST", 7),
+          column("sgst", "SGST", 7),
+          column("igst", "IGST", 7),
+        ]
+      : []),
+    column("total", "Total", 9),
+  ];
+  const columnWidthSum = visibleColumns.reduce((sum, column) => sum + column.width, 0);
   const rows = model.rows
     .map(
-      (line) => `<tr>
-      <td>${escapeHtml(line.lineNumber)}</td><td>${escapeHtml(line.sku)}</td><td>${escapeHtml(line.description)}</td><td>${escapeHtml(line.hsn)}</td>
-      <td>${escapeHtml(line.quantity)}</td><td>${line.taxable}</td><td>${line.gstRate}</td><td>${line.cgst}</td><td>${line.sgst}</td><td>${line.igst}</td><td>${line.total}</td>
-    </tr>`,
+      (line) => `<tr>${visibleColumns
+        .map((column) => `<td>${escapeHtml(String(line[column.key] || ""))}</td>`)
+        .join("")}</tr>`,
     )
     .join("\n");
 
@@ -628,8 +658,7 @@ export async function renderGstPdf(gstDocumentId: string): Promise<GstServiceRes
       .header-logo{ display:flex; justify-content:center; align-items:center; margin-bottom:8px; min-height:34px; font-size:16px; font-weight:700; letter-spacing:1px; text-transform:lowercase; }
       .header-logo img{ max-height:32px; max-width:220px; object-fit:contain; }
       table{ border-collapse:collapse; width:100%; table-layout:fixed; } th,td{ border:1px solid #ddd; padding:3px; vertical-align:top; font-size:8px; } th{ background:#f6f6f6; font-size:7.5px; }
-      td:nth-child(2){ word-break:break-word; }
-      td:nth-child(3){ word-break:break-word; }
+      td{ word-break:break-word; }
       .totals{ width:320px; margin-left:auto; margin-top:10px; } .totals td{ border:0; padding:3px 0; }
       .footer-logo{ margin-top:8px; display:flex; justify-content:flex-end; min-height:22px; font-size:12px; font-weight:700; }
       .footer-logo img{ max-height:20px; max-width:140px; object-fit:contain; }
@@ -637,7 +666,7 @@ export async function renderGstPdf(gstDocumentId: string): Promise<GstServiceRes
       @media print { .print-btn { display:none; } }
     </style></head><body>
     <button class="print-btn" onclick="window.print()">Print Invoice</button>
-    <div class="header-logo">${model.branding.headerLogoSrc ? `<img src="${escapeHtml(model.branding.headerLogoSrc)}" alt="Header logo" />` : "bigonbuy"}</div>
+    ${model.templateConfig.showHeaderLogo ? `<div class="header-logo">${model.branding.headerLogoSrc ? `<img src="${escapeHtml(model.branding.headerLogoSrc)}" alt="Header logo" />` : "bigonbuy"}</div>` : ""}
     <div class="topline"><div><div><strong>GSTIN: ${escapeHtml(model.supplier.gstin)}</strong></div><div>${escapeHtml(model.title)}</div><div>Original for Recipient</div></div>
     <div class="meta"><div><strong>${escapeHtml(model.supplier.tradeName || model.supplier.name)}</strong></div><div>${escapeHtml(model.supplier.name)}</div></div></div>
     <div class="topline"><div>Invoice No: ${escapeHtml(model.documentNumber)}<br/>Invoice Date: ${escapeHtml(model.documentDate)}<br/>Order: ${escapeHtml(model.orderNumber)}</div><div class="meta">Place of Supply: ${escapeHtml(model.placeOfSupply)}<br/>Order Date: ${escapeHtml(model.orderDate)}</div></div>
@@ -647,18 +676,15 @@ export async function renderGstPdf(gstDocumentId: string): Promise<GstServiceRes
       ${renderParty("SUPPLIER", model.supplier)}
     </div>
     <table>
-      <colgroup>
-        <col style="width:4%"><col style="width:14%"><col style="width:28%"><col style="width:9%"><col style="width:5%">
-        <col style="width:10%"><col style="width:6%"><col style="width:7%"><col style="width:7%"><col style="width:7%"><col style="width:9%">
-      </colgroup>
-      <thead><tr><th>#</th><th>SKU</th><th>Item</th><th>HSN</th><th>Qty</th><th>Taxable</th><th>GST%</th><th>CGST</th><th>SGST</th><th>IGST</th><th>Total</th></tr></thead>
+      <colgroup>${visibleColumns.map((column) => `<col style="width:${((column.width / columnWidthSum) * 100).toFixed(2)}%">`).join("")}</colgroup>
+      <thead><tr>${visibleColumns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("")}</tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <table class="totals"><tr><td>Taxable</td><td>${model.totals.taxable}</td></tr><tr><td>CGST</td><td>${model.totals.cgst}</td></tr><tr><td>SGST</td><td>${model.totals.sgst}</td></tr><tr><td>IGST</td><td>${model.totals.igst}</td></tr><tr><td>CESS</td><td>${model.totals.cess}</td></tr><tr><td><strong>Total</strong></td><td><strong>${model.totals.total}</strong></td></tr></table>
-    <p><strong>Amount in Words:</strong> ${escapeHtml(model.amountInWords)}</p>
-    ${model.declaration ? `<p><strong>Declaration:</strong> ${escapeHtml(model.declaration)}</p>` : ""}
-    <p>${escapeHtml(model.footer)}</p>
-    <div class="footer-logo">${model.branding.footerLogoSrc ? `<img src="${escapeHtml(model.branding.footerLogoSrc)}" alt="Footer logo" />` : "MEGASKA"}</div>
+    <table class="totals"><tr><td>Taxable</td><td>${model.totals.taxable}</td></tr>${model.templateConfig.showTaxBreakup ? `<tr><td>CGST</td><td>${model.totals.cgst}</td></tr><tr><td>SGST</td><td>${model.totals.sgst}</td></tr><tr><td>IGST</td><td>${model.totals.igst}</td></tr><tr><td>CESS</td><td>${model.totals.cess}</td></tr>` : ""}<tr><td><strong>Total</strong></td><td><strong>${model.totals.total}</strong></td></tr></table>
+    ${model.templateConfig.showAmountInWords ? `<p><strong>Amount in Words:</strong> ${escapeHtml(model.amountInWords)}</p>` : ""}
+    ${model.templateConfig.showDeclaration && model.declaration ? `<p><strong>Declaration:</strong> ${escapeHtml(model.declaration)}</p>` : ""}
+    ${model.templateConfig.showFooterNote ? `<p>${escapeHtml(model.footer)}</p>` : ""}
+    ${model.templateConfig.showFooterLogo ? `<div class="footer-logo">${model.branding.footerLogoSrc ? `<img src="${escapeHtml(model.branding.footerLogoSrc)}" alt="Footer logo" />` : "MEGASKA"}</div>` : ""}
     ${model.signature ? `<p style="text-align:right; margin-top:18px;">For ${escapeHtml(model.supplier.name)}<br/><br/>${escapeHtml(model.signature)}</p>` : ""}
   </body></html>`;
 

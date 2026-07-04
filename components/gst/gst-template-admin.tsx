@@ -4,16 +4,77 @@ import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { getDefaultGstTemplate, saveDefaultGstTemplate } from '../../lib/gst-client'
 
+type TemplatePreset = 'compact' | 'detailed' | 'dispatch'
+type FieldOption = 'showHeaderLogo' | 'showFooterLogo' | 'showSku' | 'showVariant' | 'showProductTitle' | 'showHsn' | 'showTaxBreakup' | 'showAmountInWords' | 'showDeclaration' | 'showFooterNote'
+type InvoiceTemplateConfig = Record<FieldOption, boolean> & { preset: TemplatePreset }
 type ThemeConfig = {
   headerLogoUrl?: string | null
   footerLogoUrl?: string | null
+  invoiceTemplate?: Partial<InvoiceTemplateConfig> | null
+}
+
+const PRESETS: Array<{ value: TemplatePreset; label: string; description: string }> = [
+  { value: 'compact', label: 'Compact GST Invoice', description: 'Condensed layout with compliant invoice essentials.' },
+  { value: 'detailed', label: 'Detailed GST Invoice', description: 'Full GST invoice with tax breakup, notes, declaration, and logos.' },
+  { value: 'dispatch', label: 'Dispatch Friendly Invoice', description: 'Packing/dispatch focused layout while retaining GST identifiers.' },
+]
+
+const FIELD_OPTIONS: Array<{ key: FieldOption; label: string; locked?: boolean }> = [
+  { key: 'showHeaderLogo', label: 'Header logo' },
+  { key: 'showFooterLogo', label: 'Footer logo' },
+  { key: 'showSku', label: 'SKU' },
+  { key: 'showVariant', label: 'Variant' },
+  { key: 'showProductTitle', label: 'Product title', locked: true },
+  { key: 'showHsn', label: 'HSN/SAC', locked: true },
+  { key: 'showTaxBreakup', label: 'Tax breakup' },
+  { key: 'showAmountInWords', label: 'Amount in words' },
+  { key: 'showDeclaration', label: 'Declaration' },
+  { key: 'showFooterNote', label: 'Footer note' },
+]
+
+const DEFAULT_TEMPLATE_CONFIG: InvoiceTemplateConfig = {
+  preset: 'detailed',
+  showHeaderLogo: true,
+  showFooterLogo: true,
+  showSku: true,
+  showVariant: true,
+  showProductTitle: true,
+  showHsn: true,
+  showTaxBreakup: true,
+  showAmountInWords: true,
+  showDeclaration: true,
+  showFooterNote: true,
+}
+
+
+const PRESET_DEFAULTS: Record<TemplatePreset, InvoiceTemplateConfig> = {
+  compact: {
+    ...DEFAULT_TEMPLATE_CONFIG,
+    preset: 'compact',
+    showFooterLogo: false,
+    showVariant: false,
+    showDeclaration: false,
+    showFooterNote: false,
+  },
+  detailed: DEFAULT_TEMPLATE_CONFIG,
+  dispatch: {
+    ...DEFAULT_TEMPLATE_CONFIG,
+    preset: 'dispatch',
+    showTaxBreakup: false,
+    showAmountInWords: false,
+    showDeclaration: false,
+  },
+}
+
+function normalizeTemplateConfig(value: ThemeConfig['invoiceTemplate']): InvoiceTemplateConfig {
+  return { ...DEFAULT_TEMPLATE_CONFIG, ...(value || {}), showProductTitle: true, showHsn: true }
 }
 
 const DEFAULT_HEADER = '/logos/header-logo.png'
 const DEFAULT_FOOTER = '/logos/footer-logo.avif'
 
 export function GstTemplateAdmin() {
-  const [themeConfig, setThemeConfig] = useState<ThemeConfig>({})
+  const [themeConfig, setThemeConfig] = useState<ThemeConfig>({ invoiceTemplate: DEFAULT_TEMPLATE_CONFIG })
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string>('')
   const [error, setError] = useState<string>('')
@@ -27,7 +88,7 @@ export function GstTemplateAdmin() {
       }
       const data = result.data || {}
       const cfg = (data.themeConfig || {}) as ThemeConfig
-      setThemeConfig({ headerLogoUrl: cfg.headerLogoUrl || null, footerLogoUrl: cfg.footerLogoUrl || null })
+      setThemeConfig({ headerLogoUrl: cfg.headerLogoUrl || null, footerLogoUrl: cfg.footerLogoUrl || null, invoiceTemplate: normalizeTemplateConfig(cfg.invoiceTemplate) })
     })()
   }, [])
 
@@ -77,13 +138,56 @@ export function GstTemplateAdmin() {
     setLoading(false)
   }
 
+  async function saveTemplateConfig(nextInvoiceTemplate: InvoiceTemplateConfig) {
+    setLoading(true)
+    setError('')
+    setMessage('')
+    const nextConfig = { ...themeConfig, invoiceTemplate: nextInvoiceTemplate }
+    const save = await saveDefaultGstTemplate({ themeConfig: nextConfig })
+    if (!save.ok) {
+      setError(save.error || 'Failed to save template')
+      setLoading(false)
+      return
+    }
+    setThemeConfig(nextConfig)
+    setMessage('Invoice template settings updated')
+    setLoading(false)
+  }
+
+  const invoiceTemplate = normalizeTemplateConfig(themeConfig.invoiceTemplate)
   const headerSrc = themeConfig.headerLogoUrl || DEFAULT_HEADER
   const footerSrc = themeConfig.footerLogoUrl || DEFAULT_FOOTER
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
-        <h2 className="text-base font-semibold text-gray-900">Invoice Template Logos</h2>
+        <h2 className="text-base font-semibold text-gray-900">GST Invoice Template</h2>
+        <p className="text-sm text-gray-600">Choose an app-level preset and safe field visibility options. Arbitrary HTML editing is not supported.</p>
+
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold">Preset</h3>
+          <div className="grid gap-3 md:grid-cols-3">
+            {PRESETS.map((preset) => (
+              <button key={preset.value} type="button" disabled={loading} onClick={() => void saveTemplateConfig(PRESET_DEFAULTS[preset.value])} className={`rounded-xl border p-3 text-left text-sm ${invoiceTemplate.preset === preset.value ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                <span className="font-semibold">{preset.label}</span>
+                <span className="mt-1 block text-xs text-gray-600">{preset.description}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold">Controlled fields</h3>
+          <div className="grid gap-2 md:grid-cols-2">
+            {FIELD_OPTIONS.map((option) => (
+              <label key={option.key} className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                <span>{option.label}{option.locked ? ' (required)' : ''}</span>
+                <input type="checkbox" checked={Boolean(invoiceTemplate[option.key])} disabled={loading || option.locked} onChange={(event) => void saveTemplateConfig({ ...invoiceTemplate, [option.key]: event.target.checked })} />
+              </label>
+            ))}
+          </div>
+        </div>
+
         <p className="text-sm text-gray-600">Upload header/footer logos for GST invoices (PNG, JPG, WEBP, AVIF, SVG up to 2MB).</p>
 
         <div className="grid gap-5 md:grid-cols-2">
