@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getActiveGstSettings } from "../../../../../services/gst/settings";
-import { createTemplate, listTemplates, updateTemplate } from "../../../../../services/gst/template";
+import { createTemplate, listTemplates, resolveGstInvoiceTemplateConfig, updateTemplate } from "../../../../../services/gst/template";
 
 export const runtime = "nodejs";
 
@@ -41,13 +41,24 @@ export async function PATCH(req: NextRequest) {
   const resolved = await getOrCreateDefaultTemplate();
   if (!resolved.ok) return NextResponse.json({ ok: false, error: resolved.error }, { status: 400 });
 
+  const existingThemeConfig = resolved.template.themeConfig || {};
+  const incomingThemeConfig =
+    body.themeConfig !== undefined && body.themeConfig && typeof body.themeConfig === "object" && !Array.isArray(body.themeConfig)
+      ? (body.themeConfig as Record<string, unknown>)
+      : body.themeConfig === null
+        ? {}
+        : null;
+
+  const nextThemeConfig = incomingThemeConfig
+    ? {
+        ...existingThemeConfig,
+        ...incomingThemeConfig,
+        invoiceTemplate: resolveGstInvoiceTemplateConfig(incomingThemeConfig),
+      }
+    : undefined;
+
   const result = await updateTemplate(resolved.template.id, {
-    themeConfig:
-      body.themeConfig !== undefined && body.themeConfig && typeof body.themeConfig === "object" && !Array.isArray(body.themeConfig)
-        ? (body.themeConfig as Record<string, unknown>)
-        : body.themeConfig === null
-          ? null
-          : undefined,
+    themeConfig: nextThemeConfig,
   });
 
   if (!result.ok || !result.data) return NextResponse.json({ ok: false, error: result.error }, { status: 400 });

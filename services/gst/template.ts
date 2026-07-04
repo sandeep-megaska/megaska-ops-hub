@@ -22,6 +22,104 @@ type TemplateDbClient = {
 
 const templateDb = gstDb as unknown as TemplateDbClient;
 
+
+export const GST_INVOICE_TEMPLATE_PRESETS = ["compact", "detailed", "dispatch"] as const;
+export type GstInvoiceTemplatePreset = (typeof GST_INVOICE_TEMPLATE_PRESETS)[number];
+
+export type GstInvoiceTemplateFieldOption =
+  | "showHeaderLogo"
+  | "showFooterLogo"
+  | "showSku"
+  | "showVariant"
+  | "showProductTitle"
+  | "showHsn"
+  | "showTaxBreakup"
+  | "showAmountInWords"
+  | "showDeclaration"
+  | "showFooterNote";
+
+export type GstInvoiceTemplateConfig = {
+  preset: GstInvoiceTemplatePreset;
+} & Record<GstInvoiceTemplateFieldOption, boolean>;
+
+export const GST_INVOICE_TEMPLATE_PRESET_LABELS: Record<GstInvoiceTemplatePreset, string> = {
+  compact: "Compact GST Invoice",
+  detailed: "Detailed GST Invoice",
+  dispatch: "Dispatch Friendly Invoice",
+};
+
+export const DEFAULT_GST_INVOICE_TEMPLATE_CONFIG: GstInvoiceTemplateConfig = {
+  preset: "detailed",
+  showHeaderLogo: true,
+  showFooterLogo: true,
+  showSku: true,
+  showVariant: true,
+  showProductTitle: true,
+  showHsn: true,
+  showTaxBreakup: true,
+  showAmountInWords: true,
+  showDeclaration: true,
+  showFooterNote: true,
+};
+
+const PRESET_FIELD_DEFAULTS: Record<GstInvoiceTemplatePreset, GstInvoiceTemplateConfig> = {
+  compact: {
+    ...DEFAULT_GST_INVOICE_TEMPLATE_CONFIG,
+    preset: "compact",
+    showFooterLogo: false,
+    showVariant: false,
+    showDeclaration: false,
+    showFooterNote: false,
+  },
+  detailed: DEFAULT_GST_INVOICE_TEMPLATE_CONFIG,
+  dispatch: {
+    ...DEFAULT_GST_INVOICE_TEMPLATE_CONFIG,
+    preset: "dispatch",
+    showTaxBreakup: false,
+    showAmountInWords: false,
+    showDeclaration: false,
+  },
+};
+
+const FIELD_OPTION_KEYS: GstInvoiceTemplateFieldOption[] = [
+  "showHeaderLogo",
+  "showFooterLogo",
+  "showSku",
+  "showVariant",
+  "showProductTitle",
+  "showHsn",
+  "showTaxBreakup",
+  "showAmountInWords",
+  "showDeclaration",
+  "showFooterNote",
+];
+
+function isTemplatePreset(value: unknown): value is GstInvoiceTemplatePreset {
+  return typeof value === "string" && (GST_INVOICE_TEMPLATE_PRESETS as readonly string[]).includes(value);
+}
+
+export function resolveGstInvoiceTemplateConfig(themeConfig: Record<string, unknown> | null | undefined): GstInvoiceTemplateConfig {
+  const source = asObject(themeConfig) || {};
+  const rawTemplateConfig = asObject(source.invoiceTemplate) || source;
+  const preset = isTemplatePreset(rawTemplateConfig.preset) ? rawTemplateConfig.preset : DEFAULT_GST_INVOICE_TEMPLATE_CONFIG.preset;
+  const resolved: GstInvoiceTemplateConfig = { ...PRESET_FIELD_DEFAULTS[preset], preset };
+
+  for (const key of FIELD_OPTION_KEYS) {
+    if (typeof rawTemplateConfig[key] === "boolean") {
+      resolved[key] = rawTemplateConfig[key];
+    }
+  }
+
+  if (!resolved.showProductTitle && !resolved.showSku) {
+    resolved.showProductTitle = true;
+  }
+  if (!resolved.showHsn && !resolved.showTaxBreakup) {
+    resolved.showHsn = true;
+  }
+
+  return resolved;
+}
+
 export interface GstInvoiceTemplateRecord {
   id: string;
   gstSettingsId: string;
