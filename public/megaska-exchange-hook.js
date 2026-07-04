@@ -5,8 +5,6 @@
   const SESSION_STORAGE_KEY = "megaska_session_token";
   const MODAL_ID = "mk-exchange-modal-layer";
   const DEBUG_CANCEL_FLAG = "megaska_debug_cancel";
-  const EXCHANGE_TEST_OVERRIDE_FLAG = "megaska_exchange_test_override";
-  const EXCHANGE_TEST_OVERRIDE_KEY = "megaska_exchange_test_admin_key";
 
   const ACTIVE_STATUSES = [
     "OPEN",
@@ -394,22 +392,6 @@
     };
   }
 
-  function getExchangeTestOverrideKey() {
-    try {
-      return localStorage.getItem(EXCHANGE_TEST_OVERRIDE_KEY) || "";
-    } catch {
-      return "";
-    }
-  }
-
-  function isExchangeTestOverrideEnabled() {
-    try {
-      return localStorage.getItem(EXCHANGE_TEST_OVERRIDE_FLAG) === "1" && Boolean(getExchangeTestOverrideKey());
-    } catch {
-      return false;
-    }
-  }
-
   function isCancellationDebugEnabled() {
     try {
       return localStorage.getItem(DEBUG_CANCEL_FLAG) === "1";
@@ -564,8 +546,6 @@
       <div class="mk-ex-modal" role="dialog" aria-modal="true" aria-label="Exchange request">
         <h3>Exchange request</h3>
         <p class="mk-ex-muted">Tell us the size you need and any useful details.</p>
-        ${context.testOverrideActive ? `<div class="mk-ex-test-banner" id="mk-ex-test-banner"><strong>Admin/internal test override active — preview only</strong><span>Actual eligibility is being checked. Submit is disabled so no real customer exchange request can be created.</span></div>` : ""}
-
         <div class="mk-ex-row">
           <label class="mk-ex-label">Item</label>
           <input class="mk-ex-input" id="mk-ex-product" value="${escapeHtml(context.productTitle || "")}" readonly />
@@ -603,7 +583,7 @@
 
         <div class="mk-ex-actions" id="mk-ex-form-actions">
           <button class="mk-ex-btn" type="button" data-mk-ex-close="1">Cancel</button>
-          <button class="mk-ex-btn primary" type="button" id="mk-ex-submit">${context.testOverrideActive ? "Preview Only — Submit Disabled" : "Submit Exchange Request"}</button>
+          <button class="mk-ex-btn primary" type="button" id="mk-ex-submit">Submit Exchange Request</button>
         </div>
       </div>
     `;
@@ -621,17 +601,14 @@
       }
     });
 
-    if (context.testOverrideActive) loadTestEligibilityPreview(context);
     loadReplacementOptions(context);
 
     const submitBtn = document.getElementById("mk-ex-submit");
     if (submitBtn) {
       submitBtn.disabled = true;
-      if (!context.testOverrideActive) {
-        submitBtn.addEventListener("click", function () {
-          submitExchange(context);
-        });
-      }
+      submitBtn.addEventListener("click", function () {
+        submitExchange(context);
+      });
     }
 
     const methodSelect = document.getElementById("mk-ex-return-method");
@@ -646,50 +623,6 @@
             ? "You will ship the item to Megaska after approval. No reverse pickup charge applies."
             : "Reverse pickup has a ₹120 charge. After Megaska approves your exchange, you will receive a Razorpay payment link.";
       });
-    }
-  }
-
-  async function loadTestEligibilityPreview(context) {
-    const banner = document.getElementById("mk-ex-test-banner");
-    const token = await getSessionToken();
-    const adminKey = getExchangeTestOverrideKey();
-    if (!banner || !token || !adminKey) return;
-
-    const params = new URLSearchParams();
-    params.set("testEligibilityPreview", "1");
-    [
-      ["orderNumber", context.orderNumber],
-      ["shopifyOrderId", context.shopifyOrderId],
-      ["productTitle", context.productTitle],
-      ["variantTitle", context.variantTitle],
-      ["currentSize", context.currentSize],
-      ["requestedSize", context.currentSize ? context.currentSize + " preview" : "preview"],
-      ["fulfillmentStatus", context.fulfillmentStatus],
-    ].forEach(function (entry) {
-      if (entry[1]) params.set(entry[0], entry[1]);
-    });
-
-    try {
-      const response = await fetch(API_BASE_URL + "/account/exchange-requests?" + params.toString(), {
-        credentials: "include",
-        headers: {
-          Authorization: "Bearer " + token,
-          "x-shopify-shop-domain": detectShopDomain(),
-          "x-admin-key": adminKey,
-          "x-exchange-test-override": "1",
-        },
-      });
-      const data = await response.json().catch(function () { return {}; });
-      if (!response.ok) throw new Error(data?.error || "Preview check failed.");
-      const actual = data?.actualEligibility || {};
-      banner.innerHTML = `
-        <strong>Admin/internal test override active — preview only</strong>
-        <span>Actual eligibility: ${escapeHtml(actual.decision || "UNKNOWN")}</span>
-        <span>Normal policy reason: ${escapeHtml(actual.reason || "No reason returned")}</span>
-        <span>Submit is disabled; no real exchange request can be created from this override preview.</span>
-      `;
-    } catch (error) {
-      banner.innerHTML = `<strong>Admin/internal test override active — preview only</strong><span>${escapeHtml(error instanceof Error ? error.message : "Preview check failed.")}</span><span>Submit remains disabled.</span>`;
     }
   }
 
@@ -786,7 +719,7 @@
           })
           .join("");
       select.disabled = false;
-      if (submitBtn && !context.testOverrideActive) submitBtn.disabled = false;
+      if (submitBtn) submitBtn.disabled = false;
       if (note)
         note.textContent =
           "Replacement choices are limited to available size variants from the same Shopify product.";
@@ -1051,7 +984,6 @@
             fulfillmentStatus: context.fulfillmentStatus || null,
             quantity: 1,
             preferredReturnMethod,
-            testOverrideActive: Boolean(context.testOverrideActive),
           }),
         },
       );
@@ -1546,15 +1478,8 @@
         renderIssueModal(context);
       } else {
         if (context.canRequestExchange === false) {
-          if (!isExchangeTestOverrideEnabled()) {
-            renderBlockedActionModal("Exchange unavailable", blockedReason);
-            return;
-          }
-          context.testOverrideActive = true;
-          context.requestLockReason = blockedReason;
-          try {
-            console.info("[MEGASKA EXCHANGE TEST OVERRIDE] Rendering admin/internal preview for normally blocked exchange UI", context);
-          } catch {}
+          renderBlockedActionModal("Exchange unavailable", blockedReason);
+          return;
         }
         renderModal(context);
       }
