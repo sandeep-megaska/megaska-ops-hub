@@ -1,10 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const REQUIRED_CORS_HEADERS = [
+  "Content-Type",
+  "Authorization",
+  "x-shopify-shop-domain",
+];
+
+function isAllowedShopifyStorefrontOrigin(origin: string) {
+  return /^https:\/\/[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(origin);
+}
+
 function getAllowedOrigin(req: NextRequest) {
   const origin = String(req.headers.get("origin") || "").trim();
 
   if (!origin) {
     return "*";
+  }
+
+  if (isAllowedShopifyStorefrontOrigin(origin)) {
+    return origin;
   }
 
   return origin;
@@ -16,26 +30,23 @@ function getRequestedHeaders(req: NextRequest) {
   ).trim();
 
   if (!requested) {
-    return "Content-Type, Authorization, x-shopify-shop-domain";
+    return REQUIRED_CORS_HEADERS.join(", ");
   }
 
-  const normalized = requested
-    .split(",")
-    .map((header) => header.trim())
-    .filter(Boolean);
-
-  const required = [
-    "Content-Type",
-    "Authorization",
-    "x-shopify-shop-domain",
-  ];
-
-  const merged = Array.from(
-    new Set([
-      ...required.map((h) => h.toLowerCase()),
-      ...normalized.map((h) => h.toLowerCase()),
-    ])
+  const requestedSet = new Set(
+    requested
+      .split(",")
+      .map((header) => header.trim().toLowerCase())
+      .filter(Boolean)
   );
+
+  const merged = [...REQUIRED_CORS_HEADERS];
+
+  for (const header of requestedSet) {
+    if (!merged.some((requiredHeader) => requiredHeader.toLowerCase() === header)) {
+      merged.push(header);
+    }
+  }
 
   return merged.join(", ");
 }
